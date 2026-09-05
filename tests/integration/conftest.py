@@ -4,6 +4,8 @@ import os
 from collections.abc import Iterator
 
 import pytest
+from alembic import command
+from alembic.config import Config
 from sqlalchemy import Engine, text
 from testcontainers.postgres import PostgresContainer
 
@@ -42,3 +44,11 @@ def engine(paradedb_dsn: str) -> Engine:
         conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
         conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_search"))
     return eng
+
+
+@pytest.fixture(scope="session")
+def migrated_engine(engine: Engine, paradedb_dsn: str) -> Engine:
+    cfg = Config("alembic.ini")
+    cfg.set_main_option("sqlalchemy.url", paradedb_dsn)
+    command.upgrade(cfg, "head")
+    return engine
