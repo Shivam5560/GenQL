@@ -1,7 +1,10 @@
 from __future__ import annotations
 
-from genql.domain.ports.discovery_step import DiscoveryContext, StepResult
+import pytest
+
 from genql.discovery.runner import DiscoveryRunner
+from genql.domain.errors import UnknownDiscoveryStepError
+from genql.domain.ports.discovery_step import DiscoveryContext, StepResult
 
 
 class RecordingStep:
@@ -48,3 +51,14 @@ def test_start_from_skips_earlier_steps() -> None:
     )
     runner.run(_ctx(), start_from="b")
     assert log == ["b", "c"]
+
+
+def test_start_from_an_unknown_step_raises_a_typed_error_naming_the_options() -> None:
+    runner = DiscoveryRunner([RecordingStep("a", []), RecordingStep("b", [])])
+
+    with pytest.raises(UnknownDiscoveryStepError) as excinfo:
+        runner.run(_ctx(), start_from="typo")
+
+    assert "typo" in str(excinfo.value)
+    assert "a" in str(excinfo.value)
+    assert "b" in str(excinfo.value)

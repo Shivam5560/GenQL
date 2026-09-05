@@ -21,3 +21,12 @@ class ProfilingError(DiscoveryError):
     def __init__(self, qualified_name: str, reason: str) -> None:
         super().__init__(f"failed to profile {qualified_name}: {reason}")
         self.qualified_name = qualified_name
+
+
+class UnknownDiscoveryStepError(DiscoveryError):
+    """`--start-from` named a step that is not part of the pipeline."""
+
+    def __init__(self, step_name: str, available: list[str]) -> None:
+        options = ", ".join(available) or "<empty>"
+        super().__init__(f"{step_name!r} is not a known discovery step. Available: {options}")
+        self.step_name = step_name

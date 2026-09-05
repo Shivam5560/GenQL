@@ -10,6 +10,7 @@ from collections.abc import Sequence
 
 import structlog
 
+from genql.domain.errors import UnknownDiscoveryStepError
 from genql.domain.ports.discovery_step import DiscoveryContext, DiscoveryStep, StepResult
 
 _log = structlog.get_logger(__name__)
@@ -39,4 +40,6 @@ class DiscoveryRunner:
         if start_from is None:
             return self._steps
         names = [s.name for s in self._steps]
+        if start_from not in names:
+            raise UnknownDiscoveryStepError(start_from, names)
         return self._steps[names.index(start_from) :]

@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import ClassVar
 
 from genql.discovery.registry import DISCOVERY_STEPS
+from genql.domain.errors import DiscoveryError
 from genql.domain.ports.discovery_step import DiscoveryContext, StepResult
 from genql.services.discovery.catalog_scan_service import CatalogScanService
 
@@ -17,7 +18,15 @@ class CatalogScanStep:
         self._service = service
 
     def run(self, ctx: DiscoveryContext) -> StepResult:
-        report = self._service.scan(ctx.schema_name)
+        try:
+            report = self._service.scan(ctx.schema_name)
+        except DiscoveryError as exc:
+            return StepResult(
+                step_name=self.name,
+                succeeded=False,
+                records_written=0,
+                message=str(exc),
+            )
         ctx.artifacts["catalog_scan"] = report
         return StepResult(
             step_name=self.name,
