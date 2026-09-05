@@ -46,6 +46,10 @@ dev = [
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+# Plans and specs are prose. Their fenced Python blocks are illustrative — often
+# fragments of a class body or a diff — so formatting them as whole modules is
+# noise, and `ruff format --check .` would fail on documentation forever.
+exclude = ["docs"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "UP", "B", "SIM", "PL"]

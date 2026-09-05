@@ -49,6 +49,7 @@ def test_duplicate_key_is_rejected() -> None:
             return "hello"
 
     with pytest.raises(DuplicateRegistrationError) as excinfo:
+
         @registry.register("english")
         class Second:
             def greet(self) -> str:
