@@ -630,3 +630,86 @@ Every stage records tokens and cost to `genql_trace`, so cost per query is a rep
 than an estimate. The ablation harness reports accuracy *and* cost per configuration, which makes
 the candidate count, the probing threshold, and the Opus escalation threshold tunable against
 evidence instead of intuition.
+
+---
+
+## 21. Model selection policy
+
+Model choice is **configuration, not architecture**. `ChatProviderRegistry` binds a model per
+stage from YAML, so nothing below changes a line of pipeline code, and the ablation harness settles
+it empirically once there is something to run.
+
+### Evidence
+
+An independent 2026 panel evaluated 36 models on 759 BIRD-SQL questions, zero-shot, temperature 0,
+with the domain hint withheld and database identification left to the model:
+
+| Model | Strict | Gold-clean | Adjudicated |
+|---|---|---|---|
+| gemini-3-flash-preview | 0.551 | **0.677** | 0.759 |
+| gemini-3.1-pro-preview | 0.536 | 0.669 | 0.751 |
+| claude-fable-5 | 0.531 | 0.655 | 0.803 |
+| claude-opus-5 | 0.523 | 0.643 | **0.824** |
+| qwen3.6-27b | 0.471 | 0.590 | — |
+| claude-opus-4.8 | 0.445 | 0.549 | 0.765 |
+| gpt-5.6-sol | 0.438 | 0.545 | 0.785 |
+| kimi-k3 | 0.391 | 0.482 | 0.772 |
+| claude-sonnet-5 | 0.311 | — | 0.710 |
+
+Three findings drive the policy.
+
+**Cheap does not mean worse at SQL.** `gemini-3-flash-preview`, at $0.50/$3.00 per MTok, is the
+panel's best SQL writer — ahead of every frontier model on gold-clean accuracy. Price and
+SQL quality are not correlated in this panel.
+
+**Routing and SQL writing are independent skills.** `kimi-k3` routes at 0.832 while writing
+gold-clean SQL at 0.482; `gemini-3-flash-preview` routes at 0.753 and writes at 0.677. GenQL
+separates routing (the gate and domain scoping) from writing (candidate generation) into distinct
+stages, so each can take the model that is good at that skill instead of compromising on one model
+for both. This is an empirical argument for the modular pipeline.
+
+**DeepSeek is the wrong choice for generation specifically.** The panel notes `qwen3.6-27b`
+outperforming every OpenAI, Kimi, and DeepSeek entry in its tier. DeepSeek V4 Flash is excellent
+value for routing and formatting; it is not the model to write the SQL.
+
+### Policy
+
+| Stage | Model | Reason |
+|---|---|---|
+| Merged gate, domain scoping | DeepSeek V4 Flash ($0.05/$0.10) | Routing is the easier skill and cheap models do it well |
+| Schema linking | DeepSeek V4 Flash | Retrieval-adjacent; the semantic store carries the difficulty |
+| Candidate generation | **gemini-3-flash-preview** | Best gold-clean SQL in the panel, at Flash pricing |
+| Critique, probe design | gemini-3-flash-preview, escalating to Opus 5 | Opus 5 leads adjudicated accuracy at 0.824 |
+| Response | DeepSeek V4 Flash | Formatting |
+
+### Resulting cost
+
+| Configuration | Simple | Hard | Blended |
+|---|---|---|---|
+| All Sonnet 5 (previous policy) | $0.046 | $0.137 | $0.043 |
+| **Split policy above** | **$0.012** | **$0.057** | **$0.015** |
+| Split policy, 8 candidates on the hard path | $0.012 | $0.081 | $0.019 |
+| All DeepSeek V4 Flash (not recommended) | $0.005 | $0.008 | $0.003 |
+
+Semantic store build falls to **$1.41**, or $0.67 batched.
+
+Two consequences. First, at these prices **prompt caching stops being load-bearing** — DeepSeek V4
+Flash uncached input at $0.05/MTok is four times cheaper than Sonnet 5's *cached* read at
+$0.20/MTok — so the single-namespace constraint in section 20 relaxes and models may be mixed
+per stage freely. Second, Cohere rerank at $0.0025 per search becomes a large share of a simple
+query; if it does not earn its place in ablation, dropping it is the next saving.
+
+The generation stage being 40x cheaper also makes **more candidates affordable**, which is the
+CHASE-SQL and SOMA-SQL thesis directly: test-time compute substitutes for model size. Eight
+candidates plus probing on a Flash model costs less than four candidates on Sonnet 5. Whether that
+trade improves accuracy is exactly what the ablation harness measures.
+
+### Caveat on the evidence
+
+The panel flagged **236 of 759 BIRD golds (31.1%) as broken**, corroborating published findings on
+pervasive annotation errors in text-to-SQL benchmarks. Grading used LLM juries rather than
+independent human annotators, with no repeat measurement. Treat the ordering as directional and
+small deltas as noise. Most importantly, these numbers measure models **without semantic
+enrichment** — the domain hint was deliberately withheld. GenQL's entire premise is that enrichment
+supplies precisely that missing context, so the spread inside this pipeline should be narrower than
+the panel suggests. The golden set on our own warehouse is the measurement that decides.
