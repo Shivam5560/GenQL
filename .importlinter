@@ -1,0 +1,38 @@
+[importlinter]
+root_package = genql
+include_external_packages = True
+
+[importlinter:contract:layers]
+name = GenQL layered architecture
+type = layers
+layers =
+    genql.api
+    genql.services
+    genql.domain
+containers =
+
+[importlinter:contract:domain-is-pure]
+name = Domain imports no sibling package
+type = forbidden
+source_modules =
+    genql.domain
+forbidden_modules =
+    genql.services
+    genql.repositories
+    genql.infrastructure
+    genql.api
+    sqlalchemy
+    psycopg
+    neo4j
+
+[importlinter:contract:no-sql-in-services]
+name = Services never touch a database driver
+type = forbidden
+source_modules =
+    genql.services
+forbidden_modules =
+    genql.repositories
+    genql.infrastructure
+    sqlalchemy
+    psycopg
+    neo4j

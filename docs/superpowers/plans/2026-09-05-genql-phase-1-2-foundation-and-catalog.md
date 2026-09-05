@@ -22,6 +22,11 @@
 - `mypy --strict` must pass with zero errors.
 - All entities are frozen Pydantic v2 models.
 - Commit after every task. Conventional-commit prefixes (`feat:`, `test:`, `chore:`, `refactor:`).
+- Docker runs on the Debian VM (`ssh genql-vm`, 100.99.72.99), not locally. The compose stack
+  runs there persistently; integration tests connect over Tailscale via
+  `GENQL_TEST_DSN=postgresql+psycopg://genql:genql@100.99.72.99:5433/genql`.
+  Verified: Docker 29.8.0, x86_64, PG 18.6, pg_search + vector present, volume persistence
+  confirmed across container destroy/recreate.
 
 ---
 
@@ -87,7 +92,7 @@ The architecture rules must be enforceable *before* any code exists to violate t
 cd /Users/shivamsourav/Desktop/AI/GenQL
 uv init --package --name genql --python 3.12 .
 uv add pydantic pydantic-settings sqlalchemy "psycopg[binary]" alembic dependency-injector typer structlog
-uv add --dev pytest pytest-asyncio mypy ruff import-linter pre-commit testcontainers
+uv add --dev pytest pytest-asyncio mypy ruff import-linter pre-commit testcontainers paramiko
 ```
 
 - [ ] **Step 2: Write `pyproject.toml` tool config**
@@ -912,12 +917,17 @@ services:
       POSTGRES_DB: genql
     ports: ["5433:5432"]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U genql -d genql"]
+      # -h 127.0.0.1 is required: pg_isready on the unix socket succeeds against initdb's
+      # temporary bootstrap server, reporting healthy before the genql database exists.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U genql -d genql"]
       interval: 5s
       timeout: 5s
       retries: 20
     volumes:
-      - paradedb-data:/var/lib/postgresql/data
+      # PostgreSQL 18 sets PGDATA=/var/lib/postgresql/18/docker and declares its VOLUME at
+      # /var/lib/postgresql. Mounting the pre-18 path (/var/lib/postgresql/data) creates an
+      # empty volume while the real data stays in the container layer and is lost on `down`.
+      - paradedb-data:/var/lib/postgresql
 
   neo4j:
     image: neo4j:5-community
@@ -953,6 +963,7 @@ Create `tests/integration/conftest.py`:
 ```python
 from __future__ import annotations
 
+import os
 from collections.abc import Iterator
 
 import pytest
@@ -964,6 +975,17 @@ from genql.infrastructure.db.engine import create_engine_from_dsn
 
 @pytest.fixture(scope="session")
 def paradedb_dsn() -> Iterator[str]:
+    """Prefer a running stack; fall back to an ephemeral container.
+
+    GENQL_TEST_DSN points at the compose stack on the Debian VM. Testcontainers
+    against a remote daemon over SSH works but spends minutes per container on
+    readiness polling across the link, so it is the fallback, not the default.
+    """
+    dsn = os.environ.get("GENQL_TEST_DSN")
+    if dsn:
+        yield dsn
+        return
+
     container = PostgresContainer(
         image="paradedb/paradedb:0.25.6-pg18",
         username="genql",
@@ -979,8 +1001,9 @@ def paradedb_dsn() -> Iterator[str]:
 def engine(paradedb_dsn: str) -> Engine:
     eng = create_engine_from_dsn(paradedb_dsn)
     with eng.begin() as conn:
-        conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_search"))
+        # Order matters: pg_search declares a dependency on vector and fails without it.
         conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+        conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_search"))
     return eng
 ```
 

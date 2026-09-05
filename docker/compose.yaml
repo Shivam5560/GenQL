@@ -1,0 +1,35 @@
+services:
+  paradedb:
+    image: paradedb/paradedb:0.25.6-pg18
+    environment:
+      POSTGRES_USER: genql
+      POSTGRES_PASSWORD: genql
+      POSTGRES_DB: genql
+    ports: ["5433:5432"]
+    healthcheck:
+      # -h 127.0.0.1 is required: pg_isready on the unix socket succeeds against initdb's
+      # temporary bootstrap server, reporting healthy before the genql database exists.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U genql -d genql"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      # PostgreSQL 18 sets PGDATA=/var/lib/postgresql/18/docker and declares its VOLUME at
+      # /var/lib/postgresql. Mounting the pre-18 path (/var/lib/postgresql/data) creates an
+      # empty volume while the real data stays in the container layer and is lost on `down`.
+      - paradedb-data:/var/lib/postgresql
+
+  neo4j:
+    image: neo4j:5-community
+    environment:
+      NEO4J_AUTH: neo4j/genqlgenql
+      NEO4J_PLUGINS: '["graph-data-science"]'
+      NEO4J_server_memory_heap_max__size: 1G
+      NEO4J_server_memory_pagecache_size: 512M
+    ports: ["7474:7474", "7687:7687"]
+    volumes:
+      - neo4j-data:/data
+
+volumes:
+  paradedb-data:
+  neo4j-data:

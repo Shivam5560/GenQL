@@ -1,0 +1,24 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.9.6
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+  - repo: local
+    hooks:
+      - id: file-length
+        name: file length under 250 lines
+        entry: python scripts/check_file_length.py
+        language: system
+        types: [python]
+      - id: import-linter
+        name: architecture contracts
+        entry: uv run lint-imports
+        language: system
+        pass_filenames: false
+      - id: mypy
+        name: mypy strict
+        entry: uv run mypy genql
+        language: system
+        pass_filenames: false
