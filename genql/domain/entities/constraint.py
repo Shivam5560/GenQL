@@ -16,3 +16,5 @@ class Constraint(BaseModel):
     constraint_type: ConstraintType
     definition: str
     referenced_object_name: str | None = None
+    column_names: tuple[str, ...] = ()
+    referenced_column_names: tuple[str, ...] = ()

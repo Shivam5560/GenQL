@@ -59,3 +59,39 @@ def test_reads_foreign_key_with_referenced_object(shop_schema: Engine) -> None:
     assert len(fks) == 1
     assert fks[0].object_name == "orders"
     assert fks[0].referenced_object_name == "customer"
+    assert fks[0].column_names == ("o_customer_sk",)
+    assert fks[0].referenced_column_names == ("c_customer_sk",)
+
+
+def test_primary_key_constraint_has_column_names_but_no_referenced_columns(
+    shop_schema: Engine,
+) -> None:
+    repo = PostgresCatalogReaderRepository(shop_schema)
+    pks = [
+        c for c in repo.read_constraints("shop") if c.constraint_type is ConstraintType.PRIMARY_KEY
+    ]
+    customer_pk = next(c for c in pks if c.object_name == "customer")
+    assert customer_pk.column_names == ("c_customer_sk",)
+    assert customer_pk.referenced_column_names == ()
+
+
+def test_reltuples_sentinel_is_mapped_to_none_not_zero(engine: Engine) -> None:
+    """A never-ANALYZEd table reports reltuples = -1 ('unknown'), not 0 ('empty').
+
+    Clamping -1 to 0 would persist "this table is empty" as a fact even though
+    it has 50 rows — see final-review.md finding I1.
+    """
+    with engine.begin() as conn:
+        conn.execute(text("DROP SCHEMA IF EXISTS unanalyzed CASCADE"))
+        conn.execute(text("CREATE SCHEMA unanalyzed"))
+        conn.execute(text("CREATE TABLE unanalyzed.fresh (id INT)"))
+        conn.execute(text("INSERT INTO unanalyzed.fresh SELECT generate_series(1, 50)"))
+
+    repo = PostgresCatalogReaderRepository(engine)
+    objects = {o.object_name: o for o in repo.read_objects("unanalyzed")}
+    assert objects["fresh"].row_estimate is None
+
+    with engine.begin() as conn:
+        conn.execute(text("ANALYZE unanalyzed.fresh"))
+    analyzed = {o.object_name: o for o in repo.read_objects("unanalyzed")}
+    assert analyzed["fresh"].row_estimate == 50

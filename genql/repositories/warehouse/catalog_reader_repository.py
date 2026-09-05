@@ -53,7 +53,17 @@ _COLUMNS_SQL = text("""
 _CONSTRAINTS_SQL = text("""
     SELECT src.relname, con.conname, con.contype,
            pg_get_constraintdef(con.oid) AS definition,
-           tgt.relname AS referenced_object_name
+           tgt.relname AS referenced_object_name,
+           (
+               SELECT array_agg(a.attname ORDER BY k.ord)
+               FROM unnest(con.conkey) WITH ORDINALITY AS k(attnum, ord)
+               JOIN pg_attribute a ON a.attrelid = con.conrelid AND a.attnum = k.attnum
+           ) AS column_names,
+           (
+               SELECT array_agg(a.attname ORDER BY k.ord)
+               FROM unnest(con.confkey) WITH ORDINALITY AS k(attnum, ord)
+               JOIN pg_attribute a ON a.attrelid = con.confrelid AND a.attnum = k.attnum
+           ) AS referenced_column_names
     FROM pg_constraint con
     JOIN pg_class src ON src.oid = con.conrelid
     JOIN pg_namespace n ON n.oid = src.relnamespace
@@ -75,7 +85,11 @@ class PostgresCatalogReaderRepository:
                 schema_name=schema,
                 object_name=row.relname,
                 object_type=_RELKIND_TO_TYPE[row.relkind],
-                row_estimate=max(row.row_estimate, 0) if row.row_estimate is not None else None,
+                row_estimate=(
+                    row.row_estimate
+                    if row.row_estimate is not None and row.row_estimate >= 0
+                    else None
+                ),
             )
             for row in rows
         ]
@@ -107,6 +121,8 @@ class PostgresCatalogReaderRepository:
                 constraint_type=_CONTYPE_TO_TYPE[row.contype],
                 definition=row.definition,
                 referenced_object_name=row.referenced_object_name,
+                column_names=tuple(row.column_names or ()),
+                referenced_column_names=tuple(row.referenced_column_names or ()),
             )
             for row in rows
         ]

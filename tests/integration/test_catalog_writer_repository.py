@@ -3,7 +3,9 @@ from __future__ import annotations
 from sqlalchemy import Engine, text
 
 from genql.domain.entities.column import Column
+from genql.domain.entities.constraint import Constraint
 from genql.domain.entities.database_object import DatabaseObject
+from genql.domain.value_objects.constraint_type import ConstraintType
 from genql.domain.value_objects.object_type import ObjectType
 from genql.repositories.semantic.catalog_writer_repository import (
     PostgresCatalogWriterRepository,
@@ -63,3 +65,45 @@ def test_writes_columns(migrated_engine: Engine) -> None:
     )
     assert repo.write_columns([column]) == 1
     assert repo.write_columns([column]) == 1
+
+    with migrated_engine.connect() as conn:
+        count = conn.execute(
+            text(
+                "SELECT count(*) FROM genql.genql_column "
+                "WHERE schema_name = 'shop' AND object_name = 'customer' "
+                "AND column_name = 'c_state'"
+            )
+        ).scalar_one()
+    assert count == 1
+
+
+def test_writes_constraint_column_names_and_referenced_column_names(
+    migrated_engine: Engine,
+) -> None:
+    """Migration 0002 adds column_names/referenced_column_names; this proves
+    both a real FK's constrained columns and its referenced columns survive a
+    round trip through the writer. See final-review.md I5.
+    """
+    repo = PostgresCatalogWriterRepository(migrated_engine)
+    fk = Constraint(
+        schema_name="shop",
+        object_name="orders",
+        constraint_name="orders_customer_fk",
+        constraint_type=ConstraintType.FOREIGN_KEY,
+        definition="FOREIGN KEY (o_customer_sk) REFERENCES shop.customer(c_customer_sk)",
+        referenced_object_name="customer",
+        column_names=("o_customer_sk",),
+        referenced_column_names=("c_customer_sk",),
+    )
+    assert repo.write_constraints([fk]) == 1
+
+    with migrated_engine.connect() as conn:
+        row = conn.execute(
+            text(
+                "SELECT column_names, referenced_column_names FROM genql.genql_constraint "
+                "WHERE schema_name = 'shop' AND object_name = 'orders' "
+                "AND constraint_name = 'orders_customer_fk'"
+            )
+        ).one()
+    assert row.column_names == ["o_customer_sk"]
+    assert row.referenced_column_names == ["c_customer_sk"]

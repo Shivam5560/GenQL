@@ -39,13 +39,15 @@ _UPSERT_COLUMN = text("""
 _UPSERT_CONSTRAINT = text("""
     INSERT INTO genql.genql_constraint
         (schema_name, object_name, constraint_name, constraint_type,
-         definition, referenced_object_name)
+         definition, referenced_object_name, column_names, referenced_column_names)
     VALUES (:schema_name, :object_name, :constraint_name, :constraint_type,
-            :definition, :referenced_object_name)
+            :definition, :referenced_object_name, :column_names, :referenced_column_names)
     ON CONFLICT ON CONSTRAINT uq_genql_constraint_identity DO UPDATE
         SET constraint_type = EXCLUDED.constraint_type,
             definition = EXCLUDED.definition,
-            referenced_object_name = EXCLUDED.referenced_object_name
+            referenced_object_name = EXCLUDED.referenced_object_name,
+            column_names = EXCLUDED.column_names,
+            referenced_column_names = EXCLUDED.referenced_column_names
 """)
 
 
@@ -60,9 +62,7 @@ class PostgresCatalogWriterRepository:
         return self._execute(_UPSERT_COLUMN, [c.model_dump(mode="json") for c in columns])
 
     def write_constraints(self, constraints: Sequence[Constraint]) -> int:
-        return self._execute(
-            _UPSERT_CONSTRAINT, [c.model_dump(mode="json") for c in constraints]
-        )
+        return self._execute(_UPSERT_CONSTRAINT, [c.model_dump(mode="json") for c in constraints])
 
     def _execute(self, statement: TextClause, payload: list[dict[str, object]]) -> int:
         if not payload:
