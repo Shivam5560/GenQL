@@ -19,7 +19,7 @@ dependencies = [
 ]
 
 [project.scripts]
-genql = "genql:main"
+genql = "genql.cli.main:app"
 
 [tool.uv.build-backend]
 module-root = ""
