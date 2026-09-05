@@ -536,56 +536,97 @@ provides genuinely messy real-world data as a second warehouse.
 
 ---
 
-## 20. Cost model
+## 20. Cost model and cost policy
 
 Prices are Anthropic first-party rates (Opus 5 $5/$25, Sonnet 5 $2/$10, Haiku 4.5 $1/$5 per MTok),
 `text-embedding-3-small` at $0.02/MTok, `cohere/rerank-4-pro` at $0.0025 per search, plus
-OpenRouter's 5.5% platform fee. Prompt caching is assumed at the 5-minute TTL (reads 0.1x input,
-writes 1.25x). Token counts are engineering estimates against a TPC-DS-shaped schema context of
-roughly 12,000 tokens after domain scoping.
+OpenRouter's 5.5% platform fee. OpenRouter passes Anthropic `cache_control` through at 0.1x input
+for reads, with sticky provider routing to keep entries warm. It requires **explicit per-block
+breakpoints** — top-level automatic caching is not available through the gateway, so cache
+placement is an explicit responsibility of the prompt-assembly layer.
 
-### Per-query, full pipeline
+### Three constraints that shape the design
 
-Model assignment: Haiku 4.5 for classification, the ambiguity gate, and domain scoping; Sonnet 5
-for schema linking, candidate generation, probe interpretation, selection, rewriting, and response;
-Opus 5 for natural-language planning, critique, and probe design.
+**Cache namespaces are model-scoped.** A prompt cache entry belongs to one model. A pipeline that
+routes Haiku for gating, Sonnet for generation, and Opus for reasoning therefore needs *three*
+copies of the schema prefix and pays three cache writes, and no stage benefits from another
+stage's write. A single-model pipeline pays one. This is the single largest cost factor in the
+design and it is architectural, not a tuning parameter.
 
-| Configuration | Cost per query |
+**Output tokens cost five times input.** A natural-language plan is roughly 500 tokens, a
+generated SQL statement roughly 900, a structured critique report roughly 500. Estimating these
+generously is the fastest way to overstate cost by a factor of two.
+
+**Stage activation must be demand-driven.** Critique, multi-candidate generation, and probing exist
+to resolve disagreement. When the ambiguity gate scores a question as well-specified and the first
+candidate clears static validation, there is nothing to critique and nothing to probe. Running the
+full pipeline unconditionally spends the ambiguity budget on questions that carry no ambiguity.
+
+### Routing policy
+
+One model — **Sonnet 5** — serves the whole pipeline, with `output_config.effort` varied per stage
+rather than the model swapped. This keeps a single cache namespace. Two exceptions, both of which
+cost no namespace:
+
+- The merged gate runs on **Haiku 4.5** because it does not read the schema prefix at all.
+- **Opus 5** is an *escalation*, not a tier: it is invoked only when the gate scores a question as
+  genuinely hard or when critique fails to resolve after one repair round. It pays its own cache
+  write, amortized over the escalated minority.
+
+This ordering follows Anthropic's own guidance — measure the most capable model at lower effort
+before building a multi-model cascade, because lower effort on current models frequently matches
+prior-generation performance at high effort, and a cascade forfeits cache reuse across its members.
+
+Candidate diversity is preserved while halving the call count: diversity in multi-candidate
+text-to-SQL comes from *different generator prompts* (divide-and-conquer decomposition versus
+execution-plan chain of thought), not from resampling one prompt. Two generator calls returning two
+structured variants each yield four candidates through two calls.
+
+Selection and rewriting are **deterministic by default**. When probing resolves every contested
+dimension, selection is a lookup rather than a judgement. Rewrite rules are sqlglot AST transforms
+gated on `EXPLAIN` cost; an LLM is invoked only to decompose a query that remains over budget.
+
+### Per-query cost
+
+| Path | When it runs | Cost |
+|---|---|---|
+| Semantic cache hit | question matches a validated prior question | **$0.0001** |
+| Simple | well-specified question, first candidate validates | **$0.046** |
+| Hard | contested dimensions — 4 candidates, critique, probing | **$0.137** |
+| Opus escalation | genuinely hard or unresolved after repair | **$0.174** |
+
+Simple-path breakdown: merged gate $0.0045, schema linking $0.0110, plan and generate $0.0156,
+response $0.0086, amortized prefix write $0.0010, embedding and rerank $0.0025.
+
+### Blended cost
+
+| Query mix | Expected cost |
 |---|---|
-| Full pipeline, no prompt caching | **$0.60** |
-| Full pipeline, prompt caching on the schema context | **$0.37** |
-| Lean mode — two candidates, no Opus, no probing | **$0.12** |
+| No semantic result cache (worst case) | $0.075 |
+| 25% cache hits (pessimistic) | $0.054 |
+| 40% cache hits (expected) | **$0.044** |
 
-Caching pays because the schema context is identical across planning, candidate generation, and
-critique within a single query, and identical across queries scoped to the same domain. The
-schema-context prefix is therefore placed ahead of the last cache breakpoint, with the question and
-turn state after it.
-
-The dominant costs are candidate generation (four Sonnet 5 calls) and the two Opus 5 reasoning
-stages. Both are configurable: candidate count and the probing stage are per-request settings, so
-a deployment can sit anywhere between lean and full. The ablation harness measures what each buys.
+The **$0.046 simple path is measured from token accounting and does not depend on the cache-hit
+assumption**. The blended figure does; 40% is plausible for enterprise analytics, where dashboard
+refreshes and recurring questions repeat heavily, but it is an assumption until measured. The
+golden-set runner reports realized cost per query alongside accuracy so the assumption is checked
+rather than trusted.
 
 ### Semantic store build
 
-For TPC-DS scale factor 1 plus Olist — 33 objects, roughly 475 columns, six domains, and 300
-synthetic ambiguity examples:
+| | Cost |
+|---|---|
+| Full build via OpenRouter | $3.90 |
+| Full build via Anthropic Batch API (registered as a second `ChatProvider`, −50%) | **$1.85** |
+| Incremental rediscovery, ~10% of objects changed | **$0.18** |
 
-| Step | Calls | Cost |
-|---|---|---|
-| LLM object profiling | 33 | $0.53 |
-| Domain naming | 6 | $0.04 |
-| Synthetic ambiguity examples | 300 | $3.12 |
-| Embeddings | 574 documents | $0.002 |
-| **Total** | | **$3.90** including the OpenRouter fee |
+Offline work is latency-insensitive and therefore batchable. Registering an `anthropic_batch`
+`ChatProvider` alongside OpenRouter is one file and one decorator — the first real payoff of the
+registry design.
 
-Every offline step is batchable and latency-insensitive, so registering an `anthropic_batch`
-`ChatProvider` alongside OpenRouter halves this to roughly **$1.85** per full rebuild. That
-provider is one file and one decorator — the registry exists precisely so a cost optimization like
-this requires no change to the discovery pipeline.
+### Cost as a measured property
 
-Incremental rediscovery costs far less than a rebuild: only objects whose DDL hash or profile
-signature changed are re-profiled, so routine schema drift costs cents.
-
-The synthetic ambiguity log dominates the build and is generated once, not per run. Its size is a
-tunable: 300 examples is the starting point, and the ablation harness measures whether more
-examples improve resolution before spending on them.
+Every stage records tokens and cost to `genql_trace`, so cost per query is a reported metric rather
+than an estimate. The ablation harness reports accuracy *and* cost per configuration, which makes
+the candidate count, the probing threshold, and the Opus escalation threshold tunable against
+evidence instead of intuition.
