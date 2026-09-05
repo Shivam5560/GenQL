@@ -6,14 +6,18 @@ changes, which is the open/closed principle made operational.
 
 from __future__ import annotations
 
-from typing import Any, Callable, Generic, TypeVar
+from collections.abc import Callable
+from typing import Any, Generic, TypeVar
 
 from genql.registries.errors import DuplicateRegistrationError, UnknownRegistryKeyError
 
 T = TypeVar("T")
 
 
-class Registry(Generic[T]):
+# UP046 (PEP 695 `class Registry[T]:`) is deliberately not applied: that syntax
+# interacts with the pydantic.mypy plugin and dependency-injector in ways not
+# worth discovering here. See final-review.md item 1.
+class Registry(Generic[T]):  # noqa: UP046
     def __init__(self, name: str) -> None:
         self._name = name
         self._items: dict[str, type[T]] = {}

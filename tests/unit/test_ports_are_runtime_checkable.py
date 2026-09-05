@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from genql.domain.entities.database_object import DatabaseObject
 from genql.domain.entities.column import Column
 from genql.domain.entities.constraint import Constraint
+from genql.domain.entities.database_object import DatabaseObject
 from genql.domain.ports.catalog_reader import CatalogReader
 
 

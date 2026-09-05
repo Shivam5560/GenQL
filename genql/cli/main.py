@@ -14,7 +14,10 @@ app = typer.Typer(help="GenQL — enterprise NL2SQL with semantic enrichment")
 @app.command()
 def steps() -> None:
     """List registered discovery steps."""
-    for name in DISCOVERY_STEPS.keys():
+    # SIM118 is a false positive here: DISCOVERY_STEPS is a Registry, not a
+    # dict, and `.keys()` is its own method (no __iter__), so `ruff --fix`'s
+    # suggested `for name in DISCOVERY_STEPS:` would raise TypeError.
+    for name in DISCOVERY_STEPS.keys():  # noqa: SIM118
         typer.echo(name)
 
 

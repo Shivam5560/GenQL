@@ -35,13 +35,15 @@ class PostgresProfileReaderRepository:
         col = sql.Identifier(column.column_name)
         tbl = sql.Identifier(column.schema_name, column.object_name)
         try:
-            with self._engine.raw_connection() as raw:
+            # Not merged into one `with` (SIM117): the inner cursor's cleanup
+            # depends on the outer connection staying open through the whole
+            # block; keeping them visually separate documents the two-level
+            # cleanup the error path relies on.
+            with self._engine.raw_connection() as raw:  # noqa: SIM117
                 with raw.cursor() as cur:  # type: ignore[attr-defined]
                     cur.execute(_STATS.format(col=col, tbl=tbl))
                     distinct_count, null_fraction = cur.fetchone()
-                    cur.execute(
-                        _SAMPLES.format(col=col, tbl=tbl), {"limit": sample_limit}
-                    )
+                    cur.execute(_SAMPLES.format(col=col, tbl=tbl), {"limit": sample_limit})
                     samples = tuple(row[0] for row in cur.fetchall())
         except Exception as exc:  # noqa: BLE001 - re-raised as a typed domain error
             raise ProfilingError(column.qualified_name, str(exc)) from exc
