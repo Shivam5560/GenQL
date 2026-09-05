@@ -7,6 +7,8 @@ from typing import Any
 
 from dependency_injector import containers, providers
 
+import genql.repositories.warehouse  # noqa: F401 - registration side effect
+import genql.services.scope  # noqa: F401 - registration side effect
 from genql.core.settings import Settings
 
 # Imported for its registration side effect: every discovery step decorates
@@ -16,6 +18,9 @@ from genql.core.settings import Settings
 from genql.discovery import steps as _discovery_steps  # noqa: F401
 from genql.discovery.registry import DISCOVERY_STEPS
 from genql.discovery.runner import DiscoveryRunner
+from genql.domain.ports.datasource_repository import DatasourceRepository
+from genql.domain.ports.schema_registration_repository import SchemaRegistrationRepository
+from genql.domain.ports.scope_resolver import ScopeResolver
 from genql.infrastructure.catalog.catalog_reader_factory import CatalogReaderFactoryImpl
 from genql.infrastructure.catalog.profile_reader_factory import ProfileReaderFactoryImpl
 from genql.infrastructure.db.engine import create_engine_from_dsn
@@ -30,8 +35,26 @@ from genql.repositories.semantic.profile_writer_repository import (
 from genql.repositories.semantic.schema_registration_repository import (
     PostgresSchemaRegistrationRepository,
 )
+from genql.repositories.warehouse.registry import CATALOG_READERS
+from genql.services.datasource.datasource_service import DatasourceService
+from genql.services.datasource.schema_registration_service import SchemaRegistrationService
 from genql.services.discovery.catalog_scan_service import CatalogScanService
 from genql.services.discovery.profiling_service import ProfilingService
+from genql.services.scope.registry import SCOPE_RESOLVERS
+
+
+def _build_scope_resolver(
+    key: str,
+    datasources: DatasourceRepository,
+    registrations: SchemaRegistrationRepository,
+    default_datasource: str | None,
+) -> ScopeResolver:
+    return SCOPE_RESOLVERS.create(
+        key,
+        datasources=datasources,
+        registrations=registrations,
+        default_datasource=default_datasource,
+    )
 
 
 def _step_providers_in_registered_order(
@@ -85,6 +108,27 @@ class Container(containers.DeclarativeContainer):
         writer=profile_writer,
     )
 
+    datasource_service = providers.Singleton(
+        DatasourceService,
+        datasources=datasource_repository,
+        dialects=providers.Callable(CATALOG_READERS.keys),
+        env=os.environ,
+    )
+    schema_registration_service = providers.Singleton(
+        SchemaRegistrationService,
+        datasources=datasource_repository,
+        registrations=schema_registration_repository,
+        readers=catalog_reader_factory,
+    )
+
+    scope_resolver = providers.Singleton(
+        _build_scope_resolver,
+        key=settings.provided.scope_resolver,
+        datasources=datasource_repository,
+        registrations=schema_registration_repository,
+        default_datasource=settings.provided.default_datasource,
+    )
+
     # Every step name registered in DISCOVERY_STEPS must have an entry here so
     # its constructor can be injected with the service it needs. A step
     # registered without an entry fails fast (KeyError) at import time rather
@@ -97,4 +141,5 @@ class Container(containers.DeclarativeContainer):
     discovery_runner = providers.Factory(
         DiscoveryRunner,
         steps=providers.List(*_step_providers_in_registered_order(_step_service_providers)),
+        registrations=schema_registration_repository,
     )
