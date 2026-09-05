@@ -36,9 +36,10 @@ def wired(
 
 
 def test_discover_scans_and_profiles(wired: Engine) -> None:
-    result = CliRunner().invoke(app, ["discover", "--schema", "e2e"])
+    result = CliRunner().invoke(app, ["discover", "--datasource", "local", "--schema", "e2e"])
 
     assert result.exit_code == 0, result.output
+    assert "local.e2e" in result.output
     assert "ok   catalog_scan" in result.output
     assert "ok   data_profiling" in result.output
 
