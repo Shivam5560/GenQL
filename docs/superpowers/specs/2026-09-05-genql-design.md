@@ -527,8 +527,65 @@ ablatable so its value is measurable.
 single idempotent command, the projection holds no authoritative data, and a checksum comparison
 against Postgres detects drift.
 
-**Rerank model availability.** `rerank-v4.0-pro` may not be carried by OpenRouter. Mitigation:
-`RerankProviderRegistry` allows binding Cohere directly with no other change.
+**Rerank model availability.** Resolved — `cohere/rerank-4-pro` is carried by OpenRouter, so
+chat, embeddings, and rerank all run through one key. `RerankProviderRegistry` retains the option
+of binding Cohere directly if that changes.
 
 **TPC-DS is synthetic.** Its data distributions are cleaner than production. Mitigation: Olist
 provides genuinely messy real-world data as a second warehouse.
+
+---
+
+## 20. Cost model
+
+Prices are Anthropic first-party rates (Opus 5 $5/$25, Sonnet 5 $2/$10, Haiku 4.5 $1/$5 per MTok),
+`text-embedding-3-small` at $0.02/MTok, `cohere/rerank-4-pro` at $0.0025 per search, plus
+OpenRouter's 5.5% platform fee. Prompt caching is assumed at the 5-minute TTL (reads 0.1x input,
+writes 1.25x). Token counts are engineering estimates against a TPC-DS-shaped schema context of
+roughly 12,000 tokens after domain scoping.
+
+### Per-query, full pipeline
+
+Model assignment: Haiku 4.5 for classification, the ambiguity gate, and domain scoping; Sonnet 5
+for schema linking, candidate generation, probe interpretation, selection, rewriting, and response;
+Opus 5 for natural-language planning, critique, and probe design.
+
+| Configuration | Cost per query |
+|---|---|
+| Full pipeline, no prompt caching | **$0.60** |
+| Full pipeline, prompt caching on the schema context | **$0.37** |
+| Lean mode — two candidates, no Opus, no probing | **$0.12** |
+
+Caching pays because the schema context is identical across planning, candidate generation, and
+critique within a single query, and identical across queries scoped to the same domain. The
+schema-context prefix is therefore placed ahead of the last cache breakpoint, with the question and
+turn state after it.
+
+The dominant costs are candidate generation (four Sonnet 5 calls) and the two Opus 5 reasoning
+stages. Both are configurable: candidate count and the probing stage are per-request settings, so
+a deployment can sit anywhere between lean and full. The ablation harness measures what each buys.
+
+### Semantic store build
+
+For TPC-DS scale factor 1 plus Olist — 33 objects, roughly 475 columns, six domains, and 300
+synthetic ambiguity examples:
+
+| Step | Calls | Cost |
+|---|---|---|
+| LLM object profiling | 33 | $0.53 |
+| Domain naming | 6 | $0.04 |
+| Synthetic ambiguity examples | 300 | $3.12 |
+| Embeddings | 574 documents | $0.002 |
+| **Total** | | **$3.90** including the OpenRouter fee |
+
+Every offline step is batchable and latency-insensitive, so registering an `anthropic_batch`
+`ChatProvider` alongside OpenRouter halves this to roughly **$1.85** per full rebuild. That
+provider is one file and one decorator — the registry exists precisely so a cost optimization like
+this requires no change to the discovery pipeline.
+
+Incremental rediscovery costs far less than a rebuild: only objects whose DDL hash or profile
+signature changed are re-profiled, so routine schema drift costs cents.
+
+The synthetic ambiguity log dominates the build and is generated once, not per run. Its size is a
+tunable: 300 examples is the starting point, and the ablation harness measures whether more
+examples improve resolution before spending on them.
