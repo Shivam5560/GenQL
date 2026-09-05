@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict
 
 from genql.domain.ports.catalog_reader import CatalogReader
 from genql.domain.ports.catalog_writer import CatalogWriter
+from genql.domain.value_objects.schema_ref import SchemaRef
 
 
 class CatalogScanReport(BaseModel):
@@ -29,9 +30,9 @@ class CatalogScanService:
         self._reader = reader
         self._writer = writer
 
-    def scan(self, schema: str) -> CatalogScanReport:
+    def scan(self, ref: SchemaRef) -> CatalogScanReport:
         return CatalogScanReport(
-            objects=self._writer.write_objects(self._reader.read_objects(schema)),
-            columns=self._writer.write_columns(self._reader.read_columns(schema)),
-            constraints=self._writer.write_constraints(self._reader.read_constraints(schema)),
+            objects=self._writer.write_objects(self._reader.read_objects(ref)),
+            columns=self._writer.write_columns(self._reader.read_columns(ref)),
+            constraints=self._writer.write_constraints(self._reader.read_constraints(ref)),
         )

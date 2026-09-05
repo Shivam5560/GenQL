@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from sqlalchemy import Engine, text
 
 from genql.domain.entities.column import Column
@@ -12,9 +14,13 @@ from genql.repositories.semantic.catalog_writer_repository import (
 )
 
 
-def test_writing_objects_is_idempotent(migrated_engine: Engine) -> None:
+def test_writing_objects_is_idempotent(
+    migrated_engine: Engine, register_schema: Callable[[str, str], None]
+) -> None:
+    register_schema("local", "shop")
     repo = PostgresCatalogWriterRepository(migrated_engine)
     obj = DatabaseObject(
+        datasource_name="local",
         schema_name="shop",
         object_name="customer",
         object_type=ObjectType.TABLE,
@@ -33,9 +39,13 @@ def test_writing_objects_is_idempotent(migrated_engine: Engine) -> None:
     assert count == 1
 
 
-def test_rewriting_an_object_updates_the_row_estimate(migrated_engine: Engine) -> None:
+def test_rewriting_an_object_updates_the_row_estimate(
+    migrated_engine: Engine, register_schema: Callable[[str, str], None]
+) -> None:
+    register_schema("local", "shop")
     repo = PostgresCatalogWriterRepository(migrated_engine)
     base = {
+        "datasource_name": "local",
         "schema_name": "shop",
         "object_name": "orders",
         "object_type": ObjectType.TABLE,
@@ -53,9 +63,13 @@ def test_rewriting_an_object_updates_the_row_estimate(migrated_engine: Engine) -
     assert estimate == 999
 
 
-def test_writes_columns(migrated_engine: Engine) -> None:
+def test_writes_columns(
+    migrated_engine: Engine, register_schema: Callable[[str, str], None]
+) -> None:
+    register_schema("local", "shop")
     repo = PostgresCatalogWriterRepository(migrated_engine)
     column = Column(
+        datasource_name="local",
         schema_name="shop",
         object_name="customer",
         column_name="c_state",
@@ -78,14 +92,16 @@ def test_writes_columns(migrated_engine: Engine) -> None:
 
 
 def test_writes_constraint_column_names_and_referenced_column_names(
-    migrated_engine: Engine,
+    migrated_engine: Engine, register_schema: Callable[[str, str], None]
 ) -> None:
     """Migration 0002 adds column_names/referenced_column_names; this proves
     both a real FK's constrained columns and its referenced columns survive a
     round trip through the writer. See final-review.md I5.
     """
+    register_schema("local", "shop")
     repo = PostgresCatalogWriterRepository(migrated_engine)
     fk = Constraint(
+        datasource_name="local",
         schema_name="shop",
         object_name="orders",
         constraint_name="orders_customer_fk",

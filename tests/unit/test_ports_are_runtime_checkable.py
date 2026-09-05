@@ -12,16 +12,17 @@ from genql.domain.ports.catalog_reader import CatalogReader
 from genql.domain.ports.datasource_repository import DatasourceRepository
 from genql.domain.ports.scope_resolver import ScopeResolver
 from genql.domain.value_objects.query_scope import QueryScope
+from genql.domain.value_objects.schema_ref import SchemaRef
 
 
 class FakeCatalogReader:
-    def read_objects(self, schema: str) -> Sequence[DatabaseObject]:
+    def read_objects(self, ref: SchemaRef) -> Sequence[DatabaseObject]:
         return []
 
-    def read_columns(self, schema: str) -> Sequence[Column]:
+    def read_columns(self, ref: SchemaRef) -> Sequence[Column]:
         return []
 
-    def read_constraints(self, schema: str) -> Sequence[Constraint]:
+    def read_constraints(self, ref: SchemaRef) -> Sequence[Constraint]:
         return []
 
 

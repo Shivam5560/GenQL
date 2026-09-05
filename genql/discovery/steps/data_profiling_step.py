@@ -19,7 +19,7 @@ class DataProfilingStep:
 
     def run(self, ctx: DiscoveryContext) -> StepResult:
         try:
-            written = self._service.profile(ctx.schema_name, ctx.sample_limit)
+            written = self._service.profile(ctx.ref, ctx.sample_limit)
         except DiscoveryError as exc:
             return StepResult(
                 step_name=self.name,

@@ -19,7 +19,7 @@ class CatalogScanStep:
 
     def run(self, ctx: DiscoveryContext) -> StepResult:
         try:
-            report = self._service.scan(ctx.schema_name)
+            report = self._service.scan(ctx.ref)
         except DiscoveryError as exc:
             return StepResult(
                 step_name=self.name,

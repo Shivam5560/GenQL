@@ -23,7 +23,7 @@ class RecordingStep:
 
 
 def _ctx() -> DiscoveryContext:
-    return DiscoveryContext(schema_name="shop", sample_limit=5)
+    return DiscoveryContext(datasource_name="local", schema_name="shop", sample_limit=5)
 
 
 def test_steps_run_in_order() -> None:

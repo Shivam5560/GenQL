@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Callable
+
 import pytest
 from sqlalchemy import Engine, text
 from typer.testing import CliRunner
@@ -16,9 +18,15 @@ INSERT INTO e2e.region VALUES (1, 'West'), (2, 'East'), (3, 'North');
 
 
 @pytest.fixture()
-def wired(migrated_engine: Engine, paradedb_dsn: str, monkeypatch) -> Engine:
+def wired(
+    migrated_engine: Engine,
+    paradedb_dsn: str,
+    monkeypatch: pytest.MonkeyPatch,
+    register_schema: Callable[[str, str], None],
+) -> Engine:
     with migrated_engine.begin() as conn:
         conn.execute(text(FIXTURE))
+    register_schema("local", "e2e")
     monkeypatch.setenv("GENQL_WAREHOUSE_DSN", paradedb_dsn)
     monkeypatch.setenv("GENQL_SEMANTIC_DSN", paradedb_dsn)
     # dependency-injector 4.49.1 exposes reset_singletons only as an instance

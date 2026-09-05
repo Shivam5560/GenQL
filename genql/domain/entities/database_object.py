@@ -10,6 +10,7 @@ from genql.domain.value_objects.object_type import ObjectType
 class DatabaseObject(BaseModel):
     model_config = ConfigDict(frozen=True)
 
+    datasource_name: str
     schema_name: str
     object_name: str
     object_type: ObjectType
@@ -17,4 +18,4 @@ class DatabaseObject(BaseModel):
 
     @property
     def qualified_name(self) -> str:
-        return f"{self.schema_name}.{self.object_name}"
+        return f"{self.datasource_name}.{self.schema_name}.{self.object_name}"

@@ -9,12 +9,18 @@ from genql.domain.entities.constraint import Constraint
 from genql.domain.entities.database_object import DatabaseObject
 from genql.domain.value_objects.constraint_type import ConstraintType
 from genql.domain.value_objects.object_type import ObjectType
+from genql.domain.value_objects.schema_ref import SchemaRef
 from genql.services.discovery.catalog_scan_service import CatalogScanService
 
 OBJECT = DatabaseObject(
-    schema_name="shop", object_name="customer", object_type=ObjectType.TABLE, row_estimate=7
+    datasource_name="local",
+    schema_name="shop",
+    object_name="customer",
+    object_type=ObjectType.TABLE,
+    row_estimate=7,
 )
 COLUMN = Column(
+    datasource_name="local",
     schema_name="shop",
     object_name="customer",
     column_name="c_state",
@@ -23,6 +29,7 @@ COLUMN = Column(
     is_nullable=True,
 )
 CONSTRAINT = Constraint(
+    datasource_name="local",
     schema_name="shop",
     object_name="customer",
     constraint_name="customer_pkey",
@@ -32,13 +39,13 @@ CONSTRAINT = Constraint(
 
 
 class FakeReader:
-    def read_objects(self, schema: str) -> Sequence[DatabaseObject]:
+    def read_objects(self, ref: SchemaRef) -> Sequence[DatabaseObject]:
         return [OBJECT]
 
-    def read_columns(self, schema: str) -> Sequence[Column]:
+    def read_columns(self, ref: SchemaRef) -> Sequence[Column]:
         return [COLUMN]
 
-    def read_constraints(self, schema: str) -> Sequence[Constraint]:
+    def read_constraints(self, ref: SchemaRef) -> Sequence[Constraint]:
         return [CONSTRAINT]
 
 
@@ -63,7 +70,8 @@ class FakeWriter:
 
 def test_scan_persists_everything_it_reads() -> None:
     writer = FakeWriter()
-    report = CatalogScanService(FakeReader(), writer).scan("shop")
+    ref = SchemaRef(datasource_name="local", schema_name="shop")
+    report = CatalogScanService(FakeReader(), writer).scan(ref)
 
     assert report.objects == 1
     assert report.columns == 1
@@ -74,5 +82,6 @@ def test_scan_persists_everything_it_reads() -> None:
 
 
 def test_total_counts_all_records() -> None:
-    report = CatalogScanService(FakeReader(), FakeWriter()).scan("shop")
+    ref = SchemaRef(datasource_name="local", schema_name="shop")
+    report = CatalogScanService(FakeReader(), FakeWriter()).scan(ref)
     assert report.total == 3

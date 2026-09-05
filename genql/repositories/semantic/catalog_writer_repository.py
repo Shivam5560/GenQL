@@ -15,8 +15,8 @@ from genql.domain.entities.database_object import DatabaseObject
 
 _UPSERT_OBJECT = text("""
     INSERT INTO genql.genql_object
-        (schema_name, object_name, object_type, row_estimate)
-    VALUES (:schema_name, :object_name, :object_type, :row_estimate)
+        (datasource_name, schema_name, object_name, object_type, row_estimate)
+    VALUES (:datasource_name, :schema_name, :object_name, :object_type, :row_estimate)
     ON CONFLICT ON CONSTRAINT uq_genql_object_identity DO UPDATE
         SET object_type = EXCLUDED.object_type,
             row_estimate = EXCLUDED.row_estimate,
@@ -25,9 +25,9 @@ _UPSERT_OBJECT = text("""
 
 _UPSERT_COLUMN = text("""
     INSERT INTO genql.genql_column
-        (schema_name, object_name, column_name, ordinal,
+        (datasource_name, schema_name, object_name, column_name, ordinal,
          data_type, is_nullable, is_primary_key)
-    VALUES (:schema_name, :object_name, :column_name, :ordinal,
+    VALUES (:datasource_name, :schema_name, :object_name, :column_name, :ordinal,
             :data_type, :is_nullable, :is_primary_key)
     ON CONFLICT ON CONSTRAINT uq_genql_column_identity DO UPDATE
         SET ordinal = EXCLUDED.ordinal,
@@ -38,9 +38,9 @@ _UPSERT_COLUMN = text("""
 
 _UPSERT_CONSTRAINT = text("""
     INSERT INTO genql.genql_constraint
-        (schema_name, object_name, constraint_name, constraint_type,
+        (datasource_name, schema_name, object_name, constraint_name, constraint_type,
          definition, referenced_object_name, column_names, referenced_column_names)
-    VALUES (:schema_name, :object_name, :constraint_name, :constraint_type,
+    VALUES (:datasource_name, :schema_name, :object_name, :constraint_name, :constraint_type,
             :definition, :referenced_object_name, :column_names, :referenced_column_names)
     ON CONFLICT ON CONSTRAINT uq_genql_constraint_identity DO UPDATE
         SET constraint_type = EXCLUDED.constraint_type,

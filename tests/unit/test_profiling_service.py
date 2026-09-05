@@ -7,10 +7,12 @@ from genql.domain.entities.column_profile import ColumnProfile
 from genql.domain.entities.constraint import Constraint
 from genql.domain.entities.database_object import DatabaseObject
 from genql.domain.errors import ProfilingError
+from genql.domain.value_objects.schema_ref import SchemaRef
 from genql.services.discovery.profiling_service import ProfilingService
 
 COLUMNS = [
     Column(
+        datasource_name="local",
         schema_name="shop",
         object_name="customer",
         column_name=name,
@@ -23,13 +25,13 @@ COLUMNS = [
 
 
 class FakeCatalog:
-    def read_objects(self, schema: str) -> Sequence[DatabaseObject]:
+    def read_objects(self, ref: SchemaRef) -> Sequence[DatabaseObject]:
         return []
 
-    def read_columns(self, schema: str) -> Sequence[Column]:
+    def read_columns(self, ref: SchemaRef) -> Sequence[Column]:
         return COLUMNS
 
-    def read_constraints(self, schema: str) -> Sequence[Constraint]:
+    def read_constraints(self, ref: SchemaRef) -> Sequence[Constraint]:
         return []
 
 
@@ -38,6 +40,7 @@ class FakeProfileReader:
         if column.column_name == "c_broken":
             raise ProfilingError(column.qualified_name, "type not comparable")
         return ColumnProfile(
+            datasource_name=column.datasource_name,
             schema_name=column.schema_name,
             object_name=column.object_name,
             column_name=column.column_name,
@@ -60,7 +63,8 @@ def test_a_failing_column_does_not_abort_the_run() -> None:
     writer = FakeProfileWriter()
     service = ProfilingService(FakeCatalog(), FakeProfileReader(), writer)
 
-    written = service.profile("shop", sample_limit=5)
+    ref = SchemaRef(datasource_name="local", schema_name="shop")
+    written = service.profile(ref, sample_limit=5)
 
     assert written == 1
     assert [p.column_name for p in writer.written] == ["c_state"]
@@ -68,5 +72,6 @@ def test_a_failing_column_does_not_abort_the_run() -> None:
 
 def test_skipped_columns_are_reported() -> None:
     service = ProfilingService(FakeCatalog(), FakeProfileReader(), FakeProfileWriter())
-    service.profile("shop", sample_limit=5)
-    assert service.skipped == ["shop.customer.c_broken"]
+    ref = SchemaRef(datasource_name="local", schema_name="shop")
+    service.profile(ref, sample_limit=5)
+    assert service.skipped == ["local.shop.customer.c_broken"]

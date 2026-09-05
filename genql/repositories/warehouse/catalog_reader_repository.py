@@ -11,6 +11,7 @@ from genql.domain.entities.constraint import Constraint
 from genql.domain.entities.database_object import DatabaseObject
 from genql.domain.value_objects.constraint_type import ConstraintType
 from genql.domain.value_objects.object_type import ObjectType
+from genql.domain.value_objects.schema_ref import SchemaRef
 
 _RELKIND_TO_TYPE = {
     "r": ObjectType.TABLE,
@@ -77,12 +78,13 @@ class PostgresCatalogReaderRepository:
     def __init__(self, engine: Engine) -> None:
         self._engine = engine
 
-    def read_objects(self, schema: str) -> Sequence[DatabaseObject]:
+    def read_objects(self, ref: SchemaRef) -> Sequence[DatabaseObject]:
         with self._engine.connect() as conn:
-            rows = conn.execute(_OBJECTS_SQL, {"schema": schema}).all()
+            rows = conn.execute(_OBJECTS_SQL, {"schema": ref.schema_name}).all()
         return [
             DatabaseObject(
-                schema_name=schema,
+                datasource_name=ref.datasource_name,
+                schema_name=ref.schema_name,
                 object_name=row.relname,
                 object_type=_RELKIND_TO_TYPE[row.relkind],
                 row_estimate=(
@@ -94,12 +96,13 @@ class PostgresCatalogReaderRepository:
             for row in rows
         ]
 
-    def read_columns(self, schema: str) -> Sequence[Column]:
+    def read_columns(self, ref: SchemaRef) -> Sequence[Column]:
         with self._engine.connect() as conn:
-            rows = conn.execute(_COLUMNS_SQL, {"schema": schema}).all()
+            rows = conn.execute(_COLUMNS_SQL, {"schema": ref.schema_name}).all()
         return [
             Column(
-                schema_name=schema,
+                datasource_name=ref.datasource_name,
+                schema_name=ref.schema_name,
                 object_name=row.relname,
                 column_name=row.attname,
                 ordinal=row.attnum,
@@ -110,12 +113,13 @@ class PostgresCatalogReaderRepository:
             for row in rows
         ]
 
-    def read_constraints(self, schema: str) -> Sequence[Constraint]:
+    def read_constraints(self, ref: SchemaRef) -> Sequence[Constraint]:
         with self._engine.connect() as conn:
-            rows = conn.execute(_CONSTRAINTS_SQL, {"schema": schema}).all()
+            rows = conn.execute(_CONSTRAINTS_SQL, {"schema": ref.schema_name}).all()
         return [
             Constraint(
-                schema_name=schema,
+                datasource_name=ref.datasource_name,
+                schema_name=ref.schema_name,
                 object_name=row.relname,
                 constraint_name=row.conname,
                 constraint_type=_CONTYPE_TO_TYPE[row.contype],

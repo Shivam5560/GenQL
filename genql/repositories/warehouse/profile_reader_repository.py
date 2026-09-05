@@ -49,6 +49,7 @@ class PostgresProfileReaderRepository:
             raise ProfilingError(column.qualified_name, str(exc)) from exc
 
         return ColumnProfile(
+            datasource_name=column.datasource_name,
             schema_name=column.schema_name,
             object_name=column.object_name,
             column_name=column.column_name,

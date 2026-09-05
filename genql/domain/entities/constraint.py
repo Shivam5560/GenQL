@@ -10,6 +10,7 @@ from genql.domain.value_objects.constraint_type import ConstraintType
 class Constraint(BaseModel):
     model_config = ConfigDict(frozen=True)
 
+    datasource_name: str
     schema_name: str
     object_name: str
     constraint_name: str

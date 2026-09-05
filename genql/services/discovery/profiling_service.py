@@ -13,6 +13,7 @@ from genql.domain.errors import ProfilingError
 from genql.domain.ports.catalog_reader import CatalogReader
 from genql.domain.ports.profile_reader import ProfileReader
 from genql.domain.ports.profile_writer import ProfileWriter
+from genql.domain.value_objects.schema_ref import SchemaRef
 
 _log = structlog.get_logger(__name__)
 
@@ -26,10 +27,10 @@ class ProfilingService:
         self._writer = writer
         self.skipped: list[str] = []
 
-    def profile(self, schema: str, sample_limit: int) -> int:
+    def profile(self, ref: SchemaRef, sample_limit: int) -> int:
         self.skipped = []
         profiles: list[ColumnProfile] = []
-        for column in self._catalog.read_columns(schema):
+        for column in self._catalog.read_columns(ref):
             try:
                 profiles.append(self._reader.profile_column(column, sample_limit))
             except ProfilingError as exc:

@@ -12,10 +12,11 @@ from genql.discovery.runner import DiscoveryRunner
 from genql.discovery.steps.catalog_scan_step import CatalogScanStep
 from genql.domain.errors import CatalogAccessError
 from genql.domain.ports.discovery_step import DiscoveryContext, StepResult
+from genql.domain.value_objects.schema_ref import SchemaRef
 
 
 class _FailingScanService:
-    def scan(self, schema: str) -> Any:
+    def scan(self, ref: SchemaRef) -> Any:
         raise CatalogAccessError("warehouse unreachable")
 
 
@@ -31,7 +32,7 @@ class _RecordingStep:
 
 
 def _ctx() -> DiscoveryContext:
-    return DiscoveryContext(schema_name="shop")
+    return DiscoveryContext(datasource_name="local", schema_name="shop")
 
 
 def test_a_failing_scan_returns_a_failed_result_instead_of_raising() -> None:

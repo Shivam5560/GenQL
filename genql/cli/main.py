@@ -24,13 +24,16 @@ def steps() -> None:
 @app.command()
 def discover(
     schema: str = typer.Option(..., "--schema", help="Warehouse schema to discover"),
+    datasource: str = typer.Option("local", "--datasource", help="Registered datasource"),
     start_from: str | None = typer.Option(None, "--start-from", help="Resume from this step"),
 ) -> None:
     """Run the offline discovery pipeline."""
     container = Container()
     runner = container.discovery_runner()
     ctx = DiscoveryContext(
-        schema_name=schema, sample_limit=container.settings().profile_sample_limit
+        datasource_name=datasource,
+        schema_name=schema,
+        sample_limit=container.settings().profile_sample_limit,
     )
 
     failed = False
