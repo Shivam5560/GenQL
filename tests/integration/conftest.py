@@ -52,3 +52,21 @@ def migrated_engine(engine: Engine, paradedb_dsn: str) -> Engine:
     cfg.set_main_option("sqlalchemy.url", paradedb_dsn)
     command.upgrade(cfg, "head")
     return engine
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    config.addinivalue_line(
+        "markers", "skipif_no_tpcds: skip unless the tpcds schema has been seeded"
+    )
+
+
+@pytest.fixture(autouse=True)
+def _skip_without_tpcds(request: pytest.FixtureRequest, engine: Engine) -> None:
+    if request.node.get_closest_marker("skipif_no_tpcds") is None:
+        return
+    with engine.connect() as conn:
+        seeded = conn.execute(
+            text("SELECT to_regclass('tpcds.store_sales') IS NOT NULL")
+        ).scalar_one()
+    if not seeded:
+        pytest.skip("tpcds schema not seeded; run data/seed_tpcds.py")
