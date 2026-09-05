@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+.env.*
+!.env.example
+*.egg-info/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+
+# Data
+data/raw/
+data/generated/
+*.db
+*.sqlite
+*.duckdb
+*.csv
+*.parquet
+
+# Tooling
+.playwright-mcp/
+.DS_Store
+node_modules/
+dist/
