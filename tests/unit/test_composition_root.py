@@ -40,3 +40,9 @@ def test_every_registered_step_has_a_service_provider(container: Container) -> N
     runner = container.discovery_runner()
 
     assert len(runner._steps) == len(DISCOVERY_STEPS.keys())  # noqa: SLF001
+
+
+def test_the_container_builds_a_catalog_reader_factory(container: Container) -> None:
+    factory = container.catalog_reader_factory()
+
+    assert hasattr(factory, "for_datasource")

@@ -12,6 +12,7 @@ from sqlalchemy import Engine
 from genql.domain.entities.column import Column
 from genql.domain.entities.column_profile import ColumnProfile
 from genql.domain.errors import ProfilingError
+from genql.repositories.warehouse.registry import PROFILE_READERS
 
 _STATS = sql.SQL("""
     SELECT count(DISTINCT {col}) AS distinct_count,
@@ -27,6 +28,7 @@ _SAMPLES = sql.SQL("""
 """)
 
 
+@PROFILE_READERS.register("postgres")
 class PostgresProfileReaderRepository:
     def __init__(self, engine: Engine) -> None:
         self._engine = engine

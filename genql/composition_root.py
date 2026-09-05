@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 from dependency_injector import containers, providers
@@ -15,18 +16,19 @@ from genql.core.settings import Settings
 from genql.discovery import steps as _discovery_steps  # noqa: F401
 from genql.discovery.registry import DISCOVERY_STEPS
 from genql.discovery.runner import DiscoveryRunner
+from genql.infrastructure.catalog.catalog_reader_factory import CatalogReaderFactoryImpl
+from genql.infrastructure.catalog.profile_reader_factory import ProfileReaderFactoryImpl
 from genql.infrastructure.db.engine import create_engine_from_dsn
+from genql.infrastructure.db.engine_provider import DatasourceEngineProvider
 from genql.repositories.semantic.catalog_writer_repository import (
     PostgresCatalogWriterRepository,
 )
+from genql.repositories.semantic.datasource_repository import PostgresDatasourceRepository
 from genql.repositories.semantic.profile_writer_repository import (
     PostgresProfileWriterRepository,
 )
-from genql.repositories.warehouse.catalog_reader_repository import (
-    PostgresCatalogReaderRepository,
-)
-from genql.repositories.warehouse.profile_reader_repository import (
-    PostgresProfileReaderRepository,
+from genql.repositories.semantic.schema_registration_repository import (
+    PostgresSchemaRegistrationRepository,
 )
 from genql.services.discovery.catalog_scan_service import CatalogScanService
 from genql.services.discovery.profiling_service import ProfilingService
@@ -50,25 +52,36 @@ def _step_providers_in_registered_order(
 class Container(containers.DeclarativeContainer):
     settings = providers.Singleton(Settings)
 
-    warehouse_engine = providers.Singleton(
-        create_engine_from_dsn, dsn=settings.provided.warehouse_dsn
-    )
     semantic_engine = providers.Singleton(
         create_engine_from_dsn, dsn=settings.provided.semantic_dsn
     )
 
-    catalog_reader = providers.Singleton(PostgresCatalogReaderRepository, engine=warehouse_engine)
     catalog_writer = providers.Singleton(PostgresCatalogWriterRepository, engine=semantic_engine)
-    profile_reader = providers.Singleton(PostgresProfileReaderRepository, engine=warehouse_engine)
     profile_writer = providers.Singleton(PostgresProfileWriterRepository, engine=semantic_engine)
 
+    engine_provider = providers.Singleton(DatasourceEngineProvider, env=os.environ)
+
+    datasource_repository = providers.Singleton(
+        PostgresDatasourceRepository, engine=semantic_engine
+    )
+    schema_registration_repository = providers.Singleton(
+        PostgresSchemaRegistrationRepository, engine=semantic_engine
+    )
+
+    catalog_reader_factory = providers.Singleton(CatalogReaderFactoryImpl, provider=engine_provider)
+    profile_reader_factory = providers.Singleton(ProfileReaderFactoryImpl, provider=engine_provider)
+
     catalog_scan_service = providers.Singleton(
-        CatalogScanService, reader=catalog_reader, writer=catalog_writer
+        CatalogScanService,
+        datasources=datasource_repository,
+        readers=catalog_reader_factory,
+        writer=catalog_writer,
     )
     profiling_service = providers.Factory(
         ProfilingService,
-        catalog=catalog_reader,
-        reader=profile_reader,
+        datasources=datasource_repository,
+        catalog_readers=catalog_reader_factory,
+        profile_readers=profile_reader_factory,
         writer=profile_writer,
     )
 

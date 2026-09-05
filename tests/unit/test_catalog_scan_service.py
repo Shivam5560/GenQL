@@ -7,6 +7,7 @@ from collections.abc import Sequence
 from genql.domain.entities.column import Column
 from genql.domain.entities.constraint import Constraint
 from genql.domain.entities.database_object import DatabaseObject
+from genql.domain.entities.datasource import Datasource
 from genql.domain.value_objects.constraint_type import ConstraintType
 from genql.domain.value_objects.object_type import ObjectType
 from genql.domain.value_objects.schema_ref import SchemaRef
@@ -68,10 +69,32 @@ class FakeWriter:
         return len(constraints)
 
 
+class FakeDatasources:
+    def add(self, datasource: Datasource) -> None: ...
+
+    def get(self, name: str) -> Datasource:
+        return Datasource(name=name, dialect="postgres", dsn_env_var="X")
+
+    def list_all(self, enabled_only: bool = False) -> Sequence[Datasource]:
+        return [self.get("local")]
+
+    def remove(self, name: str) -> None: ...
+
+
+class FakeReaderFactory:
+    def __init__(self, reader: object) -> None:
+        self._reader = reader
+
+    def for_datasource(self, datasource: Datasource) -> object:
+        return self._reader
+
+
 def test_scan_persists_everything_it_reads() -> None:
     writer = FakeWriter()
     ref = SchemaRef(datasource_name="local", schema_name="shop")
-    report = CatalogScanService(FakeReader(), writer).scan(ref)
+    report = CatalogScanService(FakeDatasources(), FakeReaderFactory(FakeReader()), writer).scan(
+        ref
+    )
 
     assert report.objects == 1
     assert report.columns == 1
@@ -83,5 +106,22 @@ def test_scan_persists_everything_it_reads() -> None:
 
 def test_total_counts_all_records() -> None:
     ref = SchemaRef(datasource_name="local", schema_name="shop")
-    report = CatalogScanService(FakeReader(), FakeWriter()).scan(ref)
+    report = CatalogScanService(
+        FakeDatasources(), FakeReaderFactory(FakeReader()), FakeWriter()
+    ).scan(ref)
     assert report.total == 3
+
+
+def test_the_reader_is_bound_to_the_refs_datasource() -> None:
+    seen: list[str] = []
+
+    class RecordingFactory(FakeReaderFactory):
+        def for_datasource(self, datasource: Datasource) -> object:
+            seen.append(datasource.name)
+            return self._reader
+
+    CatalogScanService(FakeDatasources(), RecordingFactory(FakeReader()), FakeWriter()).scan(
+        SchemaRef(datasource_name="wh2", schema_name="shop")
+    )
+
+    assert seen == ["wh2"]

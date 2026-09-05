@@ -12,6 +12,7 @@ from genql.domain.entities.database_object import DatabaseObject
 from genql.domain.value_objects.constraint_type import ConstraintType
 from genql.domain.value_objects.object_type import ObjectType
 from genql.domain.value_objects.schema_ref import SchemaRef
+from genql.repositories.warehouse.registry import CATALOG_READERS
 
 _RELKIND_TO_TYPE = {
     "r": ObjectType.TABLE,
@@ -74,6 +75,7 @@ _CONSTRAINTS_SQL = text("""
 """)
 
 
+@CATALOG_READERS.register("postgres")
 class PostgresCatalogReaderRepository:
     def __init__(self, engine: Engine) -> None:
         self._engine = engine
