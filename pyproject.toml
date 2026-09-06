@@ -13,10 +13,12 @@ dependencies = [
     "graphdatascience>=1.22",
     "httpx>=0.28.1",
     "neo4j>=6.3.0",
+    "numpy>=2.3.5",
     "pgvector>=0.5.0",
     "psycopg[binary]>=3.3.5",
     "pydantic>=2.13.5",
     "pydantic-settings>=2.15.0",
+    "scikit-learn>=1.9.0",
     "sqlalchemy>=2.0.52",
     "structlog>=26.1.0",
     "typer>=0.27.2",
@@ -73,6 +75,11 @@ python_version = "3.12"
 strict = true
 warn_unreachable = true
 plugins = ["pydantic.mypy"]
+
+# scikit-learn ships no py.typed marker / type stubs.
+[[tool.mypy.overrides]]
+module = ["sklearn.*"]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
