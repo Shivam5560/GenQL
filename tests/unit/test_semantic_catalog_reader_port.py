@@ -5,6 +5,8 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
+from genql.domain.entities.column import Column
+from genql.domain.entities.column_profile import ColumnProfile
 from genql.domain.entities.constraint import Constraint
 from genql.domain.entities.database_object import DatabaseObject
 from genql.domain.ports.semantic_catalog_reader import SemanticCatalogReader
@@ -16,6 +18,12 @@ class FakeSemanticCatalogReader:
         return []
 
     def read_constraints(self, ref: SchemaRef) -> Sequence[Constraint]:
+        return []
+
+    def read_columns(self, ref: SchemaRef) -> Sequence[Column]:
+        return []
+
+    def read_column_profiles(self, ref: SchemaRef) -> Sequence[ColumnProfile]:
         return []
 
 

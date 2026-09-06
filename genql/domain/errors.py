@@ -103,3 +103,35 @@ class GraphProjectionError(DiscoveryError):
 
 class GraphAnalysisError(DiscoveryError):
     """Clustering, embedding, or join-path mining could not complete."""
+
+
+class ChatProviderError(GenqlError):
+    """A ChatProvider implementation could not complete a call."""
+
+
+class EmbeddingProviderError(GenqlError):
+    """An EmbeddingProvider implementation could not complete a call."""
+
+
+class RerankProviderError(GenqlError):
+    """A RerankProvider implementation could not complete a call."""
+
+
+class EnrichmentError(DiscoveryError):
+    """LLM object profiling or embedding could not complete."""
+
+
+class DomainNamingError(DiscoveryError):
+    """Fused clustering or LLM domain naming could not complete."""
+
+
+class OverlayError(DiscoveryError):
+    """semantic/<datasource>.yaml failed schema validation or named an unknown object."""
+
+
+class CompileError(DiscoveryError):
+    """genql_search_document could not be refreshed."""
+
+
+class RetrievalError(GenqlError):
+    """Hybrid retrieval or reranking could not complete. Runs online, not during discovery."""

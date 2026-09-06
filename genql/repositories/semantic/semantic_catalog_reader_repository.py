@@ -6,6 +6,8 @@ from collections.abc import Sequence
 
 from sqlalchemy import Engine, text
 
+from genql.domain.entities.column import Column
+from genql.domain.entities.column_profile import ColumnProfile
 from genql.domain.entities.constraint import Constraint
 from genql.domain.entities.database_object import DatabaseObject
 from genql.domain.value_objects.schema_ref import SchemaRef
@@ -23,6 +25,21 @@ _SELECT_CONSTRAINTS = text("""
     WHERE datasource_name = :datasource_name AND schema_name = :schema_name
 """)
 
+_SELECT_COLUMNS = text("""
+    SELECT datasource_name, schema_name, object_name, column_name, ordinal, data_type,
+           is_nullable, is_primary_key
+    FROM genql.genql_column
+    WHERE datasource_name = :datasource_name AND schema_name = :schema_name
+    ORDER BY object_name, ordinal
+""")
+
+_SELECT_COLUMN_PROFILES = text("""
+    SELECT datasource_name, schema_name, object_name, column_name, distinct_count,
+           null_fraction, sample_values
+    FROM genql.genql_column_profile
+    WHERE datasource_name = :datasource_name AND schema_name = :schema_name
+""")
+
 
 class PostgresSemanticCatalogReader:
     def __init__(self, engine: Engine) -> None:
@@ -37,3 +54,13 @@ class PostgresSemanticCatalogReader:
         with self._engine.connect() as conn:
             rows = conn.execute(_SELECT_CONSTRAINTS, ref.model_dump()).all()
         return [Constraint.model_validate(r._mapping) for r in rows]  # noqa: SLF001
+
+    def read_columns(self, ref: SchemaRef) -> Sequence[Column]:
+        with self._engine.connect() as conn:
+            rows = conn.execute(_SELECT_COLUMNS, ref.model_dump()).all()
+        return [Column.model_validate(r._mapping) for r in rows]  # noqa: SLF001
+
+    def read_column_profiles(self, ref: SchemaRef) -> Sequence[ColumnProfile]:
+        with self._engine.connect() as conn:
+            rows = conn.execute(_SELECT_COLUMN_PROFILES, ref.model_dump()).all()
+        return [ColumnProfile.model_validate(r._mapping) for r in rows]  # noqa: SLF001

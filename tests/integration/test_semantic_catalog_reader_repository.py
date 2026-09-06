@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from sqlalchemy import Engine
+from sqlalchemy import Engine, text
 
 from genql.domain.entities.column import Column
 from genql.domain.entities.constraint import Constraint
@@ -73,3 +73,46 @@ def test_read_objects_type_checks_against_column(migrated_engine: Engine) -> Non
     # tables share several column names, and a copy-pasted SELECT is an easy
     # mistake here.
     assert Column is not DatabaseObject
+
+
+def test_read_columns_returns_every_column_of_the_schema(
+    migrated_engine: Engine, register_schema: Callable[[str, str], None]
+) -> None:
+    register_schema("local", "reader_columns_test")
+    with migrated_engine.begin() as conn:
+        conn.execute(
+            text(
+                "INSERT INTO genql.genql_column "
+                "(datasource_name, schema_name, object_name, column_name, ordinal, data_type, "
+                " is_nullable, is_primary_key) "
+                "VALUES ('local', 'reader_columns_test', 'orders', 'id', 1, 'bigint', false, true)"
+            )
+        )
+
+    columns = PostgresSemanticCatalogReader(migrated_engine).read_columns(
+        SchemaRef(datasource_name="local", schema_name="reader_columns_test")
+    )
+
+    assert [c.column_name for c in columns] == ["id"]
+
+
+def test_read_column_profiles_returns_every_profile_of_the_schema(
+    migrated_engine: Engine, register_schema: Callable[[str, str], None]
+) -> None:
+    register_schema("local", "reader_profiles_test")
+    with migrated_engine.begin() as conn:
+        conn.execute(
+            text(
+                "INSERT INTO genql.genql_column_profile "
+                "(datasource_name, schema_name, object_name, column_name, distinct_count, "
+                " null_fraction, sample_values) "
+                "VALUES ('local', 'reader_profiles_test', 'orders', 'status', 3, 0.0, "
+                " ARRAY['OPEN', 'SHIPPED', 'CANCELLED'])"
+            )
+        )
+
+    profiles = PostgresSemanticCatalogReader(migrated_engine).read_column_profiles(
+        SchemaRef(datasource_name="local", schema_name="reader_profiles_test")
+    )
+
+    assert profiles[0].sample_values == ("OPEN", "SHIPPED", "CANCELLED")

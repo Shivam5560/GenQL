@@ -25,6 +25,7 @@ forbidden_modules =
     psycopg
     neo4j
     graphdatascience
+    httpx
 
 [importlinter:contract:no-sql-in-services]
 name = Services never touch a database driver
@@ -38,3 +39,4 @@ forbidden_modules =
     psycopg
     neo4j
     graphdatascience
+    httpx
