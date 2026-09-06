@@ -47,3 +47,16 @@ class Settings(BaseSettings):
     # pattern for a required-at-use-time secret is exactly openrouter_api_key's
     # — default empty, typed error at the point of use.
     readonly_db_password: str = ""
+    # Below this per-dimension confidence, the gate treats the dimension as
+    # unspecified and asks about it. 0.7 rather than 0.5 because a wrong
+    # assumption costs a whole wasted pipeline run, while an unnecessary
+    # question costs one round trip.
+    ambiguity_threshold: float = 0.7
+    # How many retrieval hits the plurality vote is taken over. Larger than
+    # search_top_k (10) on purpose: scoping wants a broad sample of which
+    # domains the question touches, not the best ten objects.
+    domain_scoping_sample_size: int = 20
+    # PostgresSaver's own pool, separate from the SQLAlchemy engine pool and
+    # from the advisory lock's dedicated connection. Small because a CLI turn
+    # is single-threaded; an API server would raise it.
+    checkpoint_pool_max_size: int = 4
