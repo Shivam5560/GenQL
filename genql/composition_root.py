@@ -112,7 +112,9 @@ class Container(containers.DeclarativeContainer):
         DatasourceService,
         datasources=datasource_repository,
         dialects=providers.Callable(CATALOG_READERS.keys),
+        dialect_registry=CATALOG_READERS.name,
         env=os.environ,
+        engines=engine_provider,
     )
     schema_registration_service = providers.Singleton(
         SchemaRegistrationService,

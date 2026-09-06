@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import Any
 
-from sqlalchemy import Engine, text
+from sqlalchemy import Engine, Row, text
+from sqlalchemy.sql.elements import TextClause
 
 from genql.domain.entities.column import Column
 from genql.domain.entities.constraint import Constraint
 from genql.domain.entities.database_object import DatabaseObject
+from genql.domain.errors import CatalogAccessError
 from genql.domain.value_objects.constraint_type import ConstraintType
 from genql.domain.value_objects.object_type import ObjectType
 from genql.domain.value_objects.schema_ref import SchemaRef
@@ -80,9 +83,22 @@ class PostgresCatalogReaderRepository:
     def __init__(self, engine: Engine) -> None:
         self._engine = engine
 
+    def _rows(self, statement: TextClause, ref: SchemaRef) -> Sequence[Row[Any]]:
+        """Run one catalog query, translating driver failures into the domain.
+
+        A dropped connection, a revoked SELECT on pg_class, or an unreachable
+        host must reach the caller as a typed CatalogAccessError, the same way
+        PostgresProfileReaderRepository raises ProfilingError: the discovery
+        step catches DiscoveryError, and a raw DBAPIError would sail past it.
+        """
+        try:
+            with self._engine.connect() as conn:
+                return conn.execute(statement, {"schema": ref.schema_name}).all()
+        except Exception as exc:  # noqa: BLE001 - re-raised as a typed domain error
+            raise CatalogAccessError(f"failed to read {ref.qualified_name}: {exc}") from exc
+
     def read_objects(self, ref: SchemaRef) -> Sequence[DatabaseObject]:
-        with self._engine.connect() as conn:
-            rows = conn.execute(_OBJECTS_SQL, {"schema": ref.schema_name}).all()
+        rows = self._rows(_OBJECTS_SQL, ref)
         return [
             DatabaseObject(
                 datasource_name=ref.datasource_name,
@@ -99,8 +115,7 @@ class PostgresCatalogReaderRepository:
         ]
 
     def read_columns(self, ref: SchemaRef) -> Sequence[Column]:
-        with self._engine.connect() as conn:
-            rows = conn.execute(_COLUMNS_SQL, {"schema": ref.schema_name}).all()
+        rows = self._rows(_COLUMNS_SQL, ref)
         return [
             Column(
                 datasource_name=ref.datasource_name,
@@ -116,8 +131,7 @@ class PostgresCatalogReaderRepository:
         ]
 
     def read_constraints(self, ref: SchemaRef) -> Sequence[Constraint]:
-        with self._engine.connect() as conn:
-            rows = conn.execute(_CONSTRAINTS_SQL, {"schema": ref.schema_name}).all()
+        rows = self._rows(_CONSTRAINTS_SQL, ref)
         return [
             Constraint(
                 datasource_name=ref.datasource_name,

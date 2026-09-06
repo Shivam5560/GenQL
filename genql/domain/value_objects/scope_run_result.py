@@ -16,4 +16,10 @@ class ScopeRunResult(BaseModel):
 
     @property
     def succeeded(self) -> bool:
-        return all(r.succeeded for r in self.results)
+        """True only when at least one step ran and every one of them passed.
+
+        `all(())` is True, so without the emptiness guard a run that executed
+        no steps at all would look like a success and stamp
+        `last_discovered_at` for a schema nothing was discovered from.
+        """
+        return bool(self.results) and all(r.succeeded for r in self.results)

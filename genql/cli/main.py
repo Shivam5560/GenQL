@@ -33,17 +33,20 @@ def discover(
 ) -> None:
     """Run the offline discovery pipeline over the resolved scope."""
     container = Container()
+    # Both calls are inside the guard: an unresolvable scope and an unknown
+    # --start-from are both the caller's mistake, and neither deserves a
+    # traceback. Per-schema failures never land here — run_scope reports those
+    # as failed outcomes below.
     try:
         scope = container.scope_resolver().resolve(datasource, schema)
+        outcomes = container.discovery_runner().run_scope(
+            scope,
+            sample_limit=container.settings().profile_sample_limit,
+            start_from=start_from,
+        )
     except GenqlError as exc:
         typer.echo(str(exc))
         raise typer.Exit(code=1) from exc
-
-    outcomes = container.discovery_runner().run_scope(
-        scope,
-        sample_limit=container.settings().profile_sample_limit,
-        start_from=start_from,
-    )
 
     failed = False
     for outcome in outcomes:

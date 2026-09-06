@@ -114,6 +114,11 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    # Safe only on a single-datasource store. Restoring the pre-datasource
+    # unique constraints drops `datasource_name` from the identity, so a store
+    # holding the same (schema_name, object_name) in two datasources — exactly
+    # what the upgrade makes possible — fails here on a duplicate key. Reduce
+    # to one datasource before downgrading.
     for table in _CATALOG_TABLES:
         op.drop_constraint(f"fk_{table}_schema", table, type_="foreignkey", schema="genql")
         constraint_name, columns = _IDENTITY_CONSTRAINTS[table]

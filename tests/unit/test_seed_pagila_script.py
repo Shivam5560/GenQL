@@ -21,11 +21,14 @@ def _text() -> str:
     return SCRIPT.read_text(encoding="utf-8")
 
 
-def test_every_psql_invocation_that_runs_dump_files_stops_on_error() -> None:
-    text = _text()
-    for line in text.splitlines():
-        if "-f " in line and "psql" in line:
-            assert "-v ON_ERROR_STOP=1" in line, f"missing ON_ERROR_STOP: {line}"
+def test_the_default_loader_stops_on_the_first_error() -> None:
+    """The dumps are fed to $SEED_EXEC on stdin, not with `psql -f`, so the
+    ON_ERROR_STOP guard has exactly one place to live: the default value of
+    SEED_EXEC. Without it a mid-file failure leaves a half-loaded schema and
+    the script still exits 0."""
+    definition = next(line for line in _text().splitlines() if line.startswith("SEED_EXEC="))
+    assert "psql" in definition, definition
+    assert "ON_ERROR_STOP=1" in definition, definition
 
 
 def test_the_dump_is_rewritten_to_target_the_pagila_schema_before_running() -> None:

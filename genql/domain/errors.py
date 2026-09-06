@@ -61,6 +61,23 @@ class MissingDatasourceSecretError(DatasourceError):
         self.env_var = env_var
 
 
+class EmptySchemaError(DatasourceError):
+    """Registration found no readable objects in the named schema.
+
+    Distinct from UnknownSchemaRegistrationError, which means "no such row in
+    the semantic store". A reader that returns nothing cannot tell an empty
+    schema apart from an absent one or one this role cannot see, so the
+    message names all three rather than asserting the wrong one.
+    """
+
+    def __init__(self, qualified_name: str) -> None:
+        super().__init__(
+            f"{qualified_name!r} exposes no readable objects: it is empty, does not "
+            "exist, or is not visible to the role this datasource connects as"
+        )
+        self.qualified_name = qualified_name
+
+
 class UnknownSchemaRegistrationError(DatasourceError):
     def __init__(self, qualified_name: str, available: list[str]) -> None:
         options = ", ".join(available) or "<none registered>"

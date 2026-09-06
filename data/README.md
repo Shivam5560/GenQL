@@ -18,10 +18,12 @@ GENQL_SEED_EXEC='ssh genql-vm docker exec -i genql-paradedb psql -U genql -d gen
 ## Registering them
 
 ```bash
-uv run genql datasource add --name local --dialect postgres --dsn-env GENQL_WAREHOUSE_DSN
-uv run genql datasource add --name wh2   --dialect postgres --dsn-env GENQL_WH2_DSN
+# `local` already exists: migration 0003 inserts it, pointing at
+# GENQL_WAREHOUSE_DSN. Registering it again raises DuplicateDatasourceError.
+uv run genql datasource list
+uv run genql datasource add --name wh2 --dialect postgres --dsn-env GENQL_WH2_DSN
 uv run genql schema add --datasource local --schema tpcds
-uv run genql schema add --datasource wh2   --schema pagila
+uv run genql schema add --datasource wh2 --schema pagila
 uv run genql discover --datasource local
 ```
 

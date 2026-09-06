@@ -25,6 +25,11 @@ class ExplicitScopeResolver:
         registrations: SchemaRegistrationRepository,
         default_datasource: str | None = None,
     ) -> None:
+        # `default_datasource` is accepted and deliberately unused: both
+        # resolvers share one constructor signature so SCOPE_RESOLVERS can
+        # build either by key without knowing which. Refusing an implicit
+        # default is this resolver's entire point — do not remove the
+        # parameter, or the registry can no longer construct it.
         self._datasources = datasources
         self._registrations = registrations
 

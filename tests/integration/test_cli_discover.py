@@ -29,8 +29,11 @@ def wired(
     register_schema("local", "e2e")
     monkeypatch.setenv("GENQL_WAREHOUSE_DSN", paradedb_dsn)
     monkeypatch.setenv("GENQL_SEMANTIC_DSN", paradedb_dsn)
-    # dependency-injector 4.49.1 exposes reset_singletons only as an instance
-    # method; the providers it clears are class-level, so any instance works.
+    # DeclarativeContainer deep-copies its providers on every instantiation, so
+    # this clears the singletons of this throwaway instance only — it is a
+    # no-op for the fresh Container() each command builds, kept because every
+    # Container() in these tests is already fresh and nothing here depends on
+    # cross-instance state. Do not read it as global test isolation.
     Container().reset_singletons()
     return migrated_engine
 

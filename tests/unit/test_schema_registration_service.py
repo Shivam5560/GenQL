@@ -9,7 +9,7 @@ import pytest
 from genql.domain.entities.database_object import DatabaseObject
 from genql.domain.entities.datasource import Datasource
 from genql.domain.entities.schema_registration import SchemaRegistration
-from genql.domain.errors import UnknownSchemaRegistrationError
+from genql.domain.errors import EmptySchemaError, UnknownSchemaRegistrationError
 from genql.domain.value_objects.object_type import ObjectType
 from genql.domain.value_objects.schema_ref import SchemaRef
 from genql.services.datasource.schema_registration_service import SchemaRegistrationService
@@ -100,10 +100,15 @@ def test_register_persists_a_schema_that_exists() -> None:
 
 
 def test_register_refuses_a_schema_the_warehouse_does_not_have() -> None:
+    """A reader that returns nothing cannot distinguish absent from empty, so
+    the error says so instead of claiming the schema is unregistered — which
+    is what UnknownSchemaRegistrationError means everywhere else."""
     service = SchemaRegistrationService(FakeDatasources(), FakeRegistrations(), FakeFactory(EMPTY))
 
-    with pytest.raises(UnknownSchemaRegistrationError, match="local.shop"):
+    with pytest.raises(EmptySchemaError, match="local.shop") as excinfo:
         service.register(REF, None)
+
+    assert "not a registered schema" not in str(excinfo.value)
 
 
 def test_remove_delegates_to_the_repository() -> None:

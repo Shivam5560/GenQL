@@ -36,8 +36,22 @@ class FakeDatasources:
         del self.rows[name]
 
 
-def _service(repo: FakeDatasources) -> DatasourceService:
-    return DatasourceService(datasources=repo, dialects=["postgres"], env=ENV)
+class FakeEngines:
+    def __init__(self) -> None:
+        self.invalidated: list[str] = []
+
+    def invalidate(self, name: str) -> None:
+        self.invalidated.append(name)
+
+
+def _service(repo: FakeDatasources, engines: FakeEngines | None = None) -> DatasourceService:
+    return DatasourceService(
+        datasources=repo,
+        dialects=["postgres"],
+        dialect_registry="catalog_readers",
+        env=ENV,
+        engines=engines or FakeEngines(),
+    )
 
 
 def test_register_persists_the_datasource() -> None:
@@ -67,3 +81,25 @@ def test_remove_delegates_to_the_repository() -> None:
     service.remove("wh2")
 
     assert repo.rows == {}
+
+
+def test_remove_drops_the_cached_engine_for_that_datasource() -> None:
+    """Otherwise this process keeps a pooled connection to a warehouse it no
+    longer knows about, and re-adding the name reuses the stale one."""
+    repo = FakeDatasources()
+    engines = FakeEngines()
+    service = _service(repo, engines)
+    service.register("wh2", "postgres", "GENQL_WH2_DSN", None)
+
+    service.remove("wh2")
+
+    assert engines.invalidated == ["wh2"]
+
+
+def test_a_refused_removal_leaves_the_engine_cache_alone() -> None:
+    engines = FakeEngines()
+
+    with pytest.raises(UnknownDatasourceError):
+        _service(FakeDatasources(), engines).remove("absent")
+
+    assert engines.invalidated == []
