@@ -25,6 +25,8 @@ from genql.infrastructure.catalog.catalog_reader_factory import CatalogReaderFac
 from genql.infrastructure.catalog.profile_reader_factory import ProfileReaderFactoryImpl
 from genql.infrastructure.db.engine import create_engine_from_dsn
 from genql.infrastructure.db.engine_provider import DatasourceEngineProvider
+from genql.infrastructure.graph.neo4j_driver import create_neo4j_driver
+from genql.repositories.graph.graph_writer_repository import Neo4jGraphWriterRepository
 from genql.repositories.semantic.catalog_writer_repository import (
     PostgresCatalogWriterRepository,
 )
@@ -35,11 +37,15 @@ from genql.repositories.semantic.profile_writer_repository import (
 from genql.repositories.semantic.schema_registration_repository import (
     PostgresSchemaRegistrationRepository,
 )
+from genql.repositories.semantic.semantic_catalog_reader_repository import (
+    PostgresSemanticCatalogReader,
+)
 from genql.repositories.warehouse.registry import CATALOG_READERS
 from genql.services.datasource.datasource_service import DatasourceService
 from genql.services.datasource.schema_registration_service import SchemaRegistrationService
 from genql.services.discovery.catalog_scan_service import CatalogScanService
 from genql.services.discovery.profiling_service import ProfilingService
+from genql.services.graph.graph_projection_service import GraphProjectionService
 from genql.services.scope.registry import SCOPE_RESOLVERS
 
 
@@ -79,6 +85,13 @@ class Container(containers.DeclarativeContainer):
         create_engine_from_dsn, dsn=settings.provided.semantic_dsn
     )
 
+    neo4j_driver = providers.Singleton(
+        create_neo4j_driver,
+        uri=settings.provided.neo4j_uri,
+        user=settings.provided.neo4j_user,
+        password=settings.provided.neo4j_password,
+    )
+
     catalog_writer = providers.Singleton(PostgresCatalogWriterRepository, engine=semantic_engine)
     profile_writer = providers.Singleton(PostgresProfileWriterRepository, engine=semantic_engine)
 
@@ -106,6 +119,16 @@ class Container(containers.DeclarativeContainer):
         catalog_readers=catalog_reader_factory,
         profile_readers=profile_reader_factory,
         writer=profile_writer,
+    )
+
+    semantic_catalog_reader = providers.Singleton(
+        PostgresSemanticCatalogReader, engine=semantic_engine
+    )
+    graph_writer = providers.Singleton(Neo4jGraphWriterRepository, driver=neo4j_driver)
+    graph_projection_service = providers.Factory(
+        GraphProjectionService,
+        reader=semantic_catalog_reader,
+        writer=graph_writer,
     )
 
     datasource_service = providers.Singleton(
@@ -138,6 +161,7 @@ class Container(containers.DeclarativeContainer):
     _step_service_providers: dict[str, providers.Provider[Any]] = {
         "catalog_scan": catalog_scan_service,
         "data_profiling": profiling_service,
+        "graph_projection": graph_projection_service,
     }
 
     discovery_runner = providers.Factory(
