@@ -7,6 +7,7 @@ import pytest
 from alembic import command
 from alembic.config import Config
 from sqlalchemy import Engine, text
+from testcontainers.neo4j import Neo4jContainer
 from testcontainers.postgres import PostgresContainer
 
 from genql.infrastructure.db.engine import create_engine_from_dsn
@@ -99,3 +100,16 @@ def _skip_without_tpcds(request: pytest.FixtureRequest, engine: Engine) -> None:
         ).scalar_one()
     if not seeded:
         pytest.skip("tpcds schema not seeded; run data/seed_tpcds.py")
+
+
+@pytest.fixture(scope="session")
+def neo4j_uri() -> Iterator[str]:
+    """Prefer a running stack; fall back to an ephemeral container, same
+    rule as `paradedb_dsn`."""
+    uri = os.environ.get("GENQL_TEST_NEO4J_URI")
+    if uri:
+        yield uri
+        return
+
+    with Neo4jContainer(image="neo4j:5-community") as running:
+        yield running.get_connection_url()

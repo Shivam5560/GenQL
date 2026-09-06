@@ -10,5 +10,6 @@ from __future__ import annotations
 
 from genql.discovery.steps.catalog_scan_step import CatalogScanStep
 from genql.discovery.steps.data_profiling_step import DataProfilingStep
+from genql.discovery.steps.graph_projection_step import GraphProjectionStep
 
-__all__ = ["CatalogScanStep", "DataProfilingStep"]
+__all__ = ["CatalogScanStep", "DataProfilingStep", "GraphProjectionStep"]

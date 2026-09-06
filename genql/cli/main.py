@@ -5,6 +5,7 @@ from __future__ import annotations
 import typer
 
 from genql.cli.commands import datasource as datasource_commands
+from genql.cli.commands import graph as graph_commands
 from genql.cli.commands import schema as schema_commands
 from genql.composition_root import Container
 from genql.discovery.registry import DISCOVERY_STEPS
@@ -12,6 +13,7 @@ from genql.domain.errors import GenqlError
 
 app = typer.Typer(help="GenQL — enterprise NL2SQL with semantic enrichment")
 app.add_typer(datasource_commands.app, name="datasource")
+app.add_typer(graph_commands.app, name="graph")
 app.add_typer(schema_commands.app, name="schema")
 
 

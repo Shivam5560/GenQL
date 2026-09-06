@@ -95,3 +95,11 @@ class AmbiguousScopeError(DatasourceError):
             "Pass --datasource, or set GENQL_DEFAULT_DATASOURCE."
         )
         self.candidates = candidates
+
+
+class GraphProjectionError(DiscoveryError):
+    """One schema's objects or FK edges could not be written into the graph."""
+
+
+class GraphAnalysisError(DiscoveryError):
+    """Clustering, embedding, or join-path mining could not complete."""
