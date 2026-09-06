@@ -26,6 +26,7 @@ def container(monkeypatch: pytest.MonkeyPatch) -> Container:
     monkeypatch.setenv("GENQL_NEO4J_URI", "bolt://localhost:7687")
     monkeypatch.setenv("GENQL_NEO4J_USER", "neo4j")
     monkeypatch.setenv("GENQL_NEO4J_PASSWORD", "x")
+    monkeypatch.setenv("GENQL_OPENROUTER_API_KEY", "test-key")
     Container().reset_singletons()
     return Container()
 
@@ -69,3 +70,43 @@ def test_the_container_builds_a_graph_projection_service(container: Container) -
     service = container.graph_projection_service()
 
     assert hasattr(service, "project")
+
+
+def test_the_runner_includes_object_profiling(container: Container) -> None:
+    runner = container.discovery_runner()
+
+    step_names = [step.name for step in runner._steps]  # noqa: SLF001
+
+    assert "object_profiling" in step_names
+
+
+def test_the_container_builds_a_chat_provider(container: Container) -> None:
+    assert hasattr(container.chat_provider(), "complete")
+
+
+def test_the_container_builds_an_embedding_provider(container: Container) -> None:
+    assert hasattr(container.embedding_provider(), "embed")
+
+
+def test_the_container_builds_a_rerank_provider_when_enabled(container: Container) -> None:
+    assert hasattr(container.rerank_provider(), "rerank")
+
+
+def test_the_container_builds_an_object_profiling_service(container: Container) -> None:
+    assert hasattr(container.object_profiling_service(), "profile")
+
+
+def test_the_container_builds_a_domain_discovery_service(container: Container) -> None:
+    assert hasattr(container.domain_discovery_service(), "discover")
+
+
+def test_the_container_builds_a_semantic_overlay_service(container: Container) -> None:
+    assert hasattr(container.semantic_overlay_service(), "apply")
+
+
+def test_the_container_builds_a_compile_service(container: Container) -> None:
+    assert hasattr(container.compile_service(), "compile")
+
+
+def test_the_container_builds_a_retrieval_service(container: Container) -> None:
+    assert hasattr(container.retrieval_service(), "search")
