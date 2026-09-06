@@ -52,3 +52,21 @@ def compile_command(
         typer.echo(str(exc))
         raise typer.Exit(code=1) from exc
     typer.echo(f"{report.documents} documents compiled, {report.comments_written} comments written")
+
+
+@app.command("search")
+def search(
+    datasource: str = typer.Option(..., "--datasource"),
+    question: str = typer.Argument(...),
+    top_k: int = typer.Option(10, "--top-k"),
+    domain_id: int | None = typer.Option(None, "--domain-id"),
+) -> None:
+    """Hybrid retrieval plus reranking — the first command that answers
+    something resembling the product question."""
+    try:
+        results = Container().retrieval_service().search(datasource, question, top_k, domain_id)
+    except GenqlError as exc:
+        typer.echo(str(exc))
+        raise typer.Exit(code=1) from exc
+    for r in results:
+        typer.echo(f"{r.schema_name}.{r.object_name}  domain={r.domain_name}  score={r.score:.4f}")
