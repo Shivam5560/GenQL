@@ -23,6 +23,7 @@ from genql.repositories.semantic.domain_repository import PostgresDomainReposito
 from genql.repositories.semantic.enrichment_repository import PostgresEnrichmentRepository
 from genql.repositories.semantic.metric_repository import PostgresMetricRepository
 from genql.repositories.semantic.registry import ENRICHERS, RETRIEVERS
+from genql.repositories.semantic.rule_repository import PostgresRuleReader, PostgresRuleWriter
 from genql.repositories.semantic.search_document_repository import SearchDocumentCompiler
 from genql.services.semantic.compile_service import CompileService
 from genql.services.semantic.domain_discovery_service import DomainDiscoveryService
@@ -62,6 +63,8 @@ class SemanticContainer(GraphContainer, GatewayContainer):
     metric_repository = providers.Singleton(
         PostgresMetricRepository, engine=GraphContainer.semantic_engine
     )
+    rule_reader = providers.Singleton(PostgresRuleReader, engine=GraphContainer.semantic_engine)
+    rule_writer = providers.Singleton(PostgresRuleWriter, engine=GraphContainer.semantic_engine)
 
     object_profiling_service = providers.Factory(
         ObjectProfilingService,
@@ -94,6 +97,7 @@ class SemanticContainer(GraphContainer, GatewayContainer):
         enrichment_reader=enrichment_repository,
         enrichment_writer=enrichment_repository,
         metric_writer=metric_repository,
+        rule_writer=rule_writer,
         join_path_writer=GraphContainer.join_path_writer,
         enrichers=providers.Factory(build_enrichers),
     )

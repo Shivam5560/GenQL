@@ -141,3 +141,8 @@ def test_the_guardrail_factory_resolves_all_five_registered_rules(container: Con
 
 def test_the_container_builds_an_invokable_query_graph(container: Container) -> None:
     assert hasattr(container.query_graph(), "invoke")
+
+
+def test_the_container_builds_a_rule_reader_and_writer(container: Container) -> None:
+    assert hasattr(container.rule_reader(), "read_rules")
+    assert hasattr(container.rule_writer(), "write_rules")

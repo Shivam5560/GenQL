@@ -34,6 +34,15 @@ class MetricOverlay(BaseModel):
     default_filters: dict[str, str] = Field(default_factory=dict)
 
 
+class RuleOverlay(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    name: str
+    dimension: str
+    value: str
+    description: str
+
+
 class JoinHintOverlay(BaseModel):
     model_config = ConfigDict(frozen=True)
 
@@ -49,4 +58,5 @@ class SemanticOverlay(BaseModel):
     datasource: str
     objects: dict[str, ObjectOverlay] = Field(default_factory=dict)
     metrics: tuple[MetricOverlay, ...] = ()
+    rules: tuple[RuleOverlay, ...] = ()
     join_hints: tuple[JoinHintOverlay, ...] = ()

@@ -41,3 +41,45 @@ def test_valid_yaml_parses_into_a_semantic_overlay() -> None:
 def test_invalid_yaml_raises_a_validation_error() -> None:
     with pytest.raises(ValidationError):
         SemanticOverlay.model_validate(yaml.safe_load(INVALID_YAML))
+
+
+def test_a_rules_block_parses_into_rule_overlays() -> None:
+    overlay = SemanticOverlay.model_validate(
+        yaml.safe_load(
+            """
+            datasource: local
+            rules:
+              - name: default_period
+                dimension: time_range
+                value: fiscal_year_to_date
+                description: An unqualified period means the fiscal year to date.
+              - name: active_only
+                dimension: filter
+                value: status = 'active'
+                description: Customers means active customers unless stated otherwise.
+            """
+        )
+    )
+
+    assert [r.name for r in overlay.rules] == ["default_period", "active_only"]
+    assert overlay.rules[0].dimension == "time_range"
+
+
+def test_an_overlay_with_no_rules_block_defaults_to_empty() -> None:
+    overlay = SemanticOverlay.model_validate(yaml.safe_load("datasource: local\n"))
+
+    assert overlay.rules == ()
+
+
+def test_a_rule_missing_a_required_field_fails_validation() -> None:
+    with pytest.raises(ValidationError):
+        SemanticOverlay.model_validate(
+            yaml.safe_load(
+                """
+                datasource: local
+                rules:
+                  - name: default_period
+                    dimension: time_range
+                """
+            )
+        )

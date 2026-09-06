@@ -4,10 +4,12 @@ registry rather than an inline `if overlay is not None` keeps the merge rule
 swappable per kind later without touching this service.
 
 Metrics have no merge step: nothing else proposes a metric, so they are
-always YAML-authored and simply upserted. Join hints become JoinPath rows
-with provenance=YAML, written through the existing JoinPathWriter — a YAML
-join hint is not a new concept, it is another path with a different
-provenance."""
+always YAML-authored and simply upserted. Rules follow that precedent exactly
+— nothing else proposes an ambiguity default either, so genql_rule is written
+unconditionally through RuleWriter with no Enricher involved. Join hints
+become JoinPath rows with provenance=YAML, written through the existing
+JoinPathWriter — a YAML join hint is not a new concept, it is another path
+with a different provenance."""
 
 from __future__ import annotations
 
@@ -20,12 +22,14 @@ from genql.domain.entities.enrichment_field import EnrichmentField, EnrichmentKi
 from genql.domain.entities.join_path import JoinPath
 from genql.domain.entities.metric import Metric
 from genql.domain.entities.object_enrichment import ObjectEnrichment
+from genql.domain.entities.rule import Rule
 from genql.domain.entities.semantic_overlay import SemanticOverlay
 from genql.domain.ports.enricher import Enricher
 from genql.domain.ports.enrichment_reader import EnrichmentReader
 from genql.domain.ports.enrichment_writer import EnrichmentWriter
 from genql.domain.ports.join_path_writer import JoinPathWriter
 from genql.domain.ports.metric_writer import MetricWriter
+from genql.domain.ports.rule_writer import RuleWriter
 from genql.domain.value_objects.provenance import Provenance
 from genql.domain.value_objects.schema_ref import SchemaRef
 
@@ -36,21 +40,24 @@ class OverlayReport(BaseModel):
     objects_updated: int
     columns_updated: int
     metrics_written: int
+    rules_written: int
     join_hints_written: int
 
 
 class SemanticOverlayService:
-    def __init__(
+    def __init__(  # noqa: PLR0913, PLR0917 - one port per overlay kind (Task 4 adds RuleWriter)
         self,
         enrichment_reader: EnrichmentReader,
         enrichment_writer: EnrichmentWriter,
         metric_writer: MetricWriter,
+        rule_writer: RuleWriter,
         join_path_writer: JoinPathWriter,
         enrichers: Sequence[Enricher],
     ) -> None:
         self._reader = enrichment_reader
         self._writer = enrichment_writer
         self._metric_writer = metric_writer
+        self._rule_writer = rule_writer
         self._join_path_writer = join_path_writer
         self._enrichers = {e.key: e for e in enrichers}
 
@@ -164,6 +171,17 @@ class SemanticOverlayService:
         ]
         metrics_written = self._metric_writer.write(metrics) if metrics else 0
 
+        rules = tuple(
+            Rule(
+                name=r.name,
+                dimension=r.dimension,
+                value=r.value,
+                description=r.description,
+            )
+            for r in overlay.rules
+        )
+        rules_written = self._rule_writer.write_rules(overlay.datasource, rules) if rules else 0
+
         join_hints = [
             JoinPath(
                 datasource_name=overlay.datasource,
@@ -182,6 +200,7 @@ class SemanticOverlayService:
             objects_updated=objects_updated,
             columns_updated=columns_updated,
             metrics_written=metrics_written,
+            rules_written=rules_written,
             join_hints_written=join_hints_written,
         )
 

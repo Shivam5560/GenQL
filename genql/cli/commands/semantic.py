@@ -36,7 +36,8 @@ def overlay(datasource: str = typer.Option(..., "--datasource")) -> None:
         raise typer.Exit(code=1) from exc
     typer.echo(
         f"{report.objects_updated} objects, {report.columns_updated} columns, "
-        f"{report.metrics_written} metrics, {report.join_hints_written} join hints"
+        f"{report.metrics_written} metrics, {report.rules_written} rules, "
+        f"{report.join_hints_written} join hints"
     )
 
 
