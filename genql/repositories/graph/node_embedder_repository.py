@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from neo4j.exceptions import DriverError, Neo4jError
+
+from genql.domain.errors import GraphAnalysisError
 from genql.infrastructure.graph.gds_client_provider import GdsClientProvider
 from genql.infrastructure.graph.graph_catalog_session import GraphCatalogSession
 from genql.repositories.graph.registry import NODE_EMBEDDERS
@@ -15,8 +18,13 @@ class FastRpNodeEmbedder:
         self._gds_provider = gds_provider
 
     def embed(self, datasource_name: str) -> int:
-        with GraphCatalogSession(self._gds_provider, datasource_name) as graph:
-            result = self._gds_provider.client().fastRP.write(  # type: ignore[attr-defined]
-                graph, writeProperty="embedding", embeddingDimension=_EMBEDDING_DIMENSION
-            )
+        try:
+            with GraphCatalogSession(self._gds_provider, datasource_name) as graph:
+                result = self._gds_provider.client().fastRP.write(  # type: ignore[attr-defined]
+                    graph, writeProperty="embedding", embeddingDimension=_EMBEDDING_DIMENSION
+                )
+        except (Neo4jError, DriverError) as exc:
+            raise GraphAnalysisError(
+                f"failed to embed nodes for {datasource_name!r}: {exc}"
+            ) from exc
         return int(result["nodePropertiesWritten"])

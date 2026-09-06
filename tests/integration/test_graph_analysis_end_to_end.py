@@ -4,11 +4,15 @@ for this phase."""
 
 from __future__ import annotations
 
+import re
+
 from typer.testing import CliRunner
 
 from genql.cli.main import app
 
 runner = CliRunner()
+
+_REPORT_LINE = re.compile(r"(\d+) communities, (\d+) nodes embedded, (\d+) join paths")
 
 
 def test_discover_then_analyze_produces_communities_embeddings_and_paths() -> None:
@@ -18,6 +22,12 @@ def test_discover_then_analyze_produces_communities_embeddings_and_paths() -> No
     analyze_result = runner.invoke(app, ["graph", "analyze", "--datasource", "local"])
 
     assert analyze_result.exit_code == 0
-    assert "0 communities" not in analyze_result.stdout
-    assert "0 nodes embedded" not in analyze_result.stdout
-    assert "0 join paths" not in analyze_result.stdout
+    # Substring checks like `"0 communities" not in stdout` false-fail on any
+    # correct count ending in a zero digit (e.g. "10 communities" contains
+    # "0 communities"), so parse the actual numbers out and compare them.
+    match = _REPORT_LINE.search(analyze_result.stdout)
+    assert match is not None, f"unexpected report line: {analyze_result.stdout!r}"
+    communities, nodes_embedded, join_paths = (int(group) for group in match.groups())
+    assert communities > 0
+    assert nodes_embedded > 0
+    assert join_paths > 0

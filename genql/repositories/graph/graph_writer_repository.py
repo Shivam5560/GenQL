@@ -10,11 +10,14 @@ the constraint's own schema.
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import Any
 
-from neo4j import Driver
+from neo4j import Driver, ResultSummary
+from neo4j.exceptions import DriverError, Neo4jError
 
 from genql.domain.entities.constraint import Constraint
 from genql.domain.entities.database_object import DatabaseObject
+from genql.domain.errors import GraphProjectionError
 from genql.domain.value_objects.constraint_type import ConstraintType
 
 _ENSURE_CONSTRAINT = (
@@ -62,8 +65,7 @@ class Neo4jGraphWriterRepository:
             }
             for o in objects
         ]
-        with self._driver.session() as session:
-            session.run(_MERGE_OBJECTS, rows=rows)
+        self._run(_MERGE_OBJECTS, "write objects into the graph", rows=rows)
         return len(rows)
 
     def write_edges(self, constraints: Sequence[Constraint]) -> int:
@@ -82,13 +84,29 @@ class Neo4jGraphWriterRepository:
         ]
         if not rows:
             return 0
-        with self._driver.session() as session:
-            session.run(_MERGE_EDGES, rows=rows)
-        return len(rows)
+        summary = self._run(_MERGE_EDGES, "write edges into the graph", rows=rows)
+        return int(summary.counters.relationships_created)
 
     def _ensure_constraint(self) -> None:
         if self._constraint_ensured:
             return
-        with self._driver.session() as session:
-            session.run(_ENSURE_CONSTRAINT)
+        self._run(_ENSURE_CONSTRAINT, "ensure the graph's uniqueness constraint")
         self._constraint_ensured = True
+
+    def _run(self, statement: str, action: str, **params: Any) -> ResultSummary:
+        """Run one write query, translating driver/server failures into the
+        domain the way PostgresCatalogReaderRepository._rows does: a dropped
+        connection or a Cypher-level failure must reach the caller as a typed
+        GraphProjectionError, since GraphProjectionStep only catches
+        DiscoveryError and a raw neo4j exception would sail past it and abort
+        the whole discovery scope.
+
+        Returns the driver's result summary, whose `.counters` reflect what
+        was actually written — not the row count submitted.
+        """
+        try:
+            with self._driver.session() as session:
+                result = session.run(statement, **params)
+                return result.consume()
+        except (Neo4jError, DriverError) as exc:
+            raise GraphProjectionError(f"failed to {action}: {exc}") from exc

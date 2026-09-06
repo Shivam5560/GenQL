@@ -20,7 +20,9 @@ app = typer.Typer(help="Project, analyze, and rebuild the graph")
 def analyze(datasource: str = typer.Option(..., "--datasource")) -> None:
     """Run Leiden, FastRP, and join-path mining over one datasource's graph."""
     try:
-        report = Container().graph_analysis_service().analyze(datasource)
+        container = Container()
+        container.datasource_repository().get(datasource)
+        report = container.graph_analysis_service().analyze(datasource)
     except GenqlError as exc:
         typer.echo(str(exc))
         raise typer.Exit(code=1) from exc

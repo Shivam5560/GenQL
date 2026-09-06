@@ -23,7 +23,13 @@ class FakeCypherProjector:
         self.calls: list[dict[str, Any]] = []
 
     def cypher(self, name: str, node_query: str, relationship_query: str, **kwargs: Any) -> tuple:
-        self.calls.append({"name": name, "parameters": kwargs.get("parameters")})
+        self.calls.append(
+            {
+                "name": name,
+                "parameters": kwargs.get("parameters"),
+                "relationship_query": relationship_query,
+            }
+        )
         return self._graph, None
 
 
@@ -75,3 +81,19 @@ def test_the_graph_name_and_parameters_are_scoped_to_the_datasource() -> None:
 
     assert projector.calls[0]["name"] == "graph_wh2"
     assert projector.calls[0]["parameters"] == {"datasource_name": "wh2"}
+
+
+def test_the_relationship_query_is_undirected_so_gds_can_traverse_both_ways() -> None:
+    """A directed pattern (`-[:REFERENCES]->`) would make GDS project a
+    directed graph, which breaks Leiden (undefined on directed graphs) and
+    hides dim-to-dim join paths through a shared fact table. The Cypher
+    pattern must carry no arrowhead."""
+    graph = FakeGraph()
+    projector = FakeCypherProjector(graph)
+    provider = FakeGdsProvider(FakeGds(projector))
+
+    with GraphCatalogSession(provider, "wh2"):  # type: ignore[arg-type]
+        pass
+
+    assert "->" not in projector.calls[0]["relationship_query"]
+    assert "<-" not in projector.calls[0]["relationship_query"]

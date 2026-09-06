@@ -17,9 +17,15 @@ from typing import Any, Literal
 from genql.infrastructure.graph.gds_client_provider import GdsClientProvider
 
 _NODE_QUERY = "MATCH (o:Object {datasource_name: $datasource_name}) RETURN id(o) AS id"
+# The pattern has no arrowhead so it matches a :REFERENCES edge in either
+# direction. That is what makes gds.graph.project.cypher treat the projected
+# graph as undirected — required by Leiden, which is undefined on directed
+# graphs, and by join-path mining, which must be able to reach dim2 from
+# dim1 through a shared fact table even though the FK edges themselves only
+# point fact -> dim.
 _RELATIONSHIP_QUERY = (
     "MATCH (s:Object {datasource_name: $datasource_name})"
-    "-[:REFERENCES]->(t:Object {datasource_name: $datasource_name}) "
+    "-[:REFERENCES]-(t:Object {datasource_name: $datasource_name}) "
     "RETURN id(s) AS source, id(t) AS target"
 )
 
