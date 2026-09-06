@@ -32,6 +32,17 @@ def analyze(datasource: str = typer.Option(..., "--datasource")) -> None:
     )
 
 
+@app.command("domains")
+def domains(datasource: str = typer.Option(..., "--datasource")) -> None:
+    """Fuse structural and text embeddings into named business domains."""
+    try:
+        report = Container().domain_discovery_service().discover(datasource)
+    except GenqlError as exc:
+        typer.echo(str(exc))
+        raise typer.Exit(code=1) from exc
+    typer.echo(f"{report.domains} domains, {report.members} members")
+
+
 @app.command("rebuild")
 def rebuild(datasource: str = typer.Option(..., "--datasource")) -> None:
     """Re-project every enabled schema of a datasource from Postgres alone."""
