@@ -1,4 +1,4 @@
-"""YAML-authored metrics, upserted by (datasource_name, name)."""
+"""YAML-authored metrics, upserted by (datasource_name, name) and read back by datasource."""
 
 from __future__ import annotations
 
@@ -22,6 +22,13 @@ _UPSERT_METRIC = text("""
             discovered_at = now()
 """)
 
+_SELECT_METRICS = text("""
+    SELECT datasource_name, name, sql_expression, grain, unit, default_filters, provenance
+    FROM genql.genql_metric
+    WHERE datasource_name = :datasource_name
+    ORDER BY name
+""")
+
 
 class PostgresMetricRepository:
     def __init__(self, engine: Engine) -> None:
@@ -34,3 +41,8 @@ class PostgresMetricRepository:
         with self._engine.begin() as conn:
             conn.execute(_UPSERT_METRIC, rows)
         return len(rows)
+
+    def read_metrics(self, datasource_name: str) -> Sequence[Metric]:
+        with self._engine.connect() as conn:
+            rows = conn.execute(_SELECT_METRICS, {"datasource_name": datasource_name}).all()
+        return [Metric.model_validate(r._mapping) for r in rows]  # noqa: SLF001
