@@ -23,6 +23,9 @@ def container(monkeypatch: pytest.MonkeyPatch) -> Container:
     # enough to build the container without touching a real database.
     monkeypatch.setenv("GENQL_WAREHOUSE_DSN", "postgresql+psycopg://x:x@localhost/x")
     monkeypatch.setenv("GENQL_SEMANTIC_DSN", "postgresql+psycopg://x:x@localhost/x")
+    monkeypatch.setenv("GENQL_NEO4J_URI", "bolt://localhost:7687")
+    monkeypatch.setenv("GENQL_NEO4J_USER", "neo4j")
+    monkeypatch.setenv("GENQL_NEO4J_PASSWORD", "x")
     Container().reset_singletons()
     return Container()
 
@@ -46,3 +49,23 @@ def test_the_container_builds_a_catalog_reader_factory(container: Container) -> 
     factory = container.catalog_reader_factory()
 
     assert hasattr(factory, "for_datasource")
+
+
+def test_the_runner_includes_graph_projection(container: Container) -> None:
+    runner = container.discovery_runner()
+
+    step_names = [step.name for step in runner._steps]  # noqa: SLF001
+
+    assert "graph_projection" in step_names
+
+
+def test_the_container_builds_a_graph_analysis_service(container: Container) -> None:
+    service = container.graph_analysis_service()
+
+    assert hasattr(service, "analyze")
+
+
+def test_the_container_builds_a_graph_projection_service(container: Container) -> None:
+    service = container.graph_projection_service()
+
+    assert hasattr(service, "project")

@@ -21,3 +21,7 @@ class Settings(BaseSettings):
     neo4j_user: str = "neo4j"
     neo4j_password: str = "genqlgenql"
     profile_sample_limit: int = 5
+    clustering_algorithm: str = "leiden"
+    node_embedding_algorithm: str = "fastrp"
+    join_path_strategy: str = "weighted_shortest_path"
+    max_join_path_hops: int = 4
