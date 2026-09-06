@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from genql.domain.entities.guardrail_violation import GuardrailViolation
+
 
 class GenqlError(Exception):
     """Base class for every GenQL failure."""
@@ -135,3 +137,56 @@ class CompileError(DiscoveryError):
 
 class RetrievalError(GenqlError):
     """Hybrid retrieval or reranking could not complete. Runs online, not during discovery."""
+
+
+class MissingReadonlySecretError(DatasourceError):
+    """GENQL_READONLY_DB_PASSWORD is unset, so no read-only engine can be built.
+
+    Separate from MissingDatasourceSecretError: that one means a datasource's
+    own DSN variable is missing, this one means the process-wide read-only
+    role password is, and the fix is different in each case.
+    """
+
+    def __init__(self, datasource_name: str) -> None:
+        super().__init__(
+            f"no read-only engine can be built for datasource {datasource_name!r}: "
+            "GENQL_READONLY_DB_PASSWORD is unset or empty"
+        )
+        self.datasource_name = datasource_name
+
+
+class QueryError(GenqlError):
+    """The online query pipeline could not produce an answer.
+
+    Runs online, not during discovery, so it hangs off GenqlError rather than
+    DiscoveryError — same placement rule RetrievalError follows.
+    """
+
+
+class SchemaLinkingError(QueryError):
+    """Retrieval returned nothing usable for this question."""
+
+
+class PlanningError(QueryError):
+    """The planner could not produce a valid QueryPlan."""
+
+
+class GenerationError(QueryError):
+    """The candidate generator could not produce a valid SqlCandidate."""
+
+
+class StaticValidationError(QueryError):
+    """A candidate failed one or more guardrails and could not be repaired.
+
+    Carries the violations rather than only a message so the graph's retry
+    edge can hand them back to candidate generation as feedback.
+    """
+
+    def __init__(self, violations: tuple[GuardrailViolation, ...]) -> None:
+        detail = "; ".join(f"{v.rule_name}: {v.message}" for v in violations) or "no detail"
+        super().__init__(f"static validation failed: {detail}")
+        self.violations = violations
+
+
+class ExecutionError(QueryError):
+    """Guarded execution failed — timeout, permission denied, or a bad statement."""
