@@ -38,3 +38,17 @@ def overlay(datasource: str = typer.Option(..., "--datasource")) -> None:
         f"{report.objects_updated} objects, {report.columns_updated} columns, "
         f"{report.metrics_written} metrics, {report.join_hints_written} join hints"
     )
+
+
+@app.command("compile")
+def compile_command(
+    datasource: str = typer.Option(..., "--datasource"),
+    write_back: bool = typer.Option(False, "--write-back", help="Also COMMENT ON the warehouse"),
+) -> None:
+    """Build genql_search_document; optionally write descriptions back to the warehouse."""
+    try:
+        report = Container().compile_service().compile(datasource, write_back=write_back)
+    except GenqlError as exc:
+        typer.echo(str(exc))
+        raise typer.Exit(code=1) from exc
+    typer.echo(f"{report.documents} documents compiled, {report.comments_written} comments written")

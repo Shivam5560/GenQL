@@ -10,8 +10,15 @@ from __future__ import annotations
 from genql.repositories.warehouse.catalog_reader_repository import (
     PostgresCatalogReaderRepository,
 )
+from genql.repositories.warehouse.comment_writer_repository import (
+    PostgresCommentWriter,
+)
 from genql.repositories.warehouse.profile_reader_repository import (
     PostgresProfileReaderRepository,
 )
 
-__all__ = ["PostgresCatalogReaderRepository", "PostgresProfileReaderRepository"]
+__all__ = [
+    "PostgresCatalogReaderRepository",
+    "PostgresCommentWriter",
+    "PostgresProfileReaderRepository",
+]

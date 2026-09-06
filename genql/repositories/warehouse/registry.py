@@ -7,8 +7,10 @@ services, discovery, or the CLI mentions a dialect by name.
 from __future__ import annotations
 
 from genql.domain.ports.catalog_reader import CatalogReader
+from genql.domain.ports.comment_writer import CommentWriter
 from genql.domain.ports.profile_reader import ProfileReader
 from genql.registries.registry import Registry
 
 CATALOG_READERS: Registry[CatalogReader] = Registry("catalog_readers")
 PROFILE_READERS: Registry[ProfileReader] = Registry("profile_readers")
+COMMENT_WRITERS: Registry[CommentWriter] = Registry("comment_writers")
