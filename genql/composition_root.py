@@ -7,6 +7,7 @@ from typing import Any
 
 from dependency_injector import containers, providers
 
+import genql.repositories.graph  # noqa: F401 - registration side effect
 import genql.repositories.warehouse  # noqa: F401 - registration side effect
 import genql.services.scope  # noqa: F401 - registration side effect
 from genql.core.settings import Settings
