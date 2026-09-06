@@ -7,19 +7,49 @@ from collections.abc import Sequence
 from genql.domain.entities.column import Column
 from genql.domain.entities.constraint import Constraint
 from genql.domain.entities.database_object import DatabaseObject
+from genql.domain.entities.datasource import Datasource
 from genql.domain.ports.catalog_reader import CatalogReader
+from genql.domain.ports.datasource_repository import DatasourceRepository
+from genql.domain.ports.scope_resolver import ScopeResolver
+from genql.domain.value_objects.query_scope import QueryScope
+from genql.domain.value_objects.schema_ref import SchemaRef
 
 
 class FakeCatalogReader:
-    def read_objects(self, schema: str) -> Sequence[DatabaseObject]:
+    def read_objects(self, ref: SchemaRef) -> Sequence[DatabaseObject]:
         return []
 
-    def read_columns(self, schema: str) -> Sequence[Column]:
+    def read_columns(self, ref: SchemaRef) -> Sequence[Column]:
         return []
 
-    def read_constraints(self, schema: str) -> Sequence[Constraint]:
+    def read_constraints(self, ref: SchemaRef) -> Sequence[Constraint]:
         return []
 
 
 def test_a_plain_class_satisfies_the_port() -> None:
     assert isinstance(FakeCatalogReader(), CatalogReader)
+
+
+class FakeDatasourceRepository:
+    def add(self, datasource: Datasource) -> None: ...
+
+    def get(self, name: str) -> Datasource:
+        return Datasource(name=name, dialect="postgres", dsn_env_var="X")
+
+    def list_all(self, enabled_only: bool = False) -> Sequence[Datasource]:
+        return []
+
+    def remove(self, name: str) -> None: ...
+
+
+class FakeScopeResolver:
+    def resolve(self, datasource_name: str | None, schema_names: Sequence[str]) -> QueryScope:
+        return QueryScope(datasource_name="local", schema_names=("tpcds",))
+
+
+def test_a_plain_class_satisfies_the_datasource_repository_port() -> None:
+    assert isinstance(FakeDatasourceRepository(), DatasourceRepository)
+
+
+def test_a_plain_class_satisfies_the_scope_resolver_port() -> None:
+    assert isinstance(FakeScopeResolver(), ScopeResolver)

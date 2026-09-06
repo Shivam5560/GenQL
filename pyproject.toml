@@ -46,6 +46,10 @@ dev = [
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+# Plans and specs are prose. Their fenced Python blocks are illustrative — often
+# fragments of a class body or a diff — so formatting them as whole modules is
+# noise, and `ruff format --check .` would fail on documentation forever.
+exclude = ["docs"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "UP", "B", "SIM", "PL"]
@@ -53,6 +57,12 @@ select = ["E", "F", "I", "N", "UP", "B", "SIM", "PL"]
 [tool.ruff.lint.per-file-ignores]
 # Magic values in assertions are the point of an assertion.
 "tests/**" = ["PLR2004"]
+
+[tool.ruff.lint.flake8-bugbear]
+# `typer.Option(...)` in a default is how Typer declares a CLI option; it is
+# evaluated once at import time by design, not per-call, so B008's mutable-
+# default warning does not apply.
+extend-immutable-calls = ["typer.Option", "typer.Argument"]
 
 [tool.mypy]
 python_version = "3.12"

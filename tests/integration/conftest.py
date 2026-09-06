@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 
 import pytest
 from alembic import command
@@ -52,6 +52,35 @@ def migrated_engine(engine: Engine, paradedb_dsn: str) -> Engine:
     cfg.set_main_option("sqlalchemy.url", paradedb_dsn)
     command.upgrade(cfg, "head")
     return engine
+
+
+@pytest.fixture()
+def register_schema(migrated_engine: Engine) -> Callable[[str, str], None]:
+    """Register (datasource, schema) so catalog writes satisfy their foreign key.
+
+    Task 9 gives the CLI `genql schema add`; until then, and for tests that are
+    not exercising the CLI, registration is a direct insert.
+    """
+
+    def _register(datasource_name: str, schema_name: str) -> None:
+        with migrated_engine.begin() as conn:
+            conn.execute(
+                text(
+                    "INSERT INTO genql.genql_datasource (name, dialect, dsn_env_var) "
+                    "VALUES (:ds, 'postgres', 'GENQL_WAREHOUSE_DSN') "
+                    "ON CONFLICT (name) DO NOTHING"
+                ),
+                {"ds": datasource_name},
+            )
+            conn.execute(
+                text(
+                    "INSERT INTO genql.genql_schema (datasource_name, schema_name) "
+                    "VALUES (:ds, :schema) ON CONFLICT ON CONSTRAINT pk_genql_schema DO NOTHING"
+                ),
+                {"ds": datasource_name, "schema": schema_name},
+            )
+
+    return _register
 
 
 def pytest_configure(config: pytest.Config) -> None:

@@ -8,8 +8,10 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict
 
-from genql.domain.ports.catalog_reader import CatalogReader
+from genql.domain.ports.catalog_reader_factory import CatalogReaderFactory
 from genql.domain.ports.catalog_writer import CatalogWriter
+from genql.domain.ports.datasource_repository import DatasourceRepository
+from genql.domain.value_objects.schema_ref import SchemaRef
 
 
 class CatalogScanReport(BaseModel):
@@ -25,13 +27,20 @@ class CatalogScanReport(BaseModel):
 
 
 class CatalogScanService:
-    def __init__(self, reader: CatalogReader, writer: CatalogWriter) -> None:
-        self._reader = reader
+    def __init__(
+        self,
+        datasources: DatasourceRepository,
+        readers: CatalogReaderFactory,
+        writer: CatalogWriter,
+    ) -> None:
+        self._datasources = datasources
+        self._readers = readers
         self._writer = writer
 
-    def scan(self, schema: str) -> CatalogScanReport:
+    def scan(self, ref: SchemaRef) -> CatalogScanReport:
+        reader = self._readers.for_datasource(self._datasources.get(ref.datasource_name))
         return CatalogScanReport(
-            objects=self._writer.write_objects(self._reader.read_objects(schema)),
-            columns=self._writer.write_columns(self._reader.read_columns(schema)),
-            constraints=self._writer.write_constraints(self._reader.read_constraints(schema)),
+            objects=self._writer.write_objects(reader.read_objects(ref)),
+            columns=self._writer.write_columns(reader.read_columns(ref)),
+            constraints=self._writer.write_constraints(reader.read_constraints(ref)),
         )

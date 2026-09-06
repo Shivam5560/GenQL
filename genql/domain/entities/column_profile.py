@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field
 class ColumnProfile(BaseModel):
     model_config = ConfigDict(frozen=True)
 
+    datasource_name: str
     schema_name: str
     object_name: str
     column_name: str
@@ -21,4 +22,4 @@ class ColumnProfile(BaseModel):
 
     @property
     def qualified_name(self) -> str:
-        return f"{self.schema_name}.{self.object_name}.{self.column_name}"
+        return f"{self.datasource_name}.{self.schema_name}.{self.object_name}.{self.column_name}"

@@ -7,14 +7,21 @@ from collections.abc import Sequence
 from genql.domain.entities.column import Column
 from genql.domain.entities.constraint import Constraint
 from genql.domain.entities.database_object import DatabaseObject
+from genql.domain.entities.datasource import Datasource
 from genql.domain.value_objects.constraint_type import ConstraintType
 from genql.domain.value_objects.object_type import ObjectType
+from genql.domain.value_objects.schema_ref import SchemaRef
 from genql.services.discovery.catalog_scan_service import CatalogScanService
 
 OBJECT = DatabaseObject(
-    schema_name="shop", object_name="customer", object_type=ObjectType.TABLE, row_estimate=7
+    datasource_name="local",
+    schema_name="shop",
+    object_name="customer",
+    object_type=ObjectType.TABLE,
+    row_estimate=7,
 )
 COLUMN = Column(
+    datasource_name="local",
     schema_name="shop",
     object_name="customer",
     column_name="c_state",
@@ -23,6 +30,7 @@ COLUMN = Column(
     is_nullable=True,
 )
 CONSTRAINT = Constraint(
+    datasource_name="local",
     schema_name="shop",
     object_name="customer",
     constraint_name="customer_pkey",
@@ -32,13 +40,13 @@ CONSTRAINT = Constraint(
 
 
 class FakeReader:
-    def read_objects(self, schema: str) -> Sequence[DatabaseObject]:
+    def read_objects(self, ref: SchemaRef) -> Sequence[DatabaseObject]:
         return [OBJECT]
 
-    def read_columns(self, schema: str) -> Sequence[Column]:
+    def read_columns(self, ref: SchemaRef) -> Sequence[Column]:
         return [COLUMN]
 
-    def read_constraints(self, schema: str) -> Sequence[Constraint]:
+    def read_constraints(self, ref: SchemaRef) -> Sequence[Constraint]:
         return [CONSTRAINT]
 
 
@@ -61,9 +69,32 @@ class FakeWriter:
         return len(constraints)
 
 
+class FakeDatasources:
+    def add(self, datasource: Datasource) -> None: ...
+
+    def get(self, name: str) -> Datasource:
+        return Datasource(name=name, dialect="postgres", dsn_env_var="X")
+
+    def list_all(self, enabled_only: bool = False) -> Sequence[Datasource]:
+        return [self.get("local")]
+
+    def remove(self, name: str) -> None: ...
+
+
+class FakeReaderFactory:
+    def __init__(self, reader: object) -> None:
+        self._reader = reader
+
+    def for_datasource(self, datasource: Datasource) -> object:
+        return self._reader
+
+
 def test_scan_persists_everything_it_reads() -> None:
     writer = FakeWriter()
-    report = CatalogScanService(FakeReader(), writer).scan("shop")
+    ref = SchemaRef(datasource_name="local", schema_name="shop")
+    report = CatalogScanService(FakeDatasources(), FakeReaderFactory(FakeReader()), writer).scan(
+        ref
+    )
 
     assert report.objects == 1
     assert report.columns == 1
@@ -74,5 +105,23 @@ def test_scan_persists_everything_it_reads() -> None:
 
 
 def test_total_counts_all_records() -> None:
-    report = CatalogScanService(FakeReader(), FakeWriter()).scan("shop")
+    ref = SchemaRef(datasource_name="local", schema_name="shop")
+    report = CatalogScanService(
+        FakeDatasources(), FakeReaderFactory(FakeReader()), FakeWriter()
+    ).scan(ref)
     assert report.total == 3
+
+
+def test_the_reader_is_bound_to_the_refs_datasource() -> None:
+    seen: list[str] = []
+
+    class RecordingFactory(FakeReaderFactory):
+        def for_datasource(self, datasource: Datasource) -> object:
+            seen.append(datasource.name)
+            return self._reader
+
+    CatalogScanService(FakeDatasources(), RecordingFactory(FakeReader()), FakeWriter()).scan(
+        SchemaRef(datasource_name="wh2", schema_name="shop")
+    )
+
+    assert seen == ["wh2"]

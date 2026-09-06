@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict
 class Column(BaseModel):
     model_config = ConfigDict(frozen=True)
 
+    datasource_name: str
     schema_name: str
     object_name: str
     column_name: str
@@ -18,4 +19,4 @@ class Column(BaseModel):
 
     @property
     def qualified_name(self) -> str:
-        return f"{self.schema_name}.{self.object_name}.{self.column_name}"
+        return f"{self.datasource_name}.{self.schema_name}.{self.object_name}.{self.column_name}"

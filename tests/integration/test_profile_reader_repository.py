@@ -27,6 +27,7 @@ def prof_schema(engine: Engine) -> Engine:
 
 def _column(name: str, data_type: str) -> Column:
     return Column(
+        datasource_name="local",
         schema_name="prof",
         object_name="payment",
         column_name=name,

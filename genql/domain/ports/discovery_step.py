@@ -6,6 +6,8 @@ from typing import ClassVar, Protocol, runtime_checkable
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from genql.domain.value_objects.schema_ref import SchemaRef
+
 
 class DiscoveryContext(BaseModel):
     """Carries state between discovery steps.
@@ -17,9 +19,14 @@ class DiscoveryContext(BaseModel):
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
+    datasource_name: str
     schema_name: str
     sample_limit: int = 5
     artifacts: dict[str, object] = Field(default_factory=dict)
+
+    @property
+    def ref(self) -> SchemaRef:
+        return SchemaRef(datasource_name=self.datasource_name, schema_name=self.schema_name)
 
 
 class StepResult(BaseModel):

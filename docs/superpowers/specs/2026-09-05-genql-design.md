@@ -498,6 +498,10 @@ Each phase ends with something runnable and tested.
    import-linter contracts, Docker Compose with ParadeDB and Neo4j, Alembic baseline.
 2. **Warehouse and catalog** — TPC-DS and Pagila seeds; catalog scan and data profiling steps;
    catalog repositories; CLI to run and inspect discovery.
+2.5. **Datasource and schema levels** — `genql_datasource` and `genql_schema`; catalog identity
+   re-keyed on `datasource.schema.object`; per-datasource engine and reader resolution; scope
+   resolvers; `genql datasource` and `genql schema` commands. See
+   `docs/superpowers/specs/2026-09-06-genql-phase-2-5-datasource-and-schema-levels.md`.
 3. **Graph and domains** — Neo4j projection, Leiden, FastRP, fused clustering, domain naming,
    join-path mining.
 4. **Semantic store and retrieval** — enrichment steps, YAML overlay, compile step,

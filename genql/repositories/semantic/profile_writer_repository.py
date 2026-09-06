@@ -10,8 +10,9 @@ from genql.domain.entities.column_profile import ColumnProfile
 
 _UPSERT = text("""
     INSERT INTO genql.genql_column_profile
-        (schema_name, object_name, column_name, distinct_count, null_fraction, sample_values)
-    VALUES (:schema_name, :object_name, :column_name,
+        (datasource_name, schema_name, object_name, column_name,
+         distinct_count, null_fraction, sample_values)
+    VALUES (:datasource_name, :schema_name, :object_name, :column_name,
             :distinct_count, :null_fraction, :sample_values)
     ON CONFLICT ON CONSTRAINT uq_genql_profile_identity DO UPDATE
         SET distinct_count = EXCLUDED.distinct_count,
@@ -30,6 +31,7 @@ class PostgresProfileWriterRepository:
             return 0
         payload = [
             {
+                "datasource_name": p.datasource_name,
                 "schema_name": p.schema_name,
                 "object_name": p.object_name,
                 "column_name": p.column_name,

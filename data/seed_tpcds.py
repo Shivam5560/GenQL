@@ -13,13 +13,13 @@ idempotent.
 from __future__ import annotations
 
 import argparse
+import os
 import pathlib
 import tempfile
 
 import duckdb
 from sqlalchemy import Engine, text
 
-from genql.core.settings import Settings
 from genql.infrastructure.db.engine import create_engine_from_dsn
 
 # Each dimension table's TPC-DS primary key (its surrogate key column).
@@ -198,14 +198,17 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--scale", type=float, default=1.0)
     parser.add_argument("--schema", default="tpcds")
+    parser.add_argument("--dsn", default=os.environ.get("GENQL_WAREHOUSE_DSN", ""))
     args = parser.parse_args()
+    if not args.dsn:
+        raise SystemExit("--dsn or GENQL_WAREHOUSE_DSN must be set")
 
     con = duckdb.connect()
     con.execute("INSTALL tpcds; LOAD tpcds;")
     con.execute(f"CALL dsdgen(sf={args.scale})")
     tables = [r[0] for r in con.execute("SHOW TABLES").fetchall()]
 
-    engine = create_engine_from_dsn(Settings().warehouse_dsn)
+    engine = create_engine_from_dsn(args.dsn)
     with engine.begin() as conn:
         # Re-runnable: wipe and recreate rather than CREATE TABLE-ing into an
         # already-seeded schema, which would fail on "relation already exists".
