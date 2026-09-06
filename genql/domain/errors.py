@@ -190,3 +190,24 @@ class StaticValidationError(QueryError):
 
 class ExecutionError(QueryError):
     """Guarded execution failed — timeout, permission denied, or a bad statement."""
+
+
+class IntentClassificationError(QueryError):
+    """The classifier returned something that is not a known question intent."""
+
+
+class AmbiguityGateError(QueryError):
+    """The ambiguity gate could not score the question's dimensions."""
+
+
+class DomainScopingError(QueryError):
+    """Domain scoping could not run at all.
+
+    Distinct from "no domain resolved", which is a plain None return: this
+    means the retrieval pass or the domain lookup itself failed, and the turn
+    cannot continue with a silently unscoped search.
+    """
+
+
+class ThreadLockError(QueryError):
+    """The per-thread advisory lock could not be acquired or released."""
