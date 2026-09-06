@@ -14,6 +14,7 @@ import pytest
 
 from genql.composition_root import Container
 from genql.discovery.registry import DISCOVERY_STEPS
+from genql.repositories.guardrails.registry import GUARDRAILS
 
 
 @pytest.fixture()
@@ -27,6 +28,7 @@ def container(monkeypatch: pytest.MonkeyPatch) -> Container:
     monkeypatch.setenv("GENQL_NEO4J_USER", "neo4j")
     monkeypatch.setenv("GENQL_NEO4J_PASSWORD", "x")
     monkeypatch.setenv("GENQL_OPENROUTER_API_KEY", "test-key")
+    monkeypatch.setenv("GENQL_READONLY_DB_PASSWORD", "test-readonly-password")
     Container().reset_singletons()
     return Container()
 
@@ -110,3 +112,32 @@ def test_the_container_builds_a_compile_service(container: Container) -> None:
 
 def test_the_container_builds_a_retrieval_service(container: Container) -> None:
     assert hasattr(container.retrieval_service(), "search")
+
+
+def test_the_container_builds_a_schema_linking_service(container: Container) -> None:
+    assert hasattr(container.schema_linking_service(), "link")
+
+
+def test_the_container_builds_a_planning_service(container: Container) -> None:
+    assert hasattr(container.planning_service(), "plan")
+
+
+def test_the_container_builds_a_candidate_generation_service(container: Container) -> None:
+    assert hasattr(container.candidate_generation_service(), "generate")
+
+
+def test_the_container_builds_a_static_validation_service(container: Container) -> None:
+    assert hasattr(container.static_validation_service(), "validate")
+
+
+def test_the_container_builds_a_guarded_execution_service(container: Container) -> None:
+    assert hasattr(container.guarded_execution_service(), "execute")
+
+
+def test_the_guardrail_factory_resolves_all_five_registered_rules(container: Container) -> None:
+    assert len(GUARDRAILS.keys()) == 5
+    assert hasattr(container.guardrail_factory(), "for_datasource")
+
+
+def test_the_container_builds_an_invokable_query_graph(container: Container) -> None:
+    assert hasattr(container.query_graph(), "invoke")
