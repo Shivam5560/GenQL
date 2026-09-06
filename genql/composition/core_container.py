@@ -72,7 +72,11 @@ class CoreContainer(containers.DeclarativeContainer):
     )
     join_path_writer = providers.Singleton(PostgresJoinPathWriterRepository, engine=semantic_engine)
 
-    engine_provider = providers.Singleton(DatasourceEngineProvider, env=os.environ)
+    engine_provider = providers.Singleton(
+        DatasourceEngineProvider,
+        env=os.environ,
+        readonly_password=settings.provided.readonly_db_password,
+    )
 
     datasource_repository = providers.Singleton(
         PostgresDatasourceRepository, engine=semantic_engine

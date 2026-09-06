@@ -49,6 +49,9 @@ def engine(paradedb_dsn: str) -> Engine:
 
 @pytest.fixture(scope="session")
 def migrated_engine(engine: Engine, paradedb_dsn: str) -> Engine:
+    # Migration 0006 refuses to invent a password for genql_readonly. Tests
+    # supply a known one so the read-only fixtures below can connect as it.
+    os.environ.setdefault("GENQL_READONLY_DB_PASSWORD", "genql_readonly_dev")
     cfg = Config("alembic.ini")
     cfg.set_main_option("sqlalchemy.url", paradedb_dsn)
     command.upgrade(cfg, "head")

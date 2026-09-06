@@ -40,3 +40,10 @@ class Settings(BaseSettings):
     retriever: str = "hybrid_rrf"
     rrf_k: int = 60
     search_top_k: int = 10
+    query_row_cap: int = 1000
+    query_statement_timeout_ms: int = 30_000
+    # Empty by default rather than required: `migrations/env.py` and every
+    # container unit test construct Settings() without it, and the house
+    # pattern for a required-at-use-time secret is exactly openrouter_api_key's
+    # — default empty, typed error at the point of use.
+    readonly_db_password: str = ""
