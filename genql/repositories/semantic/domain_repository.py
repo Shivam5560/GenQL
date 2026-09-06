@@ -1,6 +1,8 @@
 """Domains and their membership. write_domains upserts by (datasource_name,
 name) and returns rows with `id` populated via RETURNING, since the caller's
-BusinessDomain instances arrive with domain_id=None before the first write."""
+BusinessDomain instances arrive with domain_id=None before the first write.
+
+`domain_id_by_name` is the read side, added in Phase 6 for domain scoping."""
 
 from __future__ import annotations
 
@@ -27,6 +29,12 @@ _UPSERT_MEMBER = text("""
     VALUES (:domain_id, :datasource_name, :schema_name, :object_name, :membership_score)
     ON CONFLICT ON CONSTRAINT pk_genql_domain_member DO UPDATE
         SET membership_score = EXCLUDED.membership_score
+""")
+
+_SELECT_DOMAIN_ID = text("""
+    SELECT id
+    FROM genql.genql_domain
+    WHERE datasource_name = :datasource_name AND name = :name
 """)
 
 
@@ -57,3 +65,14 @@ class PostgresDomainRepository:
         with self._engine.begin() as conn:
             conn.execute(_UPSERT_MEMBER, rows)
         return len(rows)
+
+    def domain_id_by_name(self, datasource_name: str, name: str) -> int | None:
+        """The read side domain scoping needs: retrieval hits carry a domain
+        NAME, SchemaLinker.link takes an id. Returns None rather than raising
+        on a miss, because a name that no longer resolves is a stale index,
+        not a broken query — the caller falls back to unscoped retrieval."""
+        with self._engine.connect() as conn:
+            row = conn.execute(
+                _SELECT_DOMAIN_ID, {"datasource_name": datasource_name, "name": name}
+            ).one_or_none()
+        return None if row is None else int(row[0])
