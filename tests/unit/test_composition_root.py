@@ -11,7 +11,19 @@ instead of discovered in production. See final-review.md I4.
 from __future__ import annotations
 
 import pytest
+from dependency_injector import providers
+from langgraph.checkpoint.memory import InMemorySaver
 
+from genql.api.query_graph import (
+    AMBIGUITY_GATE,
+    CANDIDATE_GENERATION,
+    DOMAIN_SCOPING,
+    GUARDED_EXECUTION,
+    INTENT_CLASSIFICATION,
+    PLANNING,
+    SCHEMA_LINKING,
+    STATIC_VALIDATION,
+)
 from genql.composition_root import Container
 from genql.discovery.registry import DISCOVERY_STEPS
 from genql.repositories.guardrails.registry import GUARDRAILS
@@ -140,9 +152,61 @@ def test_the_guardrail_factory_resolves_all_five_registered_rules(container: Con
 
 
 def test_the_container_builds_an_invokable_query_graph(container: Container) -> None:
-    assert hasattr(container.query_graph(), "invoke")
+    with container.checkpointer.override(providers.Object(InMemorySaver())):
+        assert hasattr(container.query_graph(), "invoke")
 
 
 def test_the_container_builds_a_rule_reader_and_writer(container: Container) -> None:
     assert hasattr(container.rule_reader(), "read_rules")
     assert hasattr(container.rule_writer(), "write_rules")
+
+
+def test_the_container_builds_an_intent_classification_service(container: Container) -> None:
+    assert hasattr(container.intent_classification_service(), "classify")
+
+
+def test_the_container_builds_an_ambiguity_gate_service(container: Container) -> None:
+    assert hasattr(container.ambiguity_gate_service(), "assess")
+
+
+def test_the_container_builds_a_domain_scoping_service(container: Container) -> None:
+    assert hasattr(container.domain_scoping_service(), "resolve")
+
+
+def test_the_container_builds_a_thread_lock_factory(container: Container) -> None:
+    assert hasattr(container.thread_lock_factory(), "for_thread")
+
+
+def test_the_checkpoint_dsn_is_derived_from_the_semantic_dsn(container: Container) -> None:
+    """One setting names GenQL's own database. A second would let the
+    checkpointer and the semantic store drift onto different servers, and a
+    paused turn would simply never be found again."""
+    assert container.checkpoint_dsn() == "postgresql://x:x@localhost/x"
+
+
+def test_the_query_graph_carries_all_eight_stages(container: Container) -> None:
+    """The graph provider is overridden in TurnContainer, so this is where a
+    forgotten node would show up — an eight-node graph compiled from a
+    five-node provider would still be `invoke`-able and silently skip the gate.
+
+    The checkpointer is overridden with InMemorySaver because building the real
+    one opens a psycopg pool and runs setup() against it, and this fixture's DSN
+    points at a host that does not exist. Overriding it is not weakening the
+    test: what is under test is which nodes the provider wires, and that is
+    saver-independent. The real saver is proven in
+    tests/integration/test_postgres_checkpointer.py.
+    """
+    with container.checkpointer.override(providers.Object(InMemorySaver())):
+        nodes = set(container.query_graph().get_graph().nodes)
+
+    for stage in (
+        INTENT_CLASSIFICATION,
+        AMBIGUITY_GATE,
+        DOMAIN_SCOPING,
+        SCHEMA_LINKING,
+        PLANNING,
+        CANDIDATE_GENERATION,
+        STATIC_VALIDATION,
+        GUARDED_EXECUTION,
+    ):
+        assert stage in nodes

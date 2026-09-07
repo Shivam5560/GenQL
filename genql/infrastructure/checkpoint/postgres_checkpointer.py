@@ -25,14 +25,25 @@ so re-running it after reset_singletons() is safe.
 The tables it creates — checkpoints, checkpoint_blobs, checkpoint_writes,
 checkpoint_migrations — are langgraph's to own and evolve across its releases,
 which is why migration 0007 deliberately does not declare them.
+
+`serde` is built explicitly rather than left as PostgresSaver's default
+JsonPlusSerializer. langgraph's msgpack codec refuses, with a warning today
+and a hard error in a future release, to deserialize a type it does not
+recognise unless that type's module is named in `allowed_msgpack_modules`.
+`AmbiguityAssessment` is the one custom Pydantic type this graph's state
+carries into a checkpoint, so it is named here once, at the one place the
+saver is constructed, rather than every call site risking the warning.
 """
 
 from __future__ import annotations
 
 from langgraph.checkpoint.postgres import PostgresSaver
+from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 from psycopg import Connection
 from psycopg.rows import DictRow, dict_row
 from psycopg_pool import ConnectionPool
+
+from genql.domain.entities.ambiguity_assessment import AmbiguityAssessment
 
 
 def build_checkpointer(dsn: str, max_size: int) -> PostgresSaver:
@@ -53,6 +64,7 @@ def build_checkpointer(dsn: str, max_size: int) -> PostgresSaver:
         kwargs={"autocommit": True, "row_factory": dict_row},
         open=True,
     )
-    saver = PostgresSaver(pool)
+    serde = JsonPlusSerializer(allowed_msgpack_modules=[AmbiguityAssessment])
+    saver = PostgresSaver(pool, serde=serde)
     saver.setup()
     return saver
