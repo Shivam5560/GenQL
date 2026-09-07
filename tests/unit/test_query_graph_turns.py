@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from typing import Any
 
+import pytest
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import END
 from langgraph.types import interrupt as real_interrupt
@@ -31,6 +32,7 @@ from genql.api.query_graph import (
     run_query,
 )
 from genql.domain.entities.ambiguity_assessment import AmbiguityAssessment
+from genql.domain.errors import UnknownThreadError
 from tests.unit.test_query_graph import (
     CLEAR,
     LINK,
@@ -184,6 +186,15 @@ def test_two_threads_pause_independently() -> None:
     finished = resume_query(graph, "last quarter", "t-x")
 
     assert finished["question"] == "revenue"
+
+
+def test_resuming_a_thread_with_no_checkpoint_raises_a_typed_error() -> None:
+    """A thread id nobody paused has no interrupt to resume — resume_query
+    must refuse rather than let the graph run from START with empty state."""
+    graph = build(ValidateNode(0), GenerateNode(), gate=clear_gate, checkpointer=InMemorySaver())
+
+    with pytest.raises(UnknownThreadError):
+        resume_query(graph, "answer", "t-never-existed")
 
 
 def test_an_explicit_domain_id_survives_to_schema_linking() -> None:

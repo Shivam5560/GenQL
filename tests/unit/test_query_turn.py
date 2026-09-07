@@ -18,7 +18,7 @@ from genql.api.query_state import initial_state
 from genql.api.query_turn import new_thread_id, resume_turn, start_turn
 from genql.domain.entities.ambiguity_assessment import AmbiguityAssessment
 from genql.domain.entities.execution_result import ExecutionResult
-from genql.domain.errors import PlanningError
+from genql.domain.errors import PlanningError, UnknownThreadError
 
 RESULT = ExecutionResult(columns=("n",), rows=((7,),), row_count=1, truncated=False)
 
@@ -29,18 +29,32 @@ class Interrupt:
         self.id = "i-1"
 
 
-class FakeGraph:
-    """Records every invoke and returns whatever it was primed with."""
+class FakeSnapshot:
+    def __init__(self, interrupts: tuple[Any, ...]) -> None:
+        self.interrupts = interrupts
 
-    def __init__(self, outcome: Any) -> None:
+
+class FakeGraph:
+    """Records every invoke and returns whatever it was primed with.
+
+    `has_pending_interrupt` backs `get_state`, which `resume_query` checks
+    before invoking — defaults to True so every existing resume test, which
+    means to exercise a real pause, keeps working unchanged.
+    """
+
+    def __init__(self, outcome: Any, has_pending_interrupt: bool = True) -> None:
         self.outcome = outcome
         self.invocations: list[tuple[Any, Any]] = []
+        self._has_pending_interrupt = has_pending_interrupt
 
     def invoke(self, payload: Any, config: Any = None) -> Any:
         self.invocations.append((payload, config))
         if isinstance(self.outcome, Exception):
             raise self.outcome
         return self.outcome
+
+    def get_state(self, config: Any) -> FakeSnapshot:
+        return FakeSnapshot((Interrupt("pending"),) if self._has_pending_interrupt else ())
 
 
 class FakeLock:
@@ -209,3 +223,17 @@ def test_the_lock_is_released_when_the_graph_raises() -> None:
 def test_the_typed_failure_is_not_swallowed() -> None:
     with pytest.raises(PlanningError):
         resume_turn(FakeGraph(PlanningError("no links")), FakeLocks(), "a", "t-5")
+
+
+def test_resuming_an_unknown_thread_raises_a_typed_error_and_releases_the_lock() -> None:
+    """No checkpoint means no pending interrupt: resume_query must refuse
+    before invoking the graph, not let it run from START and blow up on a
+    missing state key."""
+    locks = FakeLocks()
+    graph = FakeGraph(finished_state(), has_pending_interrupt=False)
+
+    with pytest.raises(UnknownThreadError):
+        resume_turn(graph, locks, "answer", "t-ghost")
+
+    assert graph.invocations == []
+    assert locks.log == ["acquire:t-ghost", "release:t-ghost"]

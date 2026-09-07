@@ -101,6 +101,19 @@ def test_a_finished_turn_reports_the_defaults_it_applied(
     assert "default_period" in result.stdout
 
 
+def test_the_defaults_wording_does_not_overclaim_that_the_value_was_used(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The rule's value is recorded, never threaded into generation — the
+    wording must not say it was "applied", which would overclaim."""
+    _install(monkeypatch, finished())
+
+    result = runner.invoke(app, ["query", "how many orders", "--datasource", "local"])
+
+    assert "Applied defaults:" not in result.stdout
+    assert "not yet applied" in result.stdout
+
+
 def test_a_truncated_result_says_so(monkeypatch: pytest.MonkeyPatch) -> None:
     _install(monkeypatch, finished(truncated=True))
 
@@ -178,3 +191,28 @@ def test_a_failure_during_resume_is_also_one_line(monkeypatch: pytest.MonkeyPatc
 
     assert result.exit_code == 1
     assert "statement timeout" in result.stdout
+
+
+def test_a_resume_with_no_datasource_flag_succeeds(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The exact command the CLI itself prints as a resume hint carries no
+    --datasource — following it must actually work, not fail with a missing
+    required option."""
+    seen = _install(monkeypatch, finished())
+
+    result = runner.invoke(app, ["query", "last quarter", "--thread-id", "t-abc"])
+
+    assert result.exit_code == 0, result.stdout
+    assert seen["call"] == "resume"
+    assert seen["args"] == ("last quarter", "t-abc")
+
+
+def test_a_fresh_query_with_no_datasource_and_no_thread_id_fails_clearly(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install(monkeypatch, finished())
+
+    result = runner.invoke(app, ["query", "how many orders"])
+
+    assert result.exit_code != 0
+    assert "datasource" in result.output
+    assert "required" in result.output

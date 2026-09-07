@@ -16,6 +16,7 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.types import Command, interrupt
 from sqlalchemy import Engine, text
 
+from genql.domain.entities.schema_link import SchemaLink
 from genql.infrastructure.checkpoint.postgres_checkpointer import build_checkpointer
 from genql.infrastructure.db.psycopg_dsn import to_libpq_dsn
 
@@ -148,6 +149,38 @@ def test_a_second_saver_over_the_same_database_sees_the_checkpointed_state(
     out = build().invoke(Command(resume="last quarter"), config)
 
     assert out["answer"] == "last quarter"
+
+
+class LinkState(TypedDict):
+    link: SchemaLink | None
+
+
+def _set_link(state: LinkState) -> dict[str, Any]:
+    return {"link": SchemaLink(object_qualified_name="local.shop.orders", column_names=("id",))}
+
+
+def test_a_custom_entity_type_beyond_ambiguity_assessment_round_trips_as_itself(
+    saver: Any,
+) -> None:
+    """SchemaLink is one of the QueryState entity types the review found
+    missing from allowed_msgpack_modules. Restrictive mode does not raise on
+    an unlisted type — it silently comes back as a plain dict, with only a
+    warning logged — so the failure mode this guards against is a passing
+    test suite next to corrupted state, not a crash."""
+    graph: StateGraph[LinkState] = StateGraph(LinkState)
+    graph.add_node("set_link", _set_link)
+    graph.add_edge(START, "set_link")
+    graph.add_edge("set_link", END)
+    compiled = graph.compile(checkpointer=saver)
+
+    config = {"configurable": {"thread_id": "cp-entity-roundtrip"}}
+    compiled.invoke({"link": None}, config)
+
+    restored = compiled.get_state(config).values["link"]
+
+    assert isinstance(restored, SchemaLink)
+    assert restored.object_qualified_name == "local.shop.orders"
+    assert restored.column_names == ("id",)
 
 
 def test_threads_do_not_see_each_others_state(toy_graph: Any) -> None:

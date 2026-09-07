@@ -14,6 +14,7 @@ it is talking to a human.
 
 from __future__ import annotations
 
+import psycopg
 import typer
 
 from genql.api.query_turn import resume_turn, start_turn
@@ -25,9 +26,12 @@ from genql.domain.errors import GenqlError
 def _render_defaults(response: TurnResponse) -> None:
     if not response.applied_defaults:
         return
-    typer.echo("Applied defaults:")
+    # "Resolved", not "applied": the rule's value is recorded here but is not
+    # yet threaded into PlanningService/CandidateGenerationService's prompts,
+    # so saying it was "applied" would overclaim what actually reached the SQL.
+    typer.echo("Resolved via rule (not yet applied to generation):")
     for dimension, rule_name in response.applied_defaults:
-        typer.echo(f"  {dimension}: {rule_name}")
+        typer.echo(f"  {dimension} -> {rule_name}")
     typer.echo("")
 
 
@@ -80,22 +84,37 @@ def query(
     question: str = typer.Argument(
         ..., help="The analytical question, or the answer to a clarifying question"
     ),
-    datasource: str = typer.Option(..., "--datasource", help="Registered datasource"),
+    datasource: str | None = typer.Option(
+        None,
+        "--datasource",
+        help="Registered datasource. Required to start a new turn; omit it when "
+        "resuming with --thread-id — the checkpointed state already has it.",
+    ),
     domain_id: int | None = typer.Option(None, "--domain-id", help="Restrict to one domain"),
     thread_id: str | None = typer.Option(
         None, "--thread-id", help="Resume a paused turn instead of starting a new one"
     ),
 ) -> None:
     """Answer a question, or ask one back when the question is under-specified."""
-    container = Container()
-    graph = container.query_graph()
-    locks = container.thread_lock_factory()
+    if thread_id is None and datasource is None:
+        raise typer.BadParameter(
+            "--datasource is required to start a new query "
+            "(omit it only when resuming with --thread-id)",
+            param_hint="--datasource",
+        )
     try:
+        # Resolving query_graph transitively builds the checkpointer, which
+        # opens a real connection pool and runs PostgresSaver.setup() — a bad
+        # DSN or a down database raises here, so this must be inside the try.
+        container = Container()
+        graph = container.query_graph()
+        locks = container.thread_lock_factory()
         if thread_id is not None:
             response = resume_turn(graph, locks, question, thread_id)
         else:
+            assert datasource is not None  # guaranteed by the check above
             response = start_turn(graph, locks, question, datasource, domain_id)
-    except GenqlError as exc:
+    except (GenqlError, ValueError, psycopg.Error) as exc:
         typer.echo(str(exc))
         raise typer.Exit(code=1) from exc
 

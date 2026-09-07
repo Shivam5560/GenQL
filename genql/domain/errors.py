@@ -211,3 +211,19 @@ class DomainScopingError(QueryError):
 
 class ThreadLockError(QueryError):
     """The per-thread advisory lock could not be acquired or released."""
+
+
+class UnknownThreadError(QueryError):
+    """`--thread-id` named a thread with no pending clarification to resume.
+
+    Distinct from every checkpointed-but-wrong-answer case: this is what a
+    thread id that was never checkpointed, already finished, or expired looks
+    like from `resume_query`'s side, before the graph is invoked at all.
+    """
+
+    def __init__(self, thread_id: str) -> None:
+        super().__init__(
+            f"{thread_id!r} has no paused turn to resume: it is unknown, already "
+            "finished, or its checkpoint has expired"
+        )
+        self.thread_id = thread_id

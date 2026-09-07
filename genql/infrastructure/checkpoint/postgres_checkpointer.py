@@ -30,9 +30,17 @@ which is why migration 0007 deliberately does not declare them.
 JsonPlusSerializer. langgraph's msgpack codec refuses, with a warning today
 and a hard error in a future release, to deserialize a type it does not
 recognise unless that type's module is named in `allowed_msgpack_modules`.
-`AmbiguityAssessment` is the one custom Pydantic type this graph's state
-carries into a checkpoint, so it is named here once, at the one place the
-saver is constructed, rather than every call site risking the warning.
+Passing an explicit list switches the codec from permissive (every type
+allowed, with a warning) to restrictive (anything not listed silently comes
+back as a plain dict instead of raising, with only a warning logged) — so
+every custom Pydantic type QueryState carries into a checkpoint must be named
+here, not just the first one anyone noticed. That is `AmbiguityAssessment`,
+`SchemaLink`, `QueryPlan`, `SqlCandidate`, `GuardrailViolation`, and
+`ExecutionResult` — QueryState's own fields, checked against
+genql/api/query_state.py rather than assumed. QueryPlan and GuardrailViolation
+are also reachable as nested fields (SqlCandidate.plan, the violations tuple)
+but are listed directly regardless, since msgpack registration is per-type,
+not per-container.
 """
 
 from __future__ import annotations
@@ -44,6 +52,11 @@ from psycopg.rows import DictRow, dict_row
 from psycopg_pool import ConnectionPool
 
 from genql.domain.entities.ambiguity_assessment import AmbiguityAssessment
+from genql.domain.entities.execution_result import ExecutionResult
+from genql.domain.entities.guardrail_violation import GuardrailViolation
+from genql.domain.entities.query_plan import QueryPlan
+from genql.domain.entities.schema_link import SchemaLink
+from genql.domain.entities.sql_candidate import SqlCandidate
 
 
 def build_checkpointer(dsn: str, max_size: int) -> PostgresSaver:
@@ -64,7 +77,16 @@ def build_checkpointer(dsn: str, max_size: int) -> PostgresSaver:
         kwargs={"autocommit": True, "row_factory": dict_row},
         open=True,
     )
-    serde = JsonPlusSerializer(allowed_msgpack_modules=[AmbiguityAssessment])
+    serde = JsonPlusSerializer(
+        allowed_msgpack_modules=[
+            AmbiguityAssessment,
+            SchemaLink,
+            QueryPlan,
+            SqlCandidate,
+            GuardrailViolation,
+            ExecutionResult,
+        ]
+    )
     saver = PostgresSaver(pool, serde=serde)
     saver.setup()
     return saver

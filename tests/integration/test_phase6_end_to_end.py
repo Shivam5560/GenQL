@@ -97,18 +97,26 @@ def test_the_yaml_rules_are_reported_as_applied_defaults() -> None:
 
     result = runner.invoke(app, ["query", "how many stores do we have", "--datasource", "local"])
 
-    assert "Applied defaults:" in result.stdout
+    assert "Resolved via rule" in result.stdout
     assert "time_range" in result.stdout
 
 
 def test_resuming_an_unknown_thread_does_not_crash() -> None:
-    """A thread id nobody checkpointed has no paused node to resume, so the
-    graph runs from START with an empty state. It must fail as one typed line,
-    not as a traceback."""
+    """A thread id nobody checkpointed has no pending interrupt to resume.
+    resume_query must refuse with a typed error before invoking the graph, not
+    let it run from START with an empty state and blow up on a missing key.
+
+    `result.exception is None` is the assertion that actually catches a crash:
+    CliRunner puts an uncaught exception there, not in captured stdout, so a
+    test that only greps stdout for "Traceback" passes even when the CLI
+    crashed underneath the runner's own exception handling.
+    """
     result = runner.invoke(
         app,
         ["query", "last quarter", "--datasource", "local", "--thread-id", "t-deadbeef"],
     )
 
+    assert result.exception is None
     assert "Traceback" not in result.stdout
-    assert result.exit_code in (0, 1)
+    assert result.exit_code == 1
+    assert "t-deadbeef" in result.stdout

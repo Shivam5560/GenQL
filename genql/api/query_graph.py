@@ -31,7 +31,7 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.types import Command
 
 from genql.api.query_state import QueryState, initial_state
-from genql.domain.errors import StaticValidationError
+from genql.domain.errors import StaticValidationError, UnknownThreadError
 
 
 class NodeFn(Protocol):
@@ -182,5 +182,14 @@ def resume_query(graph: Any, answer: str, thread_id: str) -> dict[str, Any]:
     raised, so the gate node re-runs with the answer in hand. Intent
     classification does not run again — it already ran on the original
     question, and the checkpoint resumes at the paused node, not at START.
+
+    An unknown or expired thread_id has no checkpoint at all, so
+    `graph.get_state` comes back with no pending interrupt and langgraph would
+    otherwise run the graph from START with an empty state — the first node
+    to read a required key raises a bare KeyError. Checked here, once, so
+    every caller gets a typed error instead.
     """
-    return cast(dict[str, Any], graph.invoke(Command(resume=answer), _config(thread_id)))
+    config = _config(thread_id)
+    if not graph.get_state(config).interrupts:
+        raise UnknownThreadError(thread_id)
+    return cast(dict[str, Any], graph.invoke(Command(resume=answer), config))
