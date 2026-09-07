@@ -118,13 +118,13 @@ class FakeDatasourceRepository:
 
 
 def test_schema_linking_writes_links_onto_the_state() -> None:
-    state = initial_state("q", "local")
+    state = initial_state("q", "local", "t-1")
 
     assert SchemaLinkingNode(FakeLinker())(state) == {"links": (LINK,)}
 
 
 def test_planning_writes_the_plan_onto_the_state() -> None:
-    state = initial_state("q", "local")
+    state = initial_state("q", "local", "t-1")
     state["links"] = (LINK,)
 
     assert PlanningNode(FakePlanner())(state) == {"plan": PLAN}
@@ -132,7 +132,7 @@ def test_planning_writes_the_plan_onto_the_state() -> None:
 
 def test_candidate_generation_does_not_count_a_retry_on_the_first_attempt() -> None:
     generator = FakeGenerator()
-    state = initial_state("q", "local")
+    state = initial_state("q", "local", "t-1")
     state["links"] = (LINK,)
     state["plan"] = PLAN
 
@@ -144,7 +144,7 @@ def test_candidate_generation_does_not_count_a_retry_on_the_first_attempt() -> N
 
 def test_candidate_generation_counts_a_retry_and_forwards_the_violations() -> None:
     generator = FakeGenerator()
-    state = initial_state("q", "local")
+    state = initial_state("q", "local", "t-1")
     state["links"] = (LINK,)
     state["plan"] = PLAN
     state["violations"] = (VIOLATION,)
@@ -157,12 +157,12 @@ def test_candidate_generation_counts_a_retry_and_forwards_the_violations() -> No
 
 def test_candidate_generation_without_a_plan_fails_loudly() -> None:
     with pytest.raises(GenerationError, match="without a plan"):
-        CandidateGenerationNode(FakeGenerator())(initial_state("q", "local"))
+        CandidateGenerationNode(FakeGenerator())(initial_state("q", "local", "t-1"))
 
 
 def test_static_validation_writes_the_validated_sql_and_clears_violations() -> None:
     node = StaticValidationNode(StaticValidationService(FixedFactory([PassingRule()])))
-    state = initial_state("q", "local")
+    state = initial_state("q", "local", "t-1")
     state["candidate"] = CANDIDATE
 
     update = node(state)
@@ -173,7 +173,7 @@ def test_static_validation_writes_the_validated_sql_and_clears_violations() -> N
 
 def test_static_validation_turns_its_failure_into_state_rather_than_raising() -> None:
     node = StaticValidationNode(StaticValidationService(FixedFactory([FailingRule()])))
-    state = initial_state("q", "local")
+    state = initial_state("q", "local", "t-1")
     state["candidate"] = CANDIDATE
 
     update = node(state)
@@ -188,7 +188,7 @@ def test_guarded_execution_writes_the_result_onto_the_state() -> None:
         executors=FixedExecutorFactory(),
         row_cap=100,
     )
-    state = initial_state("q", "local")
+    state = initial_state("q", "local", "t-1")
     state["validated_sql"] = "SELECT id FROM shop.orders LIMIT 1"
 
     assert GuardedExecutionNode(service)(state) == {"result": RESULT}
@@ -202,11 +202,11 @@ def test_guarded_execution_without_validated_sql_fails_loudly() -> None:
     )
 
     with pytest.raises(ExecutionError, match="without validated SQL"):
-        GuardedExecutionNode(service)(initial_state("q", "local"))
+        GuardedExecutionNode(service)(initial_state("q", "local", "t-1"))
 
 
 def test_a_node_reached_without_its_input_fails_loudly() -> None:
     node = StaticValidationNode(StaticValidationService(FixedFactory([PassingRule()])))
 
     with pytest.raises(StaticValidationError, match="without a candidate"):
-        node(initial_state("q", "local"))
+        node(initial_state("q", "local", "t-1"))

@@ -9,6 +9,9 @@ the only layer that knows it is talking to a human.
 
 from __future__ import annotations
 
+import uuid
+from typing import cast
+
 import typer
 
 from genql.api.query_graph import run_query
@@ -47,9 +50,16 @@ def query(
 ) -> None:
     """Plan, generate, statically validate, and safely execute SQL for a question."""
     try:
-        final = run_query(Container().query_graph(), question, datasource, domain_id)
+        # A throwaway thread id and a cast back to QueryState: this command is
+        # rewritten in full by the turn-assembly task, which is what makes the
+        # thread id resumable and narrows the graph's raw mapping into a typed
+        # TurnResponse. Until then this only has to keep the Phase 5 rendering
+        # compiling against the graph's new signature.
+        raw = run_query(
+            Container().query_graph(), question, datasource, f"t-{uuid.uuid4().hex}", domain_id
+        )
     except GenqlError as exc:
         typer.echo(str(exc))
         raise typer.Exit(code=1) from exc
 
-    _render(final)
+    _render(cast(QueryState, raw))
