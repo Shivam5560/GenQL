@@ -1,0 +1,15 @@
+datasource: local
+rules:
+  - name: default_period
+    dimension: time_range
+    value: the most recent complete calendar year present in the data
+    description: >-
+      A question with no stated period means the most recent complete calendar
+      year, not all history — TPC-DS spans several years and an unbounded scan
+      answers a question nobody asked.
+  - name: default_comparison
+    dimension: comparison_baseline
+    value: none unless the question asks for one
+    description: >-
+      Do not invent a year-over-year or prior-period comparison. A question
+      that wants one says so.
