@@ -210,3 +210,15 @@ def test_the_query_graph_carries_all_eight_stages(container: Container) -> None:
         GUARDED_EXECUTION,
     ):
         assert stage in nodes
+
+
+def test_the_runner_includes_synthetic_ambiguity_log(container: Container) -> None:
+    runner = container.discovery_runner()
+
+    step_names = [step.name for step in runner._steps]  # noqa: SLF001
+
+    assert "synthetic_ambiguity_log" in step_names
+
+
+def test_the_container_builds_a_synthetic_ambiguity_log_service(container: Container) -> None:
+    assert hasattr(container.synthetic_ambiguity_log_service(), "generate")

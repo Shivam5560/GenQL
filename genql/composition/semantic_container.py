@@ -18,6 +18,9 @@ from genql.domain.ports.enrichment_reader import EnrichmentReader
 from genql.domain.ports.retriever import Retriever
 from genql.infrastructure.catalog.comment_writer_factory import CommentWriterFactoryImpl
 from genql.repositories.graph.registry import CLUSTERING_ALGORITHMS
+from genql.repositories.semantic.ambiguity_example_repository import (
+    PostgresAmbiguityExampleWriter,
+)
 from genql.repositories.semantic.domain_namer_repository import LlmDomainNamer
 from genql.repositories.semantic.domain_repository import PostgresDomainRepository
 from genql.repositories.semantic.enrichment_repository import PostgresEnrichmentRepository
@@ -25,6 +28,7 @@ from genql.repositories.semantic.metric_repository import PostgresMetricReposito
 from genql.repositories.semantic.registry import ENRICHERS, RETRIEVERS
 from genql.repositories.semantic.rule_repository import PostgresRuleReader, PostgresRuleWriter
 from genql.repositories.semantic.search_document_repository import SearchDocumentCompiler
+from genql.services.discovery.synthetic_ambiguity_log_service import SyntheticAmbiguityLogService
 from genql.services.semantic.compile_service import CompileService
 from genql.services.semantic.domain_discovery_service import DomainDiscoveryService
 from genql.services.semantic.object_profiling_service import ObjectProfilingService
@@ -72,6 +76,20 @@ class SemanticContainer(GraphContainer, GatewayContainer):
         chat=GatewayContainer.chat_provider,
         embedder=GatewayContainer.embedding_provider,
         writer=enrichment_repository,
+    )
+
+    ambiguity_example_writer = providers.Singleton(
+        PostgresAmbiguityExampleWriter,
+        engine=GraphContainer.semantic_engine,
+        embedder=GatewayContainer.embedding_provider,
+    )
+    synthetic_ambiguity_log_service = providers.Factory(
+        SyntheticAmbiguityLogService,
+        chat=GatewayContainer.chat_provider,
+        embedder=GatewayContainer.embedding_provider,
+        domains=domain_repository,
+        metrics=metric_repository,
+        writer=ambiguity_example_writer,
     )
 
     domain_clustering_algorithm = providers.Singleton(

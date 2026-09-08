@@ -49,6 +49,7 @@ class Container(TurnContainer):
         "data_profiling": TurnContainer.profiling_service,
         "graph_projection": TurnContainer.graph_projection_service,
         "object_profiling": TurnContainer.object_profiling_service,
+        "synthetic_ambiguity_log": TurnContainer.synthetic_ambiguity_log_service,
     }
 
     discovery_runner = providers.Factory(
