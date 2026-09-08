@@ -37,6 +37,13 @@ _SELECT_DOMAIN_ID = text("""
     WHERE datasource_name = :datasource_name AND name = :name
 """)
 
+_SELECT_DOMAINS = text("""
+    SELECT id, datasource_name, name, description, provenance
+    FROM genql.genql_domain
+    WHERE datasource_name = :datasource_name
+    ORDER BY name
+""")
+
 
 class PostgresDomainRepository:
     def __init__(self, engine: Engine) -> None:
@@ -76,3 +83,21 @@ class PostgresDomainRepository:
                 _SELECT_DOMAIN_ID, {"datasource_name": datasource_name, "name": name}
             ).one_or_none()
         return None if row is None else int(row[0])
+
+    def list_domains(self, datasource_name: str) -> tuple[BusinessDomain, ...]:
+        """The read side SyntheticAmbiguityLogService needs: one domain per
+        row, grounding its per-domain generation prompt. Ordered by name so a
+        capped or paginated caller sees a stable slice, matching every other
+        reader in this file."""
+        with self._engine.connect() as conn:
+            rows = conn.execute(_SELECT_DOMAINS, {"datasource_name": datasource_name}).all()
+        return tuple(
+            BusinessDomain(
+                datasource_name=row.datasource_name,
+                domain_id=row.id,
+                name=row.name,
+                description=row.description,
+                provenance=row.provenance,
+            )
+            for row in rows
+        )

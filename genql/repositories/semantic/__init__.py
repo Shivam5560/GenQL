@@ -1,3 +1,7 @@
+from genql.repositories.semantic.ambiguity_example_repository import (
+    PostgresAmbiguityExampleReader,
+    PostgresAmbiguityExampleWriter,
+)
 from genql.repositories.semantic.bm25_retriever_repository import Bm25Retriever
 from genql.repositories.semantic.dense_retriever_repository import DenseRetriever
 from genql.repositories.semantic.domain_scoped_retriever_repository import DomainScopedRetriever
@@ -18,6 +22,8 @@ __all__ = [
     "DenseRetriever",
     "DomainScopedRetriever",
     "HybridRrfRetriever",
+    "PostgresAmbiguityExampleReader",
+    "PostgresAmbiguityExampleWriter",
     "PostgresJoinPathReader",
     "PostgresRuleReader",
     "PostgresRuleWriter",
