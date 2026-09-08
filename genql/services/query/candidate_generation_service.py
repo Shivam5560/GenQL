@@ -1,92 +1,68 @@
-"""Produces exactly one SQL candidate from a plan and its schema links.
+"""Produces one candidate on the non-contested path, or several representing
+alternative interpretations on the contested path.
 
-Phase 5 generates one candidate, not N. The parent spec's §9 stage 7 asks for
-N candidates representing genuinely different interpretations, but critique,
-probing, and selection — the stages that consume the disagreement between
-them — are Phase 6. Generating a second candidate with nothing to resolve it
-against would be dead work.
+Non-contested: exactly one strategy ("decomposition", chosen arbitrarily
+since a non-contested plan has one intended reading and strategy choice
+cannot matter), keeping only its first variant, with examples=() — bit-for-
+bit Phase 5/6 behaviour and cost. Contested: fetches up to
+`ambiguity_example_top_k` examples once, then calls every registered
+strategy with them, flattening the variants into one tuple. Two strategies
+therefore yield four candidates through exactly two ChatProvider calls,
+matching the parent spec's §20 cost model.
 
-`violations` is empty on the first attempt. On the graph's single retry it
-carries the previous attempt's guardrail failures, which is the only thing
-that makes the retry more than a re-roll of the same dice.
+`escalated` picks which ChatProvider each strategy is constructed with —
+chat_model normally, chat_model_escalation for the one regeneration this
+phase allows after every survivor was judged fatal.
 """
 
 from __future__ import annotations
-
-from pydantic import BaseModel, ConfigDict, ValidationError
 
 from genql.domain.entities.guardrail_violation import GuardrailViolation
 from genql.domain.entities.query_plan import QueryPlan
 from genql.domain.entities.schema_link import SchemaLink
 from genql.domain.entities.sql_candidate import SqlCandidate
-from genql.domain.errors import ChatProviderError, GenerationError
+from genql.domain.errors import GenerationError
+from genql.domain.ports.ambiguity_example_reader import AmbiguityExampleReader
 from genql.domain.ports.chat_provider import ChatProvider
+from genql.repositories.query.registry import CANDIDATE_STRATEGIES
 
-
-class SqlResponse(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
-    sql: str
-
-
-def _render_link(link: SchemaLink) -> str:
-    parts = [f"- {link.object_qualified_name}"]
-    if link.column_names:
-        parts.append(f"    columns: {', '.join(link.column_names)}")
-    if link.join_paths:
-        parts.append(f"    join paths: {', '.join(link.join_paths)}")
-    if link.metric_names:
-        parts.append(f"    metrics: {', '.join(link.metric_names)}")
-    return "\n".join(parts)
-
-
-def build_generation_prompt(
-    plan: QueryPlan, links: tuple[SchemaLink, ...], violations: tuple[GuardrailViolation, ...]
-) -> str:
-    catalog = "\n".join(_render_link(link) for link in links)
-    sections = [
-        "Write one PostgreSQL SELECT statement that carries out the plan below.",
-        f"Question:\n{plan.question}",
-        f"Plan:\n{plan.plan_text}",
-        f"Available objects (reference them as schema.object):\n{catalog}",
-        (
-            "Rules:\n"
-            "- A single SELECT (a leading WITH is fine). No DDL, DML, or DCL.\n"
-            "- Reference only the objects listed above, schema-qualified.\n"
-            "- Join only along the join paths listed above.\n"
-            "- Include an explicit LIMIT.\n"
-            "- Return the statement in `sql`, with no markdown fence and no commentary."
-        ),
-    ]
-    if violations:
-        rendered = "\n".join(f"- {v.rule_name}: {v.message}" for v in violations)
-        sections.append(
-            "The previous attempt was rejected by static validation. Fix these and "
-            f"do not repeat them:\n{rendered}"
-        )
-    return "\n\n".join(sections)
+_NON_CONTESTED_STRATEGY = "decomposition"
 
 
 class CandidateGenerationService:
-    def __init__(self, chat: ChatProvider) -> None:
+    def __init__(
+        self,
+        chat: ChatProvider,
+        escalation_chat: ChatProvider,
+        examples: AmbiguityExampleReader,
+        example_top_k: int,
+    ) -> None:
         self._chat = chat
+        self._escalation_chat = escalation_chat
+        self._examples = examples
+        self._example_top_k = example_top_k
 
-    def generate(
+    def generate(  # noqa: PLR0913, PLR0917 - one flag per generation mode the brief's interface requires
         self,
         plan: QueryPlan,
         links: tuple[SchemaLink, ...],
         violations: tuple[GuardrailViolation, ...] = (),
-    ) -> SqlCandidate:
+        *,
+        domain_id: int | None = None,
+        contested: bool = False,
+        escalated: bool = False,
+    ) -> tuple[SqlCandidate, ...]:
         if not links:
             raise GenerationError(f"cannot generate SQL for {plan.question!r} with no schema links")
-        try:
-            response = self._chat.complete(
-                build_generation_prompt(plan, links, violations), SqlResponse
-            )
-        except (ChatProviderError, ValidationError) as exc:
-            raise GenerationError(f"failed to generate SQL for {plan.question!r}: {exc}") from exc
-        if not response.sql.strip():
-            raise GenerationError(
-                f"the generator returned an empty statement for {plan.question!r}"
-            )
-        return SqlCandidate(sql=response.sql.strip(), plan=plan)
+        chat = self._escalation_chat if escalated else self._chat
+
+        if not contested:
+            strategy = CANDIDATE_STRATEGIES.create(_NON_CONTESTED_STRATEGY, chat=chat)
+            return strategy.generate_variants(plan, links, violations, ())[:1]
+
+        examples = self._examples.search(plan.question, domain_id, self._example_top_k)
+        candidates: list[SqlCandidate] = []
+        for key in CANDIDATE_STRATEGIES.keys():  # noqa: SIM118 - Registry, not a dict
+            strategy = CANDIDATE_STRATEGIES.create(key, chat=chat)
+            candidates.extend(strategy.generate_variants(plan, links, violations, examples))
+        return tuple(candidates)
