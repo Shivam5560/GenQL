@@ -13,8 +13,10 @@ from sqlglot import exp
 from genql.domain.entities.ambiguity_example import AmbiguityExample
 from genql.domain.entities.query_plan import QueryPlan
 from genql.domain.entities.schema_link import SchemaLink
+from genql.domain.ports.chat_provider import ChatProvider
 from genql.infrastructure.gateway.openrouter_client import OpenRouterClient
 from genql.repositories.gateway.chat_provider_repository import OpenRouterChatProvider
+from genql.repositories.query.registry import CANDIDATE_STRATEGIES
 from genql.services.query.candidate_generation_service import CandidateGenerationService
 
 pytestmark = pytest.mark.skipif(
@@ -52,6 +54,11 @@ class _UnusedExampleReader:
         raise AssertionError("non-contested generation must not fetch examples")
 
 
+class _EmptyExampleReader:
+    def search(self, question: str, domain_id: int | None, top_k: int) -> tuple:
+        return ()
+
+
 def test_a_real_model_produces_a_parseable_select() -> None:
     provider = OpenRouterChatProvider(
         client=OpenRouterClient(api_key=os.environ["GENQL_OPENROUTER_API_KEY"]),
@@ -70,3 +77,22 @@ def test_a_real_model_produces_a_parseable_select() -> None:
     expression = sqlglot.parse_one(candidates[0].sql, dialect="postgres")
     assert isinstance(expression, exp.Select | exp.Union)
     assert "store_sales" in candidates[0].sql.lower()
+
+
+def test_the_contested_path_calls_every_registered_strategy_for_real(
+    openrouter_chat_provider: ChatProvider,
+) -> None:
+    """One real ChatProvider, both strategies, no fake anywhere. Two
+    registered strategies means two real calls and four real candidates —
+    the exact shape the parent spec's §20 cost model assumes."""
+    service = CandidateGenerationService(
+        chat=openrouter_chat_provider,
+        escalation_chat=openrouter_chat_provider,
+        examples=_EmptyExampleReader(),
+        example_top_k=3,
+    )
+
+    candidates = service.generate(PLAN, LINKS, contested=True)
+
+    assert len(candidates) == 2 * len(CANDIDATE_STRATEGIES.keys())
+    assert all(c.sql.strip() for c in candidates)

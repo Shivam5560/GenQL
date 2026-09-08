@@ -11,6 +11,7 @@ import pytest
 
 from genql.domain.entities.query_plan import QueryPlan
 from genql.domain.entities.sql_candidate import SqlCandidate
+from genql.domain.ports.chat_provider import ChatProvider
 from genql.infrastructure.gateway.openrouter_client import OpenRouterClient
 from genql.repositories.gateway.chat_provider_repository import OpenRouterChatProvider
 from genql.services.query.probe_designer import LlmProbeDesigner
@@ -66,3 +67,39 @@ def test_a_real_model_designs_a_probe_with_predictions_per_candidate(
     assert len(probe.candidate_predictions) == 2
     predicted_indices = {idx for idx, _ in probe.candidate_predictions}
     assert predicted_indices == {0, 1}
+
+
+_GRAIN_PLAN = QueryPlan(
+    question="show me store sales",
+    plan_text="sum sales, grain ambiguous between daily and monthly",
+    referenced_objects=("local.public.store_sales",),
+)
+_DAILY = SqlCandidate(
+    sql="SELECT sum(sales) FROM public.store_sales GROUP BY sale_date", plan=_GRAIN_PLAN
+)
+_MONTHLY = SqlCandidate(
+    sql="SELECT sum(sales) FROM public.store_sales GROUP BY date_trunc('month', sale_date)",
+    plan=_GRAIN_PLAN,
+)
+
+
+def test_a_real_design_call_returns_at_least_one_probe(
+    openrouter_chat_provider: ChatProvider,
+) -> None:
+    """Proves the shape AmbiguityProbingService's own unit tests already prove
+    correct once probes exist, using the shared session-scoped provider
+    fixture directly rather than the module's own `designer` fixture."""
+    probes = LlmProbeDesigner(openrouter_chat_provider).design(
+        _GRAIN_PLAN,
+        (_DAILY, _MONTHLY),
+        (
+            "SELECT sum(sales) FROM local.public.store_sales GROUP BY sale_date",
+            "SELECT sum(sales) FROM local.public.store_sales "
+            "GROUP BY date_trunc('month', sale_date)",
+        ),
+        (),
+    )
+
+    assert len(probes) >= 1
+    assert probes[0].probe_sql.strip()
+    assert len(probes[0].candidate_predictions) >= 1

@@ -10,7 +10,10 @@ from sqlalchemy import Engine, text
 from testcontainers.neo4j import Neo4jContainer
 from testcontainers.postgres import PostgresContainer
 
+from genql.domain.ports.chat_provider import ChatProvider
 from genql.infrastructure.db.engine import create_engine_from_dsn
+from genql.infrastructure.gateway.openrouter_client import OpenRouterClient
+from genql.repositories.gateway.chat_provider_repository import OpenRouterChatProvider
 
 
 @pytest.fixture(scope="session")
@@ -116,3 +119,17 @@ def neo4j_uri() -> Iterator[str]:
 
     with Neo4jContainer(image="neo4j:5-community") as running:
         yield running.get_connection_url()
+
+
+@pytest.fixture(scope="session")
+def openrouter_chat_provider() -> ChatProvider:
+    """One real ChatProvider shared across a session's real-provider tests.
+
+    Every test that requests this fixture is already gated behind its own
+    module-level `GENQL_OPENROUTER_API_KEY` skipif, so the key is read here
+    without a fallback.
+    """
+    return OpenRouterChatProvider(
+        client=OpenRouterClient(api_key=os.environ["GENQL_OPENROUTER_API_KEY"]),
+        model="anthropic/claude-sonnet-5",
+    )

@@ -16,6 +16,7 @@ import pytest
 from genql.domain.entities.query_plan import QueryPlan
 from genql.domain.entities.schema_link import SchemaLink
 from genql.domain.entities.sql_candidate import SqlCandidate
+from genql.domain.ports.chat_provider import ChatProvider
 from genql.infrastructure.gateway.openrouter_client import OpenRouterClient
 from genql.repositories.gateway.chat_provider_repository import OpenRouterChatProvider
 from genql.services.query.critique_service import CritiqueService
@@ -74,3 +75,33 @@ def test_an_unknown_column_is_a_fatal_deterministic_defect(critic: CritiqueServi
     reports = critic.critique(PLAN, (candidate,), validated_sqls, LINKS)
 
     assert reports[0].is_fatal
+
+
+_STORE_PLAN = QueryPlan(
+    question="how many stores do we have",
+    plan_text="count distinct stores",
+    referenced_objects=("local.public.store",),
+)
+_STORE_LINKS = (SchemaLink(object_qualified_name="local.public.store", column_names=("store_id",)),)
+_CLEAN = SqlCandidate(sql="SELECT count(*) FROM public.store LIMIT 1", plan=_STORE_PLAN)
+_BROKEN = SqlCandidate(sql="SELECT bogus_col FROM public.store LIMIT 1", plan=_STORE_PLAN)
+
+
+def test_a_real_critique_call_scores_both_candidates(
+    openrouter_chat_provider: ChatProvider,
+) -> None:
+    """One real call against two hand-written candidates — one clean, one
+    referencing a column no SchemaLink lists — using the shared session-scoped
+    provider fixture directly rather than the module's own `critic` fixture."""
+    reports = CritiqueService(openrouter_chat_provider).critique(
+        _STORE_PLAN,
+        (_CLEAN, _BROKEN),
+        (
+            "SELECT count(*) FROM local.public.store LIMIT 1",
+            "SELECT bogus_col FROM local.public.store LIMIT 1",
+        ),
+        _STORE_LINKS,
+    )
+
+    assert len(reports) == 2
+    assert reports[1].is_fatal  # the deterministic unknown-column check alone guarantees this
