@@ -60,3 +60,16 @@ class Settings(BaseSettings):
     # from the advisory lock's dedicated connection. Small because a CLI turn
     # is single-threaded; an API server would raise it.
     checkpoint_pool_max_size: int = 4
+    # Used only for the one escalated regeneration this phase allows, when
+    # every surviving candidate carries a fatal defect after one repair round.
+    # A distinct, stronger model rather than a retry against chat_model: the
+    # parent spec's §20 names Opus specifically for this trigger.
+    chat_model_escalation: str = "anthropic/claude-opus-5"
+    # Caps AmbiguityProbingService regardless of how many dimensions a
+    # critique disagreement touches, bounding worst-case probing latency and
+    # cost per the spec's §19 risk mitigation.
+    probing_max_probes: int = 3
+    # How many offline synthetic ambiguity examples the contested generation
+    # path retrieves as few-shot context. Small on purpose: these are
+    # few-shot exemplars, not a retrieval corpus to page through.
+    ambiguity_example_top_k: int = 3
