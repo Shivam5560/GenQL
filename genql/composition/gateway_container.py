@@ -58,6 +58,12 @@ class GatewayContainer(CoreContainer):
         openrouter_client=openrouter_client,
         model=CoreContainer.settings.provided.chat_model,
     )
+    escalation_chat_provider = providers.Singleton(
+        build_chat_provider,
+        key=CoreContainer.settings.provided.chat_provider,
+        openrouter_client=openrouter_client,
+        model=CoreContainer.settings.provided.chat_model_escalation,
+    )
     embedding_provider = providers.Singleton(
         build_embedding_provider,
         key=CoreContainer.settings.provided.embedding_provider,

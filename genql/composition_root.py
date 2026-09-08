@@ -13,7 +13,7 @@ from typing import Any
 
 from dependency_injector import providers
 
-from genql.composition.turn_container import TurnContainer
+from genql.composition.ambiguity_container import AmbiguityContainer
 
 # Imported for its registration side effect: every discovery step decorates
 # itself into DISCOVERY_STEPS when genql.discovery.steps is imported. This is
@@ -39,21 +39,21 @@ def _step_providers_in_registered_order(
     ]
 
 
-class Container(TurnContainer):
+class Container(AmbiguityContainer):
     # Every step name registered in DISCOVERY_STEPS must have an entry here so
     # its constructor can be injected with the service it needs. A step
     # registered without an entry fails fast (KeyError) at import time rather
     # than being silently dropped from the pipeline.
     _step_service_providers: dict[str, providers.Provider[Any]] = {
-        "catalog_scan": TurnContainer.catalog_scan_service,
-        "data_profiling": TurnContainer.profiling_service,
-        "graph_projection": TurnContainer.graph_projection_service,
-        "object_profiling": TurnContainer.object_profiling_service,
-        "synthetic_ambiguity_log": TurnContainer.synthetic_ambiguity_log_service,
+        "catalog_scan": AmbiguityContainer.catalog_scan_service,
+        "data_profiling": AmbiguityContainer.profiling_service,
+        "graph_projection": AmbiguityContainer.graph_projection_service,
+        "object_profiling": AmbiguityContainer.object_profiling_service,
+        "synthetic_ambiguity_log": AmbiguityContainer.synthetic_ambiguity_log_service,
     }
 
     discovery_runner = providers.Factory(
         DiscoveryRunner,
         steps=providers.List(*_step_providers_in_registered_order(_step_service_providers)),
-        registrations=TurnContainer.schema_registration_repository,
+        registrations=AmbiguityContainer.schema_registration_repository,
     )

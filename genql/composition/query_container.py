@@ -49,7 +49,11 @@ class QueryContainer(SemanticContainer):
     )
     planning_service = providers.Singleton(PlanningService, chat=SemanticContainer.chat_provider)
     candidate_generation_service = providers.Singleton(
-        CandidateGenerationService, chat=SemanticContainer.chat_provider
+        CandidateGenerationService,
+        chat=SemanticContainer.chat_provider,
+        escalation_chat=SemanticContainer.escalation_chat_provider,
+        examples=SemanticContainer.ambiguity_example_reader,
+        example_top_k=SemanticContainer.settings.provided.ambiguity_example_top_k,
     )
 
     guardrail_factory = providers.Singleton(

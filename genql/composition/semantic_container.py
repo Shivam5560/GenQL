@@ -19,6 +19,7 @@ from genql.domain.ports.retriever import Retriever
 from genql.infrastructure.catalog.comment_writer_factory import CommentWriterFactoryImpl
 from genql.repositories.graph.registry import CLUSTERING_ALGORITHMS
 from genql.repositories.semantic.ambiguity_example_repository import (
+    PostgresAmbiguityExampleReader,
     PostgresAmbiguityExampleWriter,
 )
 from genql.repositories.semantic.domain_namer_repository import LlmDomainNamer
@@ -78,6 +79,11 @@ class SemanticContainer(GraphContainer, GatewayContainer):
         writer=enrichment_repository,
     )
 
+    ambiguity_example_reader = providers.Singleton(
+        PostgresAmbiguityExampleReader,
+        engine=GraphContainer.semantic_engine,
+        embedder=GatewayContainer.embedding_provider,
+    )
     ambiguity_example_writer = providers.Singleton(
         PostgresAmbiguityExampleWriter,
         engine=GraphContainer.semantic_engine,

@@ -2,10 +2,9 @@
 
 Before this fix, genql/composition_root.py hardcoded
 `providers.List(Factory(CatalogScanStep, ...), Factory(DataProfilingStep, ...))`,
-so a newly `@DISCOVERY_STEPS.register(...)`-ed step could be silently left out
-of the pipeline. This asserts the constructed runner's step order always
-equals DISCOVERY_STEPS's registered order, so that omission is caught here
-instead of discovered in production. See final-review.md I4.
+so a newly `@DISCOVERY_STEPS.register(...)`-ed step could be silently left out of
+the pipeline. This asserts the constructed runner's step order always equals
+DISCOVERY_STEPS's registered order, caught here instead of in production. See final-review.md I4.
 """
 
 from __future__ import annotations
@@ -16,7 +15,10 @@ from langgraph.checkpoint.memory import InMemorySaver
 
 from genql.api.query_graph import (
     AMBIGUITY_GATE,
+    AMBIGUITY_PROBING,
     CANDIDATE_GENERATION,
+    CANDIDATE_SELECTION,
+    CRITIQUE,
     DOMAIN_SCOPING,
     GUARDED_EXECUTION,
     INTENT_CLASSIFICATION,
@@ -184,10 +186,10 @@ def test_the_checkpoint_dsn_is_derived_from_the_semantic_dsn(container: Containe
     assert container.checkpoint_dsn() == "postgresql://x:x@localhost/x"
 
 
-def test_the_query_graph_carries_all_eight_stages(container: Container) -> None:
-    """The graph provider is overridden in TurnContainer, so this is where a
-    forgotten node would show up — an eight-node graph compiled from a
-    five-node provider would still be `invoke`-able and silently skip the gate.
+def test_the_query_graph_carries_all_eleven_stages(container: Container) -> None:
+    """The graph provider is overridden in AmbiguityContainer, so this is where a
+    forgotten node would show up — an eleven-node graph compiled from a
+    partial provider would still be `invoke`-able and silently skip a stage.
 
     The checkpointer is overridden with InMemorySaver because building the real
     one opens a psycopg pool and runs setup() against it, and this fixture's DSN
@@ -207,6 +209,9 @@ def test_the_query_graph_carries_all_eight_stages(container: Container) -> None:
         PLANNING,
         CANDIDATE_GENERATION,
         STATIC_VALIDATION,
+        CRITIQUE,
+        AMBIGUITY_PROBING,
+        CANDIDATE_SELECTION,
         GUARDED_EXECUTION,
     ):
         assert stage in nodes
@@ -222,3 +227,24 @@ def test_the_runner_includes_synthetic_ambiguity_log(container: Container) -> No
 
 def test_the_container_builds_a_synthetic_ambiguity_log_service(container: Container) -> None:
     assert hasattr(container.synthetic_ambiguity_log_service(), "generate")
+
+
+def test_the_container_builds_a_critique_service(container: Container) -> None:
+    assert hasattr(container.critique_service(), "critique")
+
+
+def test_the_container_builds_an_ambiguity_probing_service(container: Container) -> None:
+    assert hasattr(container.ambiguity_probing_service(), "probe")
+
+
+def test_the_container_builds_a_candidate_selection_service(container: Container) -> None:
+    assert hasattr(container.candidate_selection_service(), "select")
+
+
+def test_the_container_builds_an_escalation_chat_provider(container: Container) -> None:
+    assert hasattr(container.escalation_chat_provider(), "complete")
+
+
+def test_the_container_builds_an_ambiguity_example_reader_and_writer(container: Container) -> None:
+    assert hasattr(container.ambiguity_example_reader(), "search")
+    assert hasattr(container.ambiguity_example_writer(), "write")
