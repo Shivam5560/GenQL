@@ -111,9 +111,15 @@ class ProbeResult(BaseModel):
 
 # domain/entities/candidate_selection.py
 class CandidateSelection(BaseModel):
+    """`selected_sql` is the qualified string static validation produced for
+    the winning candidate — not `selected.sql`, which is the pre-repair,
+    pre-qualification text the generator emitted. Carrying both means a later
+    stage can explain *which interpretation* won (`selected`) while executing
+    exactly what actually passed validation (`selected_sql`)."""
     model_config = ConfigDict(frozen=True)
 
     selected: SqlCandidate
+    selected_sql: str
     method: Literal["single_survivor", "probe_resolved", "critique_ranked"]
     rationale: str
 
@@ -146,8 +152,17 @@ class CandidateGenerationStrategy(Protocol):
 
 # domain/ports/critic.py
 class Critic(Protocol):
+    """`validated_sqls[i]` is the qualified statement for `candidates[i]` —
+    the deterministic column/table check runs against this, not against
+    `candidates[i].sql`, since qualification can rewrite references
+    (`identify`, alias resolution) that a pre-qualification check would
+    misjudge."""
     def critique(
-        self, plan: QueryPlan, candidates: tuple[SqlCandidate, ...], links: tuple[SchemaLink, ...]
+        self,
+        plan: QueryPlan,
+        candidates: tuple[SqlCandidate, ...],
+        validated_sqls: tuple[str, ...],
+        links: tuple[SchemaLink, ...],
     ) -> tuple[CritiqueReport, ...]: ...
 
 # domain/ports/probe_designer.py
@@ -156,6 +171,7 @@ class ProbeDesigner(Protocol):
         self,
         plan: QueryPlan,
         candidates: tuple[SqlCandidate, ...],
+        validated_sqls: tuple[str, ...],
         critiques: tuple[CritiqueReport, ...],
     ) -> tuple[AmbiguityProbe, ...]: ...
 
@@ -181,6 +197,10 @@ under the same row cap and read-only binding. No new execution port.
 # and test that touched `candidate` singular updates in the same batch; there is no compatibility
 # shim, matching how Phase 6 itself changed Phase 5's graph file without one.
 candidates: tuple[SqlCandidate, ...]
+# Index-aligned with `candidates` after static validation drops the failures: candidates[i]'s
+# qualified SQL is validated_sqls[i]. This is the field critique, probing, and selection actually
+# read and write against — `SqlCandidate.sql` stays the pre-repair, pre-qualification text.
+validated_sqls: tuple[str, ...]
 contested: bool  # clarifications or applied_defaults were non-empty when the gate last cleared
 critique_reports: tuple[CritiqueReport, ...]
 probe_results: tuple[ProbeResult, ...]
@@ -188,8 +208,9 @@ selection: CandidateSelection | None
 escalated: bool  # whether the one Opus regeneration attempt has already been spent
 ```
 
-`validated_sql: str | None` keeps its existing meaning and type: the field is populated from
-`selection.selected` once selection runs, so `GuardedExecutionNode` (Phase 5) needs no change at all.
+`validated_sql: str | None` keeps its existing meaning and type: `CandidateSelectionNode` sets it from
+`selection.selected_sql` once selection runs, so `GuardedExecutionNode` (Phase 5) needs no change at
+all.
 
 ---
 
@@ -283,11 +304,12 @@ New, under `genql/services/query/`:
   through `StaticValidationService`, executes it through `GuardedExecutionService`, and compares the
   real result against each candidate's prediction to produce a `ProbeResult`. Skipped when ≤1
   candidate survives critique.
-- **`CandidateSelectionService`** — no `ChatProvider` dependency. `select(candidates, critiques,
-  probe_results) -> CandidateSelection`: one survivor → `single_survivor`; else, if every probe in
-  `probe_results` resolved and agrees on one index → `probe_resolved`; else → `critique_ranked`,
-  the highest `CritiqueReport.score` among non-fatal survivors, ties broken by the lowest
-  `candidate_index`.
+- **`CandidateSelectionService`** — no `ChatProvider` dependency. `select(candidates, validated_sqls,
+  critiques, probe_results) -> CandidateSelection`: one survivor → `single_survivor`; else, if every
+  probe in `probe_results` resolved and agrees on one index → `probe_resolved`; else →
+  `critique_ranked`, the highest `CritiqueReport.score` among non-fatal survivors, ties broken by the
+  lowest `candidate_index`. In every branch, `selected_sql` is `validated_sqls[winning_index]` — the
+  index the chosen method resolved to, never re-derived from `selected.sql`.
 - **Offline, under `genql/services/discovery/`: `SyntheticAmbiguityLogService`** — a new
   `DiscoveryStep` (registered in the existing `DISCOVERY_STEPS` registry as
   `"synthetic_ambiguity_log"`, run last, after domain naming): for each domain, one `ChatProvider`
@@ -321,8 +343,9 @@ state; `CandidateGenerationService` reads `escalated` to pick `chat_model_escala
 
 `CRITIQUE`, `AMBIGUITY_PROBING`, and `CANDIDATE_SELECTION` each open with the same guard: `if not
 state["contested"] or len(candidates) <= 1: return {<their output field>: ()}` (or, for selection,
-`{"selection": CandidateSelection(selected=candidates[0], method="single_survivor", rationale="only
-one candidate survived validation")}`). This is a state check inside the node, not a new conditional
+`{"selection": CandidateSelection(selected=candidates[0], selected_sql=validated_sqls[0],
+method="single_survivor", rationale="only one candidate survived validation"), "validated_sql":
+validated_sqls[0]}`). This is a state check inside the node, not a new conditional
 edge — the graph's shape stays three added nodes on one added straight path, and the well-specified
 turn pays zero extra `ChatProvider` calls and zero extra warehouse round trips, matching §20's
 demand-driven mandate without branching the graph itself.
