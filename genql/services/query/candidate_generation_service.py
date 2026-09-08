@@ -1,16 +1,20 @@
 """Produces one candidate on the non-contested path, or several representing
 alternative interpretations on the contested path.
 
-Non-contested: exactly one strategy ("decomposition", chosen arbitrarily
-since a non-contested plan has one intended reading and strategy choice
-cannot matter), keeping only its first variant, with examples=() — bit-for-
-bit Phase 5/6 behaviour and cost. Contested: fetches up to
-`ambiguity_example_top_k` examples once, then calls every registered
-strategy with them, flattening the variants into one tuple. Two strategies
-therefore yield four candidates through exactly two ChatProvider calls,
-matching the parent spec's §20 cost model.
+Non-contested: exactly one strategy (the factory's `default`, since a
+non-contested plan has one intended reading and strategy choice cannot
+matter), keeping only its first variant, with examples=() — bit-for-bit Phase
+5/6 behaviour and cost. Contested: fetches up to `ambiguity_example_top_k`
+examples once, then calls every strategy the factory offers with them,
+flattening the variants into one tuple. Two strategies therefore yield four
+candidates through exactly two ChatProvider calls, matching the parent spec's
+§20 cost model.
 
-`escalated` picks which ChatProvider each strategy is constructed with —
+Which strategies exist is `CandidateStrategyFactory`'s business, not this
+service's: the registry that answers that question lives under
+`genql.repositories`, which the services layer never imports.
+
+`escalated` picks which ChatProvider the strategies are built with —
 chat_model normally, chat_model_escalation for the one regeneration this
 phase allows after every survivor was judged fatal.
 """
@@ -23,22 +27,22 @@ from genql.domain.entities.schema_link import SchemaLink
 from genql.domain.entities.sql_candidate import SqlCandidate
 from genql.domain.errors import GenerationError
 from genql.domain.ports.ambiguity_example_reader import AmbiguityExampleReader
+from genql.domain.ports.candidate_strategy_factory import CandidateStrategyFactory
 from genql.domain.ports.chat_provider import ChatProvider
-from genql.repositories.query.registry import CANDIDATE_STRATEGIES
-
-_NON_CONTESTED_STRATEGY = "decomposition"
 
 
 class CandidateGenerationService:
-    def __init__(
+    def __init__(  # noqa: PLR0913, PLR0917 - one dependency per collaborator
         self,
         chat: ChatProvider,
         escalation_chat: ChatProvider,
+        strategies: CandidateStrategyFactory,
         examples: AmbiguityExampleReader,
         example_top_k: int,
     ) -> None:
         self._chat = chat
         self._escalation_chat = escalation_chat
+        self._strategies = strategies
         self._examples = examples
         self._example_top_k = example_top_k
 
@@ -57,12 +61,11 @@ class CandidateGenerationService:
         chat = self._escalation_chat if escalated else self._chat
 
         if not contested:
-            strategy = CANDIDATE_STRATEGIES.create(_NON_CONTESTED_STRATEGY, chat=chat)
+            strategy = self._strategies.default(chat)
             return strategy.generate_variants(plan, links, violations, ())[:1]
 
         examples = self._examples.search(plan.question, domain_id, self._example_top_k)
         candidates: list[SqlCandidate] = []
-        for key in CANDIDATE_STRATEGIES.keys():  # noqa: SIM118 - Registry, not a dict
-            strategy = CANDIDATE_STRATEGIES.create(key, chat=chat)
+        for strategy in self._strategies.all(chat):
             candidates.extend(strategy.generate_variants(plan, links, violations, examples))
         return tuple(candidates)

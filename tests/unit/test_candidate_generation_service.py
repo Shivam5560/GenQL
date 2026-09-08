@@ -15,6 +15,8 @@ from genql.domain.entities.guardrail_violation import GuardrailViolation
 from genql.domain.entities.query_plan import QueryPlan
 from genql.domain.entities.schema_link import SchemaLink
 from genql.domain.errors import ChatProviderError, GenerationError
+from genql.infrastructure.query.candidate_strategy_factory import CandidateStrategyFactoryImpl
+from genql.repositories.query.decomposition_strategy import DecompositionStrategy
 from genql.repositories.query.registry import CANDIDATE_STRATEGIES
 from genql.services.query.candidate_generation_service import CandidateGenerationService
 
@@ -57,12 +59,26 @@ class FakeExampleReader:
         return self._examples
 
 
+class SingleStrategyFactory:
+    """A factory offering exactly one strategy, whatever is registered."""
+
+    def default(self, chat: object) -> object:
+        return DecompositionStrategy(chat=chat)
+
+    def all(self, chat: object) -> list[object]:
+        return [DecompositionStrategy(chat=chat)]
+
+
 def _service(
-    chat: object = None, escalation: object = None, examples: FakeExampleReader | None = None
+    chat: object = None,
+    escalation: object = None,
+    examples: FakeExampleReader | None = None,
+    strategies: object = None,
 ) -> CandidateGenerationService:
     return CandidateGenerationService(
         chat=chat or FakeChatProvider("normal"),
         escalation_chat=escalation or FakeChatProvider("escalated"),
+        strategies=strategies or CandidateStrategyFactoryImpl(),
         examples=examples or FakeExampleReader(),
         example_top_k=3,
     )
@@ -133,3 +149,17 @@ def test_the_violations_reach_every_strategy() -> None:
     # succeeds with violations present, proving the parameter is accepted and
     # threaded through without raising.
     assert chat.calls == 1
+
+
+def test_a_factory_offering_one_strategy_yields_only_that_strategys_variants() -> None:
+    """Substituting the factory is the supported way to change which
+    strategies run, proving the service holds no registry knowledge of its
+    own."""
+    chat = FakeChatProvider("normal")
+
+    candidates = _service(chat=chat, strategies=SingleStrategyFactory()).generate(
+        PLAN, LINKS, contested=True
+    )
+
+    assert chat.calls == 1
+    assert len(candidates) == 2

@@ -5,6 +5,10 @@ AmbiguityExampleReader/Writer ports carry no embedding parameter, unlike
 Retriever.search, which receives one pre-computed by RetrievalService. The
 read shape otherwise mirrors DenseRetriever's cosine-distance ORDER BY LIMIT
 exactly, applied to this smaller table.
+
+A domain-scoped search also returns unscoped (`domain_id IS NULL`) rows: 0008's
+ON DELETE SET NULL keeps an orphaned example as a valid general exemplar, so
+excluding those rows would quietly discard the log's cross-domain half.
 """
 
 from __future__ import annotations
@@ -19,7 +23,7 @@ from genql.domain.ports.embedding_provider import EmbeddingProvider
 _SEARCH = text("""
     SELECT question, interpretations, resolution, domain_id
     FROM genql.genql_ambiguity_example
-    WHERE (:domain_id::bigint IS NULL OR domain_id = :domain_id)
+    WHERE (CAST(:domain_id AS bigint) IS NULL OR domain_id = :domain_id OR domain_id IS NULL)
     ORDER BY embedding <=> CAST(:query_embedding AS vector)
     LIMIT :top_k
 """)

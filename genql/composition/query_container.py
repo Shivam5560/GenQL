@@ -20,6 +20,7 @@ from genql.api.query_nodes import (
     StaticValidationNode,
 )
 from genql.composition.semantic_container import SemanticContainer
+from genql.infrastructure.query.candidate_strategy_factory import CandidateStrategyFactoryImpl
 from genql.infrastructure.query.guardrail_factory import GuardrailFactoryImpl
 from genql.infrastructure.query.query_executor_factory import QueryExecutorFactoryImpl
 from genql.repositories.query.object_name_repository import PostgresObjectNameReader
@@ -48,10 +49,12 @@ class QueryContainer(SemanticContainer):
         top_k=SemanticContainer.settings.provided.search_top_k,
     )
     planning_service = providers.Singleton(PlanningService, chat=SemanticContainer.chat_provider)
+    candidate_strategy_factory = providers.Singleton(CandidateStrategyFactoryImpl)
     candidate_generation_service = providers.Singleton(
         CandidateGenerationService,
         chat=SemanticContainer.chat_provider,
         escalation_chat=SemanticContainer.escalation_chat_provider,
+        strategies=candidate_strategy_factory,
         examples=SemanticContainer.ambiguity_example_reader,
         example_top_k=SemanticContainer.settings.provided.ambiguity_example_top_k,
     )

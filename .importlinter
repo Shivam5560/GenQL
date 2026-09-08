@@ -40,5 +40,3 @@ forbidden_modules =
     neo4j
     graphdatascience
     httpx
-ignore_imports =
-    genql.services.query.candidate_generation_service -> genql.repositories.query.registry

@@ -13,7 +13,7 @@ _SEARCH = text("""
     SELECT datasource_name, schema_name, object_name, domain_name, paradedb.score(id) AS score
     FROM genql.genql_search_document
     WHERE datasource_name = :datasource_name AND content @@@ :query
-      AND (:domain_id::bigint IS NULL OR (schema_name, object_name) IN (
+      AND (CAST(:domain_id AS bigint) IS NULL OR (schema_name, object_name) IN (
             SELECT schema_name, object_name FROM genql.genql_domain_member
             WHERE domain_id = :domain_id
           ))

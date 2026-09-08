@@ -12,6 +12,7 @@ any other stage's failure.
 
 from __future__ import annotations
 
+from genql.domain.entities.ambiguity_probe import AmbiguityProbe
 from genql.domain.entities.critique_report import CritiqueReport
 from genql.domain.entities.execution_result import ExecutionResult
 from genql.domain.entities.probe_result import ProbeResult
@@ -26,6 +27,22 @@ def _render_scalar(result: ExecutionResult) -> str:
     if len(result.rows) == 1 and len(result.rows[0]) == 1:
         return str(result.rows[0][0])
     return str(result.rows)
+
+
+def _uniquely_predicted_by(probe: AmbiguityProbe, actual: str) -> int | None:
+    """The index of the ONE candidate whose prediction matched, or None.
+
+    Requiring uniqueness is the whole point of a probe: a probe several
+    candidates predict identically discriminates between none of them, so
+    matching it must not resolve in favour of whichever happens to be listed
+    first. `None` here is the same "inconclusive" signal a probe nobody
+    predicted correctly produces, and CandidateSelectionService already
+    falls back to critique ranking on it.
+    """
+    matches = [idx for idx, prediction in probe.candidate_predictions if prediction == actual]
+    if len(matches) != 1:
+        return None
+    return matches[0]
 
 
 class AmbiguityProbingService:
@@ -58,10 +75,7 @@ class AmbiguityProbingService:
             validated_probe_sql = self._validation.validate(probe_candidate, datasource_name)
             execution_result = self._execution.execute(validated_probe_sql, datasource_name)
             actual = _render_scalar(execution_result)
-            resolved = next(
-                (idx for idx, prediction in probe.candidate_predictions if prediction == actual),
-                None,
-            )
+            resolved = _uniquely_predicted_by(probe, actual)
             results.append(
                 ProbeResult(probe=probe, actual_result=actual, resolved_candidate_index=resolved)
             )

@@ -132,3 +132,15 @@ def test_selected_sql_is_always_the_qualified_statement_for_the_winning_index() 
 
     assert selection.selected_sql == SQLS[1]
     assert selection.selected_sql != selection.selected.sql
+
+
+def test_an_empty_critique_set_falls_back_instead_of_raising() -> None:
+    """`Critic` is a port, and the spec's Risk section contemplates
+    "critique_ranked selection over an empty critique set" as reachable — so
+    ranking nothing must degrade to the first survivor, not raise ValueError
+    out of max() from inside a service documented as a pure function."""
+    selection = _service().select(CANDIDATES, SQLS, (), ())
+
+    assert selection.method == "critique_ranked"
+    assert selection.selected is CANDIDATES[0]
+    assert selection.selected_sql == SQLS[0]

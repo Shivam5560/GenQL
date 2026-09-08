@@ -115,3 +115,41 @@ def test_zero_probes_designed_means_zero_results() -> None:
     )
 
     assert service.probe(PLAN, (CANDIDATE, CANDIDATE), ("s1", "s2"), (), "local") == ()
+
+
+def test_a_probe_several_candidates_predict_identically_resolves_nothing() -> None:
+    """A probe every candidate predicts the same way discriminates between
+    none of them. Matching it must stay inconclusive rather than resolving in
+    favour of whichever candidate happens to be listed first — otherwise
+    selection reports `probe_resolved` for what was really an arbitrary pick.
+    """
+    undiscriminating = AmbiguityProbe(
+        dimension="grain",
+        probe_sql="SELECT count(*) FROM shop.orders LIMIT 1",
+        candidate_predictions=((0, "12"), (1, "12")),
+    )
+    service = AmbiguityProbingService(
+        FakeDesigner((undiscriminating,)), FakeValidation(), FakeExecution((12,)), max_probes=3
+    )
+
+    results = service.probe(PLAN, (CANDIDATE, CANDIDATE), ("s1", "s2"), (), "local")
+
+    assert results[0].actual_result == "12"
+    assert results[0].resolved_candidate_index is None
+
+
+def test_the_one_candidate_whose_prediction_is_unique_still_resolves() -> None:
+    """Two of three candidates agreeing does not block the third from being
+    resolved when the data matches only it."""
+    probe = AmbiguityProbe(
+        dimension="grain",
+        probe_sql="SELECT count(*) FROM shop.orders LIMIT 1",
+        candidate_predictions=((0, "144"), (1, "144"), (2, "12")),
+    )
+    service = AmbiguityProbingService(
+        FakeDesigner((probe,)), FakeValidation(), FakeExecution((12,)), max_probes=3
+    )
+
+    results = service.probe(PLAN, (CANDIDATE,) * 3, ("s1", "s2", "s3"), (), "local")
+
+    assert results[0].resolved_candidate_index == 2

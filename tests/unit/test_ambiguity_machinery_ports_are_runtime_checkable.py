@@ -18,6 +18,7 @@ from genql.domain.entities.sql_candidate import SqlCandidate
 from genql.domain.ports.ambiguity_example_reader import AmbiguityExampleReader
 from genql.domain.ports.ambiguity_example_writer import AmbiguityExampleWriter
 from genql.domain.ports.candidate_strategy import CandidateGenerationStrategy
+from genql.domain.ports.candidate_strategy_factory import CandidateStrategyFactory
 from genql.domain.ports.critic import Critic
 from genql.domain.ports.domain_reader import DomainReader
 from genql.domain.ports.probe_designer import ProbeDesigner
@@ -103,3 +104,18 @@ def test_ambiguity_example_reader_and_writer_are_structurally_satisfied() -> Non
 
 def test_domain_reader_now_also_lists_domains() -> None:
     assert isinstance(Domains(), DomainReader)
+
+
+class StrategyFactory:
+    def default(self, chat: object) -> CandidateGenerationStrategy:
+        return Strategy()
+
+    def all(self, chat: object) -> list[CandidateGenerationStrategy]:
+        return [Strategy()]
+
+
+def test_candidate_strategy_factory_is_satisfied_structurally() -> None:
+    """The port CandidateGenerationService depends on instead of importing the
+    registry directly — the seam that keeps the services layer free of any
+    `genql.repositories` import."""
+    assert isinstance(StrategyFactory(), CandidateStrategyFactory)

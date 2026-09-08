@@ -35,6 +35,16 @@ class CandidateSelectionService:
                 ),
             )
         winner = self._critique_ranked_index(critiques)
+        if winner is None:
+            return CandidateSelection(
+                selected=candidates[0],
+                selected_sql=validated_sqls[0],
+                method="critique_ranked",
+                rationale=(
+                    "no critique report was available to rank the candidates; "
+                    "fell back to the first surviving candidate"
+                ),
+            )
         return CandidateSelection(
             selected=candidates[winner],
             selected_sql=validated_sqls[winner],
@@ -57,8 +67,18 @@ class CandidateSelectionService:
         return next(iter(resolved_indices))
 
     @staticmethod
-    def _critique_ranked_index(critiques: tuple[CritiqueReport, ...]) -> int:
+    def _critique_ranked_index(critiques: tuple[CritiqueReport, ...]) -> int | None:
+        """None when there is nothing to rank.
+
+        The spec's Risk section contemplates "critique_ranked selection over
+        an empty critique set" as a reachable state, and `Critic` is a port
+        any implementation may satisfy — so an empty tuple must return a
+        signal the caller can act on rather than raise ValueError out of
+        max() from inside a service that is meant to be a pure function.
+        """
         non_fatal = [c for c in critiques if not c.is_fatal]
         pool = non_fatal or list(critiques)
+        if not pool:
+            return None
         best = max(pool, key=lambda c: (c.score, -c.candidate_index))
         return best.candidate_index
