@@ -18,6 +18,7 @@ from typing import Any
 
 from genql.api.query_state import QueryState
 from genql.domain.entities.guardrail_violation import GuardrailViolation
+from genql.domain.entities.sql_candidate import SqlCandidate
 from genql.domain.errors import ExecutionError, GenerationError, StaticValidationError
 from genql.domain.ports.candidate_generator import CandidateGenerator
 from genql.domain.ports.planner import Planner
@@ -52,35 +53,79 @@ class CandidateGenerationNode:
         if plan is None:
             raise GenerationError("candidate generation was reached without a plan")
         violations = state["violations"]
-        candidate = self._generator.generate(plan, state["links"] or (), violations)
+        candidates = self._generator.generate(
+            plan,
+            state["links"] or (),
+            violations,
+            domain_id=state["domain_id"],
+            contested=state["contested"],
+            escalated=state["escalated"],
+        )
         return {
-            "candidate": candidate,
-            # Counted here, not in the validation node: this is the attempt
-            # being retried, so this is where "retry" becomes true.
+            "candidates": candidates,
             "retry_count": state["retry_count"] + (1 if violations else 0),
         }
 
 
 class StaticValidationNode:
+    """Validates every candidate independently, one repair attempt each,
+    exactly Phase 5's per-candidate rule — collecting survivors rather than
+    treating the batch as all-or-nothing.
+
+    Raises directly (Deviation 1) rather than writing failure into state for
+    the router to raise: granting the one escalated retry is a one-shot
+    decision this node must make and act on in the same evaluation, using the
+    `escalated` value it was handed. `not state["escalated"]` guards BOTH
+    retry branches, so once the budget is spent (here or by CritiqueNode) no
+    further regeneration is ever granted again, from either stage.
+    """
+
     def __init__(self, service: StaticValidationService) -> None:
         self._service = service
 
     def __call__(self, state: QueryState) -> dict[str, Any]:
-        candidate = state["candidate"]
-        if candidate is None:
+        candidates = state["candidates"]
+        if not candidates:
             raise StaticValidationError(
                 (
                     GuardrailViolation(
                         rule_name="graph",
-                        message="static validation was reached without a candidate",
+                        message="static validation was reached without any candidates",
                     ),
                 )
             )
-        try:
-            validated = self._service.validate(candidate, state["datasource_name"])
-        except StaticValidationError as exc:
-            return {"validated_sql": None, "violations": exc.violations}
-        return {"validated_sql": validated, "violations": ()}
+
+        survivors: list[SqlCandidate] = []
+        validated_sqls: list[str] = []
+        all_violations: list[GuardrailViolation] = []
+        for candidate in candidates:
+            try:
+                validated = self._service.validate(candidate, state["datasource_name"])
+            except StaticValidationError as exc:
+                all_violations.extend(exc.violations)
+                continue
+            survivors.append(candidate)
+            validated_sqls.append(validated)
+
+        if survivors:
+            return {
+                "candidates": tuple(survivors),
+                "validated_sqls": tuple(validated_sqls),
+                "violations": (),
+            }
+
+        combined = tuple(all_violations)
+        repairable = any(violation.repairable for violation in combined)
+        if repairable and not state["escalated"] and state["retry_count"] == 0:
+            return {"candidates": (), "validated_sqls": (), "violations": combined}
+        if repairable and state["contested"] and not state["escalated"]:
+            return {
+                "candidates": (),
+                "validated_sqls": (),
+                "violations": combined,
+                "escalated": True,
+            }
+        raise StaticValidationError(combined)
 
 
 class GuardedExecutionNode:
