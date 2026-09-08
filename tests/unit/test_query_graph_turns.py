@@ -42,9 +42,12 @@ from tests.unit.test_query_graph import (
     analytical_intent,
     build,
     clear_gate,
+    critique_node,
     execute_node,
     no_scope,
     plan_node,
+    probing_node,
+    selection_node,
 )
 
 
@@ -63,6 +66,9 @@ def test_a_non_analytical_intent_reaches_the_end_without_linking() -> None:
         plan_node,
         GenerateNode(),
         ValidateNode(0),
+        critique_node,
+        probing_node,
+        selection_node,
         execute_node,
     )
 
@@ -212,6 +218,9 @@ def test_an_explicit_domain_id_survives_to_schema_linking() -> None:
         plan_node,
         GenerateNode(),
         ValidateNode(0),
+        critique_node,
+        probing_node,
+        selection_node,
         execute_node,
     )
 

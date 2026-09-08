@@ -31,7 +31,7 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.types import Command
 
 from genql.api.query_state import QueryState, initial_state
-from genql.domain.errors import StaticValidationError, UnknownThreadError
+from genql.domain.errors import UnknownThreadError
 
 
 class NodeFn(Protocol):
@@ -53,6 +53,9 @@ SCHEMA_LINKING = "schema_linking"
 PLANNING = "planning"
 CANDIDATE_GENERATION = "candidate_generation"
 STATIC_VALIDATION = "static_validation"
+CRITIQUE = "critique"
+AMBIGUITY_PROBING = "ambiguity_probing"
+CANDIDATE_SELECTION = "candidate_selection"
 GUARDED_EXECUTION = "guarded_execution"
 
 
@@ -80,20 +83,20 @@ def route_after_gate(state: QueryState) -> str:
 
 
 def route_after_validation(state: QueryState) -> str:
-    """Success, one retry, or raise — the whole loop-termination argument.
+    """Trivial by design (Deviation 1): StaticValidationNode itself raises
+    when no attempt remains, so this is reachable only when it granted a
+    retry or produced survivors."""
+    return CRITIQUE if state["validated_sqls"] else CANDIDATE_GENERATION
 
-    Repairability is checked as well as the retry budget, per the spec's
-    "repairable-but-still-failing violation with retry_count == 0". A rule that
-    declared its own violation unrepairable has already had its one repair
-    attempt refused inside StaticValidationService, so regenerating against the
-    same plan and links would spend a model call to be told the same thing.
-    """
-    if state["validated_sql"] is not None:
-        return GUARDED_EXECUTION
-    repairable = any(violation.repairable for violation in state["violations"])
-    if repairable and state["retry_count"] == 0:
+
+def route_after_critique(state: QueryState) -> str:
+    """Trivial by the same reasoning (Deviation 2): CritiqueNode itself
+    raises CritiqueError when the escalation budget is already spent, so
+    reaching here with every report fatal means it was just granted."""
+    reports = state["critique_reports"]
+    if reports and all(r.is_fatal for r in reports):
         return CANDIDATE_GENERATION
-    raise StaticValidationError(state["violations"])
+    return AMBIGUITY_PROBING
 
 
 # The compiled-graph type's generic parameters change between langgraph minor
@@ -107,6 +110,9 @@ def build_query_graph(  # noqa: PLR0913, PLR0917 - one parameter per pipeline st
     planning: NodeFn,
     candidate_generation: NodeFn,
     static_validation: NodeFn,
+    critique: NodeFn,
+    ambiguity_probing: NodeFn,
+    candidate_selection: NodeFn,
     guarded_execution: NodeFn,
     *,
     checkpointer: Any = None,
@@ -119,6 +125,9 @@ def build_query_graph(  # noqa: PLR0913, PLR0917 - one parameter per pipeline st
     graph.add_node(PLANNING, planning)
     graph.add_node(CANDIDATE_GENERATION, candidate_generation)
     graph.add_node(STATIC_VALIDATION, static_validation)
+    graph.add_node(CRITIQUE, critique)
+    graph.add_node(AMBIGUITY_PROBING, ambiguity_probing)
+    graph.add_node(CANDIDATE_SELECTION, candidate_selection)
     graph.add_node(GUARDED_EXECUTION, guarded_execution)
 
     graph.add_edge(START, INTENT_CLASSIFICATION)
@@ -139,11 +148,15 @@ def build_query_graph(  # noqa: PLR0913, PLR0917 - one parameter per pipeline st
     graph.add_conditional_edges(
         STATIC_VALIDATION,
         route_after_validation,
-        {
-            CANDIDATE_GENERATION: CANDIDATE_GENERATION,
-            GUARDED_EXECUTION: GUARDED_EXECUTION,
-        },
+        {CANDIDATE_GENERATION: CANDIDATE_GENERATION, CRITIQUE: CRITIQUE},
     )
+    graph.add_conditional_edges(
+        CRITIQUE,
+        route_after_critique,
+        {CANDIDATE_GENERATION: CANDIDATE_GENERATION, AMBIGUITY_PROBING: AMBIGUITY_PROBING},
+    )
+    graph.add_edge(AMBIGUITY_PROBING, CANDIDATE_SELECTION)
+    graph.add_edge(CANDIDATE_SELECTION, GUARDED_EXECUTION)
     graph.add_edge(GUARDED_EXECUTION, END)
     return graph.compile(checkpointer=checkpointer)
 

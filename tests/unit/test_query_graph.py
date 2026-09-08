@@ -1,14 +1,17 @@
 """The wiring, proven with fake nodes so no ChatProvider, database, or
-retriever is involved. Four generation paths matter: clean, exactly one retry,
-a second failure that stops rather than looping, and an unrepairable violation
-that never spends the retry at all.
+retriever is involved. Candidates are tuples throughout — the non-contested
+path is just the len == 1 case, matching the real StaticValidationNode/
+CandidateSelectionNode's own shape.
 
-Phase 6 prepends three stages, and the paths they add — a short-circuiting
-intent, a pause-and-resume, a two-round clarification — live in
-tests/unit/test_query_graph_turns.py rather than here, because together the
+Phase 6 prepends three stages and Phase 6.5 three more; the paths they add
+live in tests/unit/test_query_graph_turns.py rather than here — together the
 two sets do not fit under the project's per-file line cap. The fake nodes and
-the `build` helper below are shared with that file: it imports them from here
-so both halves exercise the same graph in the same way.
+the `build` helper below are shared with that file.
+
+ValidateNode raises StaticValidationError itself once no attempt remains,
+mirroring the real StaticValidationNode's Deviation-1 behaviour — since
+route_after_validation is raise-free, only the node itself can prove the
+graph does not loop forever on an exhausted retry.
 """
 
 from __future__ import annotations
@@ -17,9 +20,16 @@ from typing import Any
 
 import pytest
 
-from genql.api.query_graph import build_query_graph, route_after_validation, run_query
+from genql.api.query_graph import (
+    build_query_graph,
+    route_after_critique,
+    route_after_validation,
+    run_query,
+)
 from genql.api.query_state import initial_state
 from genql.domain.entities.ambiguity_assessment import AmbiguityAssessment
+from genql.domain.entities.critique_report import CritiqueReport
+from genql.domain.entities.defect import Defect
 from genql.domain.entities.execution_result import ExecutionResult
 from genql.domain.entities.guardrail_violation import GuardrailViolation
 from genql.domain.entities.query_plan import QueryPlan
@@ -41,7 +51,7 @@ def analytical_intent(state: dict[str, Any]) -> dict[str, Any]:
 
 
 def clear_gate(state: dict[str, Any]) -> dict[str, Any]:
-    return {"ambiguity": CLEAR}
+    return {"ambiguity": CLEAR, "contested": False}
 
 
 def no_scope(state: dict[str, Any]) -> dict[str, Any]:
@@ -63,13 +73,16 @@ class GenerateNode:
     def __call__(self, state: dict[str, Any]) -> dict[str, Any]:
         self.calls += 1
         return {
-            "candidate": CANDIDATE,
+            "candidates": (CANDIDATE,),
             "retry_count": state["retry_count"] + (1 if state["violations"] else 0),
         }
 
 
 class ValidateNode:
-    """Fails its first `failures` invocations, then succeeds."""
+    """Fails its first `failures` invocations, then succeeds. Raises
+    StaticValidationError itself once no attempt remains (Deviation 1) —
+    route_after_validation is raise-free, so only the node proves the graph
+    does not loop forever."""
 
     def __init__(self, failures: int, violations: tuple[GuardrailViolation, ...] = VIOLATIONS):
         self.remaining = failures
@@ -78,8 +91,30 @@ class ValidateNode:
     def __call__(self, state: dict[str, Any]) -> dict[str, Any]:
         if self.remaining > 0:
             self.remaining -= 1
-            return {"validated_sql": None, "violations": self.violations}
-        return {"validated_sql": "SELECT 1 LIMIT 1", "violations": ()}
+            repairable = any(v.repairable for v in self.violations)
+            if not (repairable and state["retry_count"] == 0):
+                raise StaticValidationError(self.violations)
+            return {"candidates": (), "validated_sqls": (), "violations": self.violations}
+        return {
+            "candidates": (CANDIDATE,),
+            "validated_sqls": ("SELECT 1 LIMIT 1",),
+            "violations": (),
+        }
+
+
+def critique_node(state: dict[str, Any]) -> dict[str, Any]:
+    return {"critique_reports": ()}
+
+
+def probing_node(state: dict[str, Any]) -> dict[str, Any]:
+    return {"probe_results": ()}
+
+
+def selection_node(state: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "selection": None,
+        "validated_sql": state["validated_sqls"][0] if state["validated_sqls"] else None,
+    }
 
 
 def execute_node(state: dict[str, Any]) -> dict[str, Any]:
@@ -92,6 +127,9 @@ def build(  # noqa: PLR0913, PLR0917 - one parameter per overridable stage
     intent: Any = analytical_intent,
     gate: Any = clear_gate,
     scope: Any = no_scope,
+    critique: Any = critique_node,
+    probing: Any = probing_node,
+    selection: Any = selection_node,
     checkpointer: Any = None,
 ) -> Any:
     """One helper so the graph tests below differ only where they mean to."""
@@ -103,6 +141,9 @@ def build(  # noqa: PLR0913, PLR0917 - one parameter per overridable stage
         plan_node,
         generate,
         validate,
+        critique,
+        probing,
+        selection,
         execute_node,
         checkpointer=checkpointer,
     )
@@ -155,35 +196,37 @@ def test_an_unrepairable_violation_raises_without_spending_the_retry() -> None:
     assert generate.calls == 1
 
 
-def test_the_router_sends_a_validated_statement_to_execution() -> None:
+def test_the_router_sends_a_validated_batch_to_critique() -> None:
     state = initial_state("q", "local", "t-1")
-    state["validated_sql"] = "SELECT 1 LIMIT 1"
+    state["validated_sqls"] = ("SELECT 1 LIMIT 1",)
 
-    assert route_after_validation(state) == "guarded_execution"
+    assert route_after_validation(state) == "critique"
 
 
-def test_the_router_sends_a_first_failure_back_to_generation() -> None:
+def test_the_router_sends_no_survivors_back_to_generation() -> None:
     state = initial_state("q", "local", "t-1")
-    state["violations"] = VIOLATIONS
 
     assert route_after_validation(state) == "candidate_generation"
 
 
-def test_the_router_raises_on_a_failure_after_the_retry_was_used() -> None:
+def test_route_after_critique_sends_a_non_fatal_batch_onward() -> None:
     state = initial_state("q", "local", "t-1")
-    state["violations"] = VIOLATIONS
-    state["retry_count"] = 1
+    state["critique_reports"] = (CritiqueReport(candidate_index=0, defects=(), score=0.9),)
 
-    with pytest.raises(StaticValidationError):
-        route_after_validation(state)
+    assert route_after_critique(state) == "ambiguity_probing"
 
 
-def test_the_router_does_not_retry_an_unrepairable_violation() -> None:
+def test_route_after_critique_sends_a_just_escalated_all_fatal_batch_back() -> None:
     state = initial_state("q", "local", "t-1")
-    state["violations"] = UNREPAIRABLE
+    state["critique_reports"] = (
+        CritiqueReport(
+            candidate_index=0,
+            defects=(Defect(dimension=None, severity="fatal", message="m"),),
+            score=0.1,
+        ),
+    )
 
-    with pytest.raises(StaticValidationError, match="fatal"):
-        route_after_validation(state)
+    assert route_after_critique(state) == "candidate_generation"
 
 
 def test_the_initial_state_starts_empty_with_no_retries_used() -> None:
@@ -197,3 +240,10 @@ def test_the_initial_state_starts_empty_with_no_retries_used() -> None:
     assert state["intent"] is None
     assert state["ambiguity"] is None
     assert state["clarifications"] == ()
+    assert state["candidates"] == ()
+    assert state["validated_sqls"] == ()
+    assert state["contested"] is False
+    assert state["escalated"] is False
+    assert state["critique_reports"] == ()
+    assert state["probe_results"] == ()
+    assert state["selection"] is None
