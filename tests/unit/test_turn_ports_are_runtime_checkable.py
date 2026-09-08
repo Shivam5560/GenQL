@@ -14,6 +14,7 @@ from types import TracebackType
 import pytest
 
 from genql.domain.entities.ambiguity_assessment import AmbiguityAssessment
+from genql.domain.entities.business_domain import BusinessDomain
 from genql.domain.entities.rule import Rule
 from genql.domain.ports.ambiguity_gate import AmbiguityGate
 from genql.domain.ports.domain_reader import DomainReader
@@ -55,6 +56,9 @@ class Rules:
 class Domains:
     def domain_id_by_name(self, datasource_name: str, name: str) -> int | None:
         return 7
+
+    def list_domains(self, datasource_name: str) -> tuple[BusinessDomain, ...]:
+        return ()
 
 
 class Lock:

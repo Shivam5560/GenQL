@@ -213,6 +213,16 @@ class ThreadLockError(QueryError):
     """The per-thread advisory lock could not be acquired or released."""
 
 
+class CritiqueError(QueryError):
+    """Every surviving candidate carries a fatal defect, and the one escalated
+    regeneration this phase allows has already been spent."""
+
+
+class AmbiguityExampleGenerationError(DiscoveryError):
+    """The offline synthetic ambiguity log could not be generated or embedded
+    for one domain."""
+
+
 class UnknownThreadError(QueryError):
     """`--thread-id` named a thread with no pending clarification to resume.
 
