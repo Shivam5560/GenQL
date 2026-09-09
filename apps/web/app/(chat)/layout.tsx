@@ -41,7 +41,9 @@ export default function ChatLayout({ children }: { children: React.ReactNode }) 
 
   return (
     <div className="grid min-h-screen grid-cols-[264px_1fr]">
-      <aside className="flex flex-col border-r border-[var(--line)]">
+      {/* The sidebar leads the one page-load sequence; the hero's headline,
+          supporting line and composer follow it on staggered delays. */}
+      <aside className="gq-slide-in flex flex-col border-r border-[var(--line)]">
         <div className="border-b border-[var(--line)] px-5 py-4 text-base font-bold uppercase tracking-wide">
           Gen<span className="text-[var(--brand)]">QL</span>
         </div>

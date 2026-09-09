@@ -5,6 +5,7 @@ import { ThemeProvider } from '@/lib/theme-provider';
 import { ThemeScript } from '@/components/theme-script';
 import '@/styles/tokens.css';
 import './globals.css';
+import '@/styles/motion.css';
 
 const plexSans = IBM_Plex_Sans({
   subsets: ['latin'],

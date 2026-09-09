@@ -1,0 +1,172 @@
+/*
+ * Motion and surface treatment for the composer hero.
+ *
+ * Everything here is namespaced `gq-` and is applied only to the new-thread
+ * hero, the sidebar shell, and the sidebar datasource card. The thread
+ * transcript (message turns, SQL cards, result tables) deliberately opts out:
+ * that is reading-and-verifying surface, and movement there costs more than it
+ * gives. Elevation, where it exists, is tinted with `--brand` — never a grey
+ * drop shadow.
+ *
+ * Every animation in this file is cancelled by the reduced-motion block at the
+ * bottom, which also pins the entrance animations to their end state so the
+ * page is never left invisible.
+ */
+
+/* ---------------------------------------------------------------- entrance */
+
+@keyframes gq-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes gq-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/*
+ * One orchestrated page-load sequence, staggered with `--gq-delay` at the call
+ * site rather than scattered per-element animations. The curve is a plain
+ * decelerating ease-out: no overshoot, because nothing here is playful.
+ */
+.gq-rise {
+  animation: gq-rise 560ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  animation-delay: var(--gq-delay, 0ms);
+}
+
+.gq-slide-in {
+  animation: gq-slide-in 520ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  animation-delay: var(--gq-delay, 0ms);
+}
+
+/* ------------------------------------------------------------ ambient field */
+
+/*
+ * Three slow, out-of-phase oscillations. Durations are mutually prime-ish so
+ * the field never visibly repeats a pose. Transforms only — no filter, no
+ * layout property — so this stays on the compositor.
+ */
+@keyframes gq-drift-a {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(4%, -6%, 0) scale(1.14);
+  }
+}
+
+@keyframes gq-drift-b {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1.06);
+  }
+  50% {
+    transform: translate3d(-6%, 5%, 0) scale(0.93);
+  }
+}
+
+@keyframes gq-drift-c {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(0.96);
+  }
+  50% {
+    transform: translate3d(5%, 4%, 0) scale(1.12);
+  }
+}
+
+.gq-drift {
+  animation-duration: var(--gq-drift-duration, 34s);
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  will-change: transform;
+}
+
+.gq-drift-a {
+  animation-name: gq-drift-a;
+}
+
+.gq-drift-b {
+  animation-name: gq-drift-b;
+}
+
+.gq-drift-c {
+  animation-name: gq-drift-c;
+}
+
+/* ------------------------------------------------------------------- glass */
+
+/*
+ * The composer panel floats over the ambient field instead of covering it.
+ * `--panel` at 72% keeps the input text on a near-solid ground (contrast is
+ * unchanged in practice: the field underneath is `--brand` at <= 12% alpha),
+ * while the blur keeps the glow legible as depth rather than noise.
+ */
+.gq-glass {
+  background: color-mix(in srgb, var(--panel) 72%, transparent);
+  backdrop-filter: blur(18px) saturate(1.08);
+  -webkit-backdrop-filter: blur(18px) saturate(1.08);
+  box-shadow: 0 26px 70px -46px color-mix(in srgb, var(--brand) 60%, transparent);
+  transition:
+    box-shadow 220ms ease,
+    border-color 220ms ease;
+}
+
+.gq-glass:focus-within {
+  border-color: color-mix(in srgb, var(--brand) 45%, var(--line));
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--brand) 30%, transparent),
+    0 22px 60px -30px color-mix(in srgb, var(--brand) 55%, transparent);
+}
+
+/* -------------------------------------------------------------------- tilt */
+
+/*
+ * A few degrees of parallax on the one card that represents a physical thing
+ * (the warehouse you are pointed at). Angles are written by
+ * `usePointerTilt`, which refuses to attach on coarse pointers or under
+ * reduced motion, so the custom properties simply stay at 0deg there.
+ */
+.gq-tilt {
+  transform: perspective(720px) rotateX(var(--gq-tilt-x, 0deg)) rotateY(var(--gq-tilt-y, 0deg));
+  transform-style: preserve-3d;
+  transition: transform 240ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+/* ---------------------------------------------------------- reduced motion */
+
+@media (prefers-reduced-motion: reduce) {
+  .gq-rise,
+  .gq-slide-in {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+
+  .gq-drift {
+    animation: none;
+  }
+
+  .gq-glass {
+    transition: none;
+  }
+
+  .gq-tilt {
+    transform: none;
+    transition: none;
+  }
+}
