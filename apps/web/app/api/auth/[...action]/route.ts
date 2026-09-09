@@ -80,6 +80,22 @@ export async function POST(
     return response;
   }
 
+  if (step === 'callback') {
+    const { refresh_token } = await request.json();
+    const gotrueResponse = await fetch(`${GOTRUE_URL}/token?grant_type=refresh_token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token }),
+    });
+    if (!gotrueResponse.ok) {
+      return new NextResponse(await gotrueResponse.text(), { status: gotrueResponse.status });
+    }
+    const body: GoTrueSession = await gotrueResponse.json();
+    const response = NextResponse.json(sessionBody(body));
+    setRefreshCookie(response, body.refresh_token);
+    return response;
+  }
+
   if (step === 'logout') {
     const { access_token } = await request.json().catch(() => ({ access_token: undefined }));
     if (access_token) {
