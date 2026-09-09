@@ -46,15 +46,23 @@ def _to_response(thread_id: str, raw: dict[str, Any]) -> TurnResponse:
             applied_defaults=_applied_defaults(raw),
         )
     state = cast(QueryState, raw)
-    # An intent is reported only when it stopped the turn. On a finished
-    # analytical turn it would be noise beside the rows.
-    short_circuited = state["validated_sql"] is None and state["result"] is None
+    optimization = state.get("optimization")
+    over_budget = optimization is not None and not optimization.within_budget
+    # An intent is reported only when it stopped the turn. An over-budget turn
+    # also has no result, so it must be excluded here or a perfectly
+    # well-classified analytical question would be reported as the wrong kind
+    # of question.
+    short_circuited = state["validated_sql"] is None and state["result"] is None and not over_budget
     return TurnResponse(
         thread_id=thread_id,
         intent=state["intent"] if short_circuited else None,
         validated_sql=state["validated_sql"],
         result=state["result"],
         applied_defaults=_applied_defaults(raw),
+        narrowing_suggestion=(
+            optimization.narrowing_suggestion if optimization is not None and over_budget else None
+        ),
+        rewrite_rules_applied=optimization.rules_applied if optimization else (),
     )
 
 

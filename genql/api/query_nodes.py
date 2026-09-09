@@ -16,6 +16,8 @@ from __future__ import annotations
 
 from typing import Any
 
+import structlog
+
 from genql.api.query_state import QueryState
 from genql.domain.entities.guardrail_violation import GuardrailViolation
 from genql.domain.entities.sql_candidate import SqlCandidate
@@ -24,7 +26,10 @@ from genql.domain.ports.candidate_generator import CandidateGenerator
 from genql.domain.ports.planner import Planner
 from genql.domain.ports.schema_linker import SchemaLinker
 from genql.services.query.guarded_execution_service import GuardedExecutionService
+from genql.services.query.rewrite_recording_service import RewriteOutcomeRecordingService
 from genql.services.query.static_validation_service import StaticValidationService
+
+_log = structlog.get_logger(__name__)
 
 
 class SchemaLinkingNode:
@@ -129,11 +134,46 @@ class StaticValidationNode:
 
 
 class GuardedExecutionNode:
-    def __init__(self, service: GuardedExecutionService) -> None:
+    """Runs the statement, then — only when a recorder was constructed —
+    measures it.
+
+    The recorder is `None` whenever `Settings.record_execution_actuals` is
+    false, because the composition root simply does not build one. That keeps
+    the disabled path a single `is not None` check rather than a second
+    conditional edge in the graph.
+
+    The try/except is deliberately bare-`Exception`: the recording path runs
+    EXPLAIN (ANALYZE, BUFFERS) against the warehouse and writes a row to
+    GenQL's store, and *no* failure of a diagnostic may lose a turn whose
+    query already returned rows to the user. It is logged rather than
+    swallowed silently — ruff's SIM105 rejects a bare `pass` here, and a
+    warning is the only way a broken recorder is ever noticed.
+    """
+
+    def __init__(
+        self,
+        service: GuardedExecutionService,
+        recorder: RewriteOutcomeRecordingService | None = None,
+    ) -> None:
         self._service = service
+        self._recorder = recorder
 
     def __call__(self, state: QueryState) -> dict[str, Any]:
         sql = state["validated_sql"]
         if sql is None:
             raise ExecutionError("guarded execution was reached without validated SQL")
-        return {"result": self._service.execute(sql, state["datasource_name"])}
+        result = self._service.execute(sql, state["datasource_name"])
+
+        optimization = state["optimization"]
+        if self._recorder is not None and optimization is not None:
+            try:
+                self._recorder.record(
+                    sql,
+                    optimization.rules_applied,
+                    optimization.estimated_cost,
+                    state["datasource_name"],
+                )
+            except Exception as exc:  # noqa: BLE001 - never fail a served turn
+                _log.warning("optimizer.recording_failed", error=str(exc))
+
+        return {"result": result}

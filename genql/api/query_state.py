@@ -26,6 +26,7 @@ from genql.domain.entities.candidate_selection import CandidateSelection
 from genql.domain.entities.critique_report import CritiqueReport
 from genql.domain.entities.execution_result import ExecutionResult
 from genql.domain.entities.guardrail_violation import GuardrailViolation
+from genql.domain.entities.optimization_result import OptimizationResult
 from genql.domain.entities.probe_result import ProbeResult
 from genql.domain.entities.query_plan import QueryPlan
 from genql.domain.entities.schema_link import SchemaLink
@@ -62,6 +63,10 @@ class QueryState(TypedDict):
     # been spent — by static validation exhausting its own retry, or by
     # critique finding every survivor fatal, whichever happens first.
     escalated: bool
+    # What the rewrite-and-cost-gate stage decided. None until that node runs;
+    # the router reads `within_budget` from it, and query_turn reads
+    # `narrowing_suggestion` and `rules_applied` for the response.
+    optimization: OptimizationResult | None
     validated_sql: str | None
     result: ExecutionResult | None
     retry_count: int
@@ -91,6 +96,7 @@ def initial_state(
         probe_results=(),
         selection=None,
         escalated=False,
+        optimization=None,
         validated_sql=None,
         result=None,
         retry_count=0,

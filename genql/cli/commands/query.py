@@ -1,8 +1,10 @@
 """`genql query` — one turn of the online pipeline.
 
-Three outcomes, three renderings, two exit codes. A finished turn prints its
+Four outcomes, four renderings, two exit codes. A finished turn prints its
 SQL and rows; a paused turn prints its clarifying question plus the thread id
-to resume with; a question the system does not answer prints why. Only a typed
+to resume with; a question the system does not answer prints why; a query the
+cost gate refused prints the statement it declined to run and how to narrow
+it. Only a typed
 failure exits non-zero — a paused turn is the system working, and a non-zero
 exit would make every shell caller treat a clarifying question as breakage.
 
@@ -68,12 +70,24 @@ def _render_finished(response: TurnResponse) -> None:
         typer.echo(f"({result.row_count} rows)")
         if result.truncated:
             typer.echo("truncated at the configured row cap; refine the question for the full set")
+    if response.rewrite_rules_applied:
+        typer.echo(f"rewrites applied: {', '.join(response.rewrite_rules_applied)}")
+    typer.echo(f"thread: {response.thread_id}")
+
+
+def _render_over_budget(response: TurnResponse) -> None:
+    typer.echo("SQL (not executed):")
+    typer.echo(response.validated_sql or "")
+    typer.echo("")
+    typer.echo(response.narrowing_suggestion or "")
     typer.echo(f"thread: {response.thread_id}")
 
 
 def _render(response: TurnResponse) -> None:
     if response.clarifying_question is not None:
         _render_paused(response)
+    elif response.narrowing_suggestion is not None:
+        _render_over_budget(response)
     elif response.intent is not None:
         _render_intent(response)
     else:

@@ -6,13 +6,16 @@ so that a graph can still be built for a test that only cares about routing;
 a graph compiled without one cannot pause, and run_query's thread_id is then
 inert.
 
-Three conditional edges now. Out of intent_classification: only
+Four conditional edges now. Out of intent_classification: only
 `analytical_sql` proceeds, and the other three intents reach END with the
 intent recorded — cheap, and it keeps questions the downstream stages were
 never designed for away from them. Out of ambiguity_gate: an ambiguous
 assessment routes back to ambiguity_gate itself, so the node re-runs after the
 resumed answer lands in state. Out of static_validation: Phase 5's retry edge,
-unchanged.
+unchanged. Out of rewrite_and_cost_gate: Phase 7's budget verdict — the newest
+edge, and the only one that can end a turn with neither rows nor a question,
+because a statement that stays over budget is answered with an explanation and
+a suggested narrowing instead of being run.
 
 The gate self-loop provably terminates without a retry counter. Every pass
 either finds nothing left to ask (AMBIGUITY_DIMENSIONS is a fixed six-element
@@ -56,6 +59,7 @@ STATIC_VALIDATION = "static_validation"
 CRITIQUE = "critique"
 AMBIGUITY_PROBING = "ambiguity_probing"
 CANDIDATE_SELECTION = "candidate_selection"
+REWRITE_AND_COST_GATE = "rewrite_and_cost_gate"
 GUARDED_EXECUTION = "guarded_execution"
 
 
@@ -99,6 +103,23 @@ def route_after_critique(state: QueryState) -> str:
     return AMBIGUITY_PROBING
 
 
+def route_after_cost_gate(state: QueryState) -> str:
+    """Over budget means the turn ends here, with the statement and an
+    explanation but no rows — the parent spec's §11: "queries that remain over
+    budget after rewriting return an explanation and a suggested narrowing
+    rather than executing."
+
+    A missing optimization also ends the turn rather than executing: the gate
+    node raises rather than returning None, so this can only be reached with a
+    result present, and defaulting to END keeps "no verdict" from meaning
+    "run it".
+    """
+    optimization = state["optimization"]
+    if optimization is not None and optimization.within_budget:
+        return GUARDED_EXECUTION
+    return END
+
+
 # The compiled-graph type's generic parameters change between langgraph minor
 # releases, so this boundary is deliberately untyped; `run_query` below
 # restores a plain mapping for every caller.
@@ -113,6 +134,7 @@ def build_query_graph(  # noqa: PLR0913, PLR0917 - one parameter per pipeline st
     critique: NodeFn,
     ambiguity_probing: NodeFn,
     candidate_selection: NodeFn,
+    rewrite_and_cost_gate: NodeFn,
     guarded_execution: NodeFn,
     *,
     checkpointer: Any = None,
@@ -128,6 +150,7 @@ def build_query_graph(  # noqa: PLR0913, PLR0917 - one parameter per pipeline st
     graph.add_node(CRITIQUE, critique)
     graph.add_node(AMBIGUITY_PROBING, ambiguity_probing)
     graph.add_node(CANDIDATE_SELECTION, candidate_selection)
+    graph.add_node(REWRITE_AND_COST_GATE, rewrite_and_cost_gate)
     graph.add_node(GUARDED_EXECUTION, guarded_execution)
 
     graph.add_edge(START, INTENT_CLASSIFICATION)
@@ -156,7 +179,12 @@ def build_query_graph(  # noqa: PLR0913, PLR0917 - one parameter per pipeline st
         {CANDIDATE_GENERATION: CANDIDATE_GENERATION, AMBIGUITY_PROBING: AMBIGUITY_PROBING},
     )
     graph.add_edge(AMBIGUITY_PROBING, CANDIDATE_SELECTION)
-    graph.add_edge(CANDIDATE_SELECTION, GUARDED_EXECUTION)
+    graph.add_edge(CANDIDATE_SELECTION, REWRITE_AND_COST_GATE)
+    graph.add_conditional_edges(
+        REWRITE_AND_COST_GATE,
+        route_after_cost_gate,
+        {GUARDED_EXECUTION: GUARDED_EXECUTION, END: END},
+    )
     graph.add_edge(GUARDED_EXECUTION, END)
     return graph.compile(checkpointer=checkpointer)
 

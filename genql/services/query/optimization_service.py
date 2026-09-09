@@ -28,6 +28,7 @@ from collections.abc import Sequence
 from typing import cast
 
 import sqlglot
+import structlog
 from sqlglot import exp
 from sqlglot.errors import OptimizeError, ParseError
 from sqlglot.optimizer.qualify import qualify
@@ -41,6 +42,8 @@ from genql.domain.ports.query_decomposer import QueryDecomposer
 from genql.domain.ports.rewrite_rule_factory import RewriteRuleFactory
 
 _DIALECT = "postgres"
+
+_log = structlog.get_logger(__name__)
 
 
 def _schema_of(links: Sequence[SchemaLink]) -> dict[str, object]:
@@ -117,7 +120,11 @@ class OptimizationService:
                     identify=False,
                 ),
             )
-        except (ParseError, OptimizeError):
+        except (ParseError, OptimizeError) as exc:
+            # Deviation 2: the statement is still gated, just not rewritten.
+            # Silently returning it would make an unqualifiable statement
+            # indistinguishable from one no rule happened to match.
+            _log.warning("optimization.qualify_failed", reason=str(exc))
             return sql, ()
 
         applied: list[str] = []

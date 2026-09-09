@@ -9,7 +9,6 @@ DISCOVERY_STEPS's registered order, caught here instead of in production. See fi
 
 from __future__ import annotations
 
-import pytest
 from dependency_injector import providers
 from langgraph.checkpoint.memory import InMemorySaver
 
@@ -23,28 +22,13 @@ from genql.api.query_graph import (
     GUARDED_EXECUTION,
     INTENT_CLASSIFICATION,
     PLANNING,
+    REWRITE_AND_COST_GATE,
     SCHEMA_LINKING,
     STATIC_VALIDATION,
 )
 from genql.composition_root import Container
 from genql.discovery.registry import DISCOVERY_STEPS
 from genql.repositories.guardrails.registry import GUARDRAILS
-
-
-@pytest.fixture()
-def container(monkeypatch: pytest.MonkeyPatch) -> Container:
-    # Engines are constructed lazily by SQLAlchemy (no connection attempt at
-    # create_engine() time), so a syntactically valid but unreachable DSN is
-    # enough to build the container without touching a real database.
-    monkeypatch.setenv("GENQL_WAREHOUSE_DSN", "postgresql+psycopg://x:x@localhost/x")
-    monkeypatch.setenv("GENQL_SEMANTIC_DSN", "postgresql+psycopg://x:x@localhost/x")
-    monkeypatch.setenv("GENQL_NEO4J_URI", "bolt://localhost:7687")
-    monkeypatch.setenv("GENQL_NEO4J_USER", "neo4j")
-    monkeypatch.setenv("GENQL_NEO4J_PASSWORD", "x")
-    monkeypatch.setenv("GENQL_OPENROUTER_API_KEY", "test-key")
-    monkeypatch.setenv("GENQL_READONLY_DB_PASSWORD", "test-readonly-password")
-    Container().reset_singletons()
-    return Container()
 
 
 def test_runner_step_names_equal_the_registered_order(container: Container) -> None:
@@ -186,8 +170,8 @@ def test_the_checkpoint_dsn_is_derived_from_the_semantic_dsn(container: Containe
     assert container.checkpoint_dsn() == "postgresql://x:x@localhost/x"
 
 
-def test_the_query_graph_carries_all_eleven_stages(container: Container) -> None:
-    """The graph provider is overridden in AmbiguityContainer, so this is where a
+def test_the_query_graph_carries_all_twelve_stages(container: Container) -> None:
+    """The graph provider is overridden in OptimizerContainer, so this is where a
     forgotten node would show up — an eleven-node graph compiled from a
     partial provider would still be `invoke`-able and silently skip a stage.
 
@@ -212,6 +196,7 @@ def test_the_query_graph_carries_all_eleven_stages(container: Container) -> None
         CRITIQUE,
         AMBIGUITY_PROBING,
         CANDIDATE_SELECTION,
+        REWRITE_AND_COST_GATE,
         GUARDED_EXECUTION,
     ):
         assert stage in nodes

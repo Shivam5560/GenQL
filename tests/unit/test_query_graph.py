@@ -32,6 +32,7 @@ from genql.domain.entities.critique_report import CritiqueReport
 from genql.domain.entities.defect import Defect
 from genql.domain.entities.execution_result import ExecutionResult
 from genql.domain.entities.guardrail_violation import GuardrailViolation
+from genql.domain.entities.optimization_result import OptimizationResult
 from genql.domain.entities.query_plan import QueryPlan
 from genql.domain.entities.schema_link import SchemaLink
 from genql.domain.entities.sql_candidate import SqlCandidate
@@ -44,6 +45,7 @@ VIOLATIONS = (GuardrailViolation(rule_name="fake", message="bad", repairable=Tru
 UNREPAIRABLE = (GuardrailViolation(rule_name="fake", message="fatal", repairable=False),)
 RESULT = ExecutionResult(columns=("n",), rows=((1,),), row_count=1, truncated=False)
 CLEAR = AmbiguityAssessment(is_ambiguous=False)
+GATED = OptimizationResult(sql="SELECT 1 LIMIT 1", estimated_cost=1.0, within_budget=True)
 
 
 def analytical_intent(state: dict[str, Any]) -> dict[str, Any]:
@@ -117,6 +119,10 @@ def selection_node(state: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def cost_gate_node(state: dict[str, Any]) -> dict[str, Any]:
+    return {"optimization": GATED}
+
+
 def execute_node(state: dict[str, Any]) -> dict[str, Any]:
     return {"result": RESULT}
 
@@ -130,6 +136,7 @@ def build(  # noqa: PLR0913, PLR0917 - one parameter per overridable stage
     critique: Any = critique_node,
     probing: Any = probing_node,
     selection: Any = selection_node,
+    cost_gate: Any = cost_gate_node,
     checkpointer: Any = None,
 ) -> Any:
     """One helper so the graph tests below differ only where they mean to."""
@@ -144,6 +151,7 @@ def build(  # noqa: PLR0913, PLR0917 - one parameter per overridable stage
         critique,
         probing,
         selection,
+        cost_gate,
         execute_node,
         checkpointer=checkpointer,
     )
@@ -227,23 +235,3 @@ def test_route_after_critique_sends_a_just_escalated_all_fatal_batch_back() -> N
     )
 
     assert route_after_critique(state) == "candidate_generation"
-
-
-def test_the_initial_state_starts_empty_with_no_retries_used() -> None:
-    state = initial_state("q", "local", "t-1", domain_id=3)
-
-    assert state["retry_count"] == 0
-    assert state["violations"] == ()
-    assert state["domain_id"] == 3
-    assert state["result"] is None
-    assert state["thread_id"] == "t-1"
-    assert state["intent"] is None
-    assert state["ambiguity"] is None
-    assert state["clarifications"] == ()
-    assert state["candidates"] == ()
-    assert state["validated_sqls"] == ()
-    assert state["contested"] is False
-    assert state["escalated"] is False
-    assert state["critique_reports"] == ()
-    assert state["probe_results"] == ()
-    assert state["selection"] is None

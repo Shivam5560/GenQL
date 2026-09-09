@@ -6,6 +6,7 @@ import typer
 
 from genql.cli.commands import datasource as datasource_commands
 from genql.cli.commands import graph as graph_commands
+from genql.cli.commands import optimizer as optimizer_commands
 from genql.cli.commands import query as query_commands
 from genql.cli.commands import schema as schema_commands
 from genql.cli.commands import semantic as semantic_commands
@@ -16,6 +17,7 @@ from genql.domain.errors import GenqlError
 app = typer.Typer(help="GenQL — enterprise NL2SQL with semantic enrichment")
 app.add_typer(datasource_commands.app, name="datasource")
 app.add_typer(graph_commands.app, name="graph")
+app.add_typer(optimizer_commands.app, name="optimizer")
 app.add_typer(schema_commands.app, name="schema")
 app.add_typer(semantic_commands.app, name="semantic")
 # `query` is a top-level command, not a sub-app: `genql query "..."` reads
