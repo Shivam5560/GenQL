@@ -1,0 +1,42 @@
+## Deployment overlay — adds the containerized API on top of compose.yaml's
+## infra services. Use with both files together so the API joins the same
+## compose network and can reach paradedb/gotrue/neo4j by service name
+## instead of the localhost-mapped ports compose.yaml's own env vars assume
+## for local dev (where the API runs outside Docker via `uv run genql serve`):
+##
+##   docker compose -f docker/compose.yaml -f docker/compose.prod.yaml \
+##     --env-file .env up -d --build
+##
+## Requires a .env file (repo root) with every GENQL_*/secret value api.env
+## below references — see .env.example for the full variable list this
+## deployment needs (warehouse/semantic DSNs, GOTRUE_JWT_SECRET,
+## OPENROUTER_API_KEY, CORS_ALLOWED_ORIGINS, etc).
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: docker/api.Dockerfile
+    container_name: genql-api
+    restart: unless-stopped
+    depends_on:
+      paradedb:
+        condition: service_healthy
+      gotrue:
+        condition: service_started
+    env_file:
+      - ../.env
+    environment:
+      # Overrides for the values .env.example sets for host-networked local
+      # dev — inside this compose network the API reaches every infra
+      # service by its service name, not localhost.
+      GENQL_NEO4J_URI: bolt://neo4j:7687
+      GENQL_API_HOST: 0.0.0.0
+      GENQL_API_PORT: "8000"
+      # Only overrides the *host* .env.example's DSNs assume (localhost:5433,
+      # the port paradedb publishes for host access) — user/db names and any
+      # other DSNs (e.g. GENQL_WH2_DSN) come from .env as-is. If a real
+      # warehouse (not this paradedb container) is used instead, set
+      # GENQL_WAREHOUSE_DSN directly in .env and remove this override line.
+      GENQL_WAREHOUSE_DSN: postgresql+psycopg://genql:genql@paradedb:5432/genql
+      GENQL_SEMANTIC_DSN: postgresql+psycopg://genql:genql@paradedb:5432/genql
+    ports: ["8000:8000"]
