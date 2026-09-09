@@ -358,12 +358,17 @@ directly on the `gotrue` service in §3) and redirects back to the app with a se
 
 The chat components are a direct build-out of the reviewed mockup
 (`genql-chat-mockup.html`, published this session): a recap line replaces the raw stage-event
-track, the SQL card carries a dialect selector, and the result table only renders once `Execute`
-resolves — the same interaction the mockup demonstrates with a live click. `Execute` calls
-`POST /v1/queries/{thread_id}/resume` (or the initial `POST /v1/queries` for a fresh turn) rather
-than re-invoking the SSE stream, since the SQL was already validated and the user is now asking
-specifically for execution — the plan/candidate/validation stages already happened during the
-recap.
+track, the SQL card carries a dialect selector, and the result table only renders once `Execute` is
+clicked. `query_graph.py`'s graph runs schema-linking through `guarded_execution` as one
+uninterrupted chain — there is no backend-level pause between "validated" and "executed" today, so
+the single `POST /v1/queries` (or `/resume`) call that produces the recap and SQL already carries
+the result rows in the same response. `Execute` is therefore a **client-side reveal** of data
+already in hand, not a second network round trip: the frontend withholds `ResultTable` from
+rendering until the click, the same progressive-disclosure the mockup demonstrated with a
+`setTimeout`-driven reveal rather than a real second fetch. A future phase that wants the backend
+itself to defer execution (e.g. to let a user inspect and edit SQL before committing to running it
+against the warehouse) would need a new interrupt point before `guarded_execution` in the graph —
+out of scope here, and not required for the UI behavior this phase ships.
 
 The recap line itself, and the initial "understood ..." framing, come from the existing
 `TurnResponseDto` fields (`intent`, `narrowing_suggestion`, `applied_defaults`) — no new backend
