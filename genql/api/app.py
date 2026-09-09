@@ -24,6 +24,7 @@ from genql.api.controllers import (
     feedback_controller,
     query_controller,
     stream_controller,
+    threads_controller,
 )
 from genql.domain.errors import (
     GenqlError,
@@ -69,4 +70,5 @@ def create_app(container: Any) -> FastAPI:
     app.include_router(stream_controller.router, prefix="/v1")
     app.include_router(feedback_controller.router, prefix="/v1")
     app.include_router(datasource_controller.router, prefix="/v1")
+    app.include_router(threads_controller.router, prefix="/v1")
     return app
