@@ -37,7 +37,7 @@ def _applied_defaults(raw: dict[str, Any]) -> tuple[tuple[str, str], ...]:
     return tuple((dimension, rule) for dimension, rule in ambiguity.applied_defaults)
 
 
-def _to_response(thread_id: str, raw: dict[str, Any]) -> TurnResponse:
+def to_response(thread_id: str, raw: dict[str, Any]) -> TurnResponse:
     interrupts = raw.get("__interrupt__") or ()
     if interrupts:
         return TurnResponse(
@@ -77,10 +77,10 @@ def start_turn(  # noqa: PLR0913, PLR0917 - mirrors the graph's own start parame
     resolved = thread_id or new_thread_id()
     with locks.for_thread(resolved):
         raw = run_query(graph, question, datasource_name, resolved, domain_id)
-    return _to_response(resolved, raw)
+    return to_response(resolved, raw)
 
 
 def resume_turn(graph: Any, locks: ThreadLockFactory, answer: str, thread_id: str) -> TurnResponse:
     with locks.for_thread(thread_id):
         raw = resume_query(graph, answer, thread_id)
-    return _to_response(thread_id, raw)
+    return to_response(thread_id, raw)

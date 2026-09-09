@@ -29,3 +29,12 @@ class TurnResponse(BaseModel):
     # beside paused, short-circuited, and finished.
     narrowing_suggestion: str | None = None
     rewrite_rules_applied: tuple[str, ...] = ()
+    # Provenance fields the HTTP DTO reads. Populated here with defaults in
+    # Task 20 (the API layer needs them to exist); Task 22 fills them in from
+    # graph state.
+    plan_text: str | None = None
+    referenced_objects: tuple[str, ...] = ()
+    selection_method: str | None = None
+    selection_rationale: str | None = None
+    candidate_count: int = 0
+    probe_count: int = 0
