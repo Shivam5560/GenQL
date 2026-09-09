@@ -5,6 +5,8 @@ in the codebase (move bytes, don't reason about them)."""
 
 from __future__ import annotations
 
+import json
+
 from sqlalchemy import Engine, text
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -18,7 +20,7 @@ _INSERT = text("""
          clarifying_question, result_json, applied_defaults_json)
     VALUES
         (:turn_id, :thread_id, :sequence, :question, :recap, :validated_sql,
-         :clarifying_question, :result_json, :applied_defaults_json)
+         :clarifying_question, CAST(:result_json AS JSON), CAST(:applied_defaults_json AS JSON))
 """)
 _LIST_FOR_THREAD = text("""
     SELECT turn_id, thread_id, sequence, question, recap, validated_sql,
@@ -45,9 +47,13 @@ class SqlAlchemyTurnRecordRepository:
                         "validated_sql": record.validated_sql,
                         "clarifying_question": record.clarifying_question,
                         "result_json": (
-                            record.result.model_dump(mode="json") if record.result else None
+                            json.dumps(record.result.model_dump(mode="json"))
+                            if record.result
+                            else None
                         ),
-                        "applied_defaults_json": [list(pair) for pair in record.applied_defaults],
+                        "applied_defaults_json": json.dumps(
+                            [list(pair) for pair in record.applied_defaults]
+                        ),
                     },
                 )
         except SQLAlchemyError as exc:
