@@ -26,6 +26,9 @@ forbidden_modules =
     neo4j
     graphdatascience
     httpx
+    fastapi
+    starlette
+    sse_starlette
 
 [importlinter:contract:no-sql-in-services]
 name = Services never touch a database driver
@@ -40,3 +43,6 @@ forbidden_modules =
     neo4j
     graphdatascience
     httpx
+    fastapi
+    starlette
+    sse_starlette

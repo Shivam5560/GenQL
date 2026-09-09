@@ -81,3 +81,18 @@ class Settings(BaseSettings):
     # recording actuals for every turn would silently double warehouse load
     # for a purely diagnostic feature.
     record_execution_actuals: bool = False
+    # Ablation switches. All True in normal operation. Only the ablation
+    # harness sets one False, and it does so through Container.with_overrides
+    # rather than the environment — deliberately absent from .env.example,
+    # because a stray GENQL_ENRICHMENT_ENABLED=false would silently degrade
+    # every real turn with nothing in the output to say so.
+    enrichment_enabled: bool = True
+    domain_scoping_enabled: bool = True
+    join_paths_enabled: bool = True
+    probing_enabled: bool = True
+    ambiguity_examples_enabled: bool = True
+
+    api_host: str = "127.0.0.1"
+    api_port: int = 8000
+    # Where `genql eval` looks for *.yaml fixtures.
+    golden_set_dir: str = "golden"
