@@ -21,6 +21,8 @@ phase allows after every survivor was judged fatal.
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
+
 from genql.domain.entities.guardrail_violation import GuardrailViolation
 from genql.domain.entities.query_plan import QueryPlan
 from genql.domain.entities.schema_link import SchemaLink
@@ -65,7 +67,17 @@ class CandidateGenerationService:
             return strategy.generate_variants(plan, links, violations, ())[:1]
 
         examples = self._examples.search(plan.question, domain_id, self._example_top_k)
-        candidates: list[SqlCandidate] = []
-        for strategy in self._strategies.all(chat):
-            candidates.extend(strategy.generate_variants(plan, links, violations, examples))
-        return tuple(candidates)
+        strategies = self._strategies.all(chat)
+        # Each strategy is one independent ChatProvider.complete call with no
+        # shared state — the dominant cost of the contested path is exactly
+        # these calls run one after another, so running them concurrently
+        # (blocking I/O, hence threads rather than asyncio — this whole
+        # pipeline is synchronous by design, see genql/api/app.py) turns N
+        # sequential round trips into the slowest single one.
+        with ThreadPoolExecutor(max_workers=len(strategies)) as pool:
+            futures = [
+                pool.submit(strategy.generate_variants, plan, links, violations, examples)
+                for strategy in strategies
+            ]
+            results = [future.result() for future in futures]
+        return tuple(candidate for variants in results for candidate in variants)

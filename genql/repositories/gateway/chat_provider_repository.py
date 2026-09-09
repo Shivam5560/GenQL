@@ -56,8 +56,8 @@ class OpenAIChatProvider:
     separate `model_validate_json` stage here: langchain_openai already
     hands back an instance of `response_schema` or raises."""
 
-    def __init__(self, api_key: str, model: str) -> None:
-        self._llm = ChatOpenAI(api_key=api_key, model=model)
+    def __init__(self, api_key: str, model: str, reasoning_effort: str | None = None) -> None:
+        self._llm = ChatOpenAI(api_key=api_key, model=model, reasoning_effort=reasoning_effort)
 
     def complete(self, prompt: str, response_schema: type[T]) -> T:
         try:

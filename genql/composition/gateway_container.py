@@ -24,17 +24,23 @@ from genql.repositories.gateway.registry import (
 
 
 def build_chat_provider(
-    key: str, openrouter_client: OpenRouterClient, openai_api_key: str, model: str
+    key: str,
+    openrouter_client: OpenRouterClient,
+    openai_api_key: str,
+    model: str,
+    reasoning_effort: str | None = None,
 ) -> ChatProvider:
     # Each registered provider's constructor takes a different shape — an
     # `OpenRouterClient` it shares with every other OpenRouter-backed
     # provider, vs. `OpenAIChatProvider`'s own `api_key` it uses to build its
     # own `ChatOpenAI` — so the per-key kwargs are resolved by a lookup table
     # keyed the same way the registry itself is, rather than branching on
-    # `key` in code here.
+    # `key` in code here. `reasoning_effort` is OpenAI-specific (and only
+    # meaningful on the escalation provider today) so it's simply absent from
+    # the "openrouter" kwargs rather than passed as an always-ignored None.
     kwargs_by_key: dict[str, dict[str, Any]] = {
         "openrouter": {"client": openrouter_client, "model": model},
-        "openai": {"api_key": openai_api_key, "model": model},
+        "openai": {"api_key": openai_api_key, "model": model, "reasoning_effort": reasoning_effort},
     }
     return CHAT_PROVIDERS.create(key, **kwargs_by_key[key])
 
@@ -86,6 +92,7 @@ class GatewayContainer(CoreContainer):
         openrouter_client=openrouter_client,
         openai_api_key=CoreContainer.settings.provided.openai_api_key,
         model=CoreContainer.settings.provided.chat_model_escalation,
+        reasoning_effort=CoreContainer.settings.provided.chat_model_escalation_reasoning_effort,
     )
     embedding_provider = providers.Singleton(
         build_embedding_provider,

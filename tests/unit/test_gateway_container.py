@@ -32,6 +32,18 @@ def test_build_chat_provider_resolves_openai_key_to_its_own_constructor_shape() 
     assert isinstance(provider, OpenAIChatProvider)
 
 
+def test_build_chat_provider_passes_reasoning_effort_through_to_openai() -> None:
+    provider = build_chat_provider(
+        "openai",
+        openrouter_client=OpenRouterClient(api_key="unused"),
+        openai_api_key="sk-fake",
+        model="gpt-fake",
+        reasoning_effort="high",
+    )
+    assert isinstance(provider, OpenAIChatProvider)
+    assert provider._llm.reasoning_effort == "high"  # noqa: SLF001 - only way to verify passthrough
+
+
 def test_build_chat_provider_resolves_openrouter_key() -> None:
     provider = build_chat_provider(
         "openrouter",

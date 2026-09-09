@@ -68,6 +68,16 @@ class Settings(BaseSettings):
     # A distinct, stronger model rather than a retry against chat_model: the
     # parent spec's §20 names Opus specifically for this trigger.
     chat_model_escalation: str = "anthropic/claude-opus-5"
+    # OpenAI's `reasoning_effort` param (low/medium/high), applied only to the
+    # escalation model and only when chat_provider is "openai" — since this
+    # deployment's escalation model is the *same* model as the primary
+    # (chat_model_escalation == chat_model, a stopgap forced by billing, not
+    # architecture), the only way left to make escalation genuinely stronger
+    # than the first attempt is to spend more reasoning on the retry. None
+    # (the default) leaves ChatOpenAI's own default in place, and the field
+    # is silently ignored by every other provider (OpenRouter's chat
+    # completions endpoint has no equivalent parameter).
+    chat_model_escalation_reasoning_effort: str | None = None
     # Caps AmbiguityProbingService regardless of how many dimensions a
     # critique disagreement touches, bounding worst-case probing latency and
     # cost per the spec's §19 risk mitigation.
