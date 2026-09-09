@@ -60,3 +60,39 @@ class Settings(BaseSettings):
     # from the advisory lock's dedicated connection. Small because a CLI turn
     # is single-threaded; an API server would raise it.
     checkpoint_pool_max_size: int = 4
+    # Used only for the one escalated regeneration this phase allows, when
+    # every surviving candidate carries a fatal defect after one repair round.
+    # A distinct, stronger model rather than a retry against chat_model: the
+    # parent spec's §20 names Opus specifically for this trigger.
+    chat_model_escalation: str = "anthropic/claude-opus-5"
+    # Caps AmbiguityProbingService regardless of how many dimensions a
+    # critique disagreement touches, bounding worst-case probing latency and
+    # cost per the spec's §19 risk mitigation.
+    probing_max_probes: int = 3
+    # How many offline synthetic ambiguity examples the contested generation
+    # path retrieves as few-shot context. Small on purpose: these are
+    # few-shot exemplars, not a retrieval corpus to page through.
+    ambiguity_example_top_k: int = 3
+    # PostgreSQL planner cost units (arbitrary, not wall-clock) read from
+    # EXPLAIN's Total Cost. A rough proxy until Phase 8's ablation harness can
+    # correlate it against measured time on this specific warehouse.
+    cost_budget: float = 100_000.0
+    # Off by default because EXPLAIN (ANALYZE, BUFFERS) re-runs the statement:
+    # recording actuals for every turn would silently double warehouse load
+    # for a purely diagnostic feature.
+    record_execution_actuals: bool = False
+    # Ablation switches. All True in normal operation. Only the ablation
+    # harness sets one False, and it does so through Container.with_overrides
+    # rather than the environment — deliberately absent from .env.example,
+    # because a stray GENQL_ENRICHMENT_ENABLED=false would silently degrade
+    # every real turn with nothing in the output to say so.
+    enrichment_enabled: bool = True
+    domain_scoping_enabled: bool = True
+    join_paths_enabled: bool = True
+    probing_enabled: bool = True
+    ambiguity_examples_enabled: bool = True
+
+    api_host: str = "127.0.0.1"
+    api_port: int = 8000
+    # Where `genql eval` looks for *.yaml fixtures.
+    golden_set_dir: str = "golden"

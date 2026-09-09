@@ -32,7 +32,7 @@ _SEARCH = text("""
         (COALESCE(1.0 / (:rrf_k + b.rank), 0) + COALESCE(1.0 / (:rrf_k + d.rank), 0)) AS score
     FROM bm25_ranked b
     FULL OUTER JOIN dense_ranked d ON b.id = d.id
-    WHERE (:domain_id::bigint IS NULL OR (COALESCE(b.schema_name, d.schema_name),
+    WHERE (CAST(:domain_id AS bigint) IS NULL OR (COALESCE(b.schema_name, d.schema_name),
            COALESCE(b.object_name, d.object_name)) IN (
         SELECT schema_name, object_name FROM genql.genql_domain_member WHERE domain_id = :domain_id
     ))

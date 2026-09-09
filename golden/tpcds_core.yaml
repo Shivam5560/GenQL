@@ -1,0 +1,69 @@
+# Six additional TPC-DS questions, curated to exercise the parent spec's four
+# failure classes rather than restate easy aggregates. Same schema as
+# `golden/phase7_equivalence.yaml` — see that file's header for why.
+cases:
+  - case_id: tpcds_sales_last_quarter_calendar
+    question: total store sales last quarter
+    datasource_name: local
+    failure_class: ambiguous_intent
+    reference_sql: |
+      SELECT sum(ss.ss_ext_sales_price) AS total
+      FROM tpcds.store_sales AS ss
+      JOIN tpcds.date_dim AS d ON d.d_date_sk = ss.ss_sold_date_sk
+      WHERE d.d_year = 2002 AND d.d_qoy = 4
+
+  - case_id: tpcds_average_order_size
+    question: average number of items per store order
+    datasource_name: local
+    failure_class: ambiguous_intent
+    reference_sql: |
+      SELECT avg(items_per_ticket) AS avg_items_per_order
+      FROM (
+        SELECT ss_ticket_number, sum(ss_quantity) AS items_per_ticket
+        FROM tpcds.store_sales
+        GROUP BY ss_ticket_number
+      ) AS orders
+
+  - case_id: tpcds_net_sales
+    question: what were total net sales
+    datasource_name: local
+    failure_class: absent_business_knowledge
+    reference_sql: |
+      SELECT
+        (SELECT sum(ss_ext_sales_price) FROM tpcds.store_sales) -
+        (SELECT sum(sr_return_amt) FROM tpcds.store_returns) AS net_sales
+
+  - case_id: tpcds_gross_margin_by_item
+    question: gross margin by item
+    datasource_name: local
+    failure_class: absent_business_knowledge
+    reference_sql: |
+      SELECT i.i_item_id AS item,
+             sum((ss.ss_list_price - ss.ss_wholesale_cost) * ss.ss_quantity) AS gross_margin
+      FROM tpcds.store_sales AS ss
+      JOIN tpcds.item AS i ON i.i_item_sk = ss.ss_item_sk
+      GROUP BY i.i_item_id
+      ORDER BY gross_margin DESC, item
+      LIMIT 10
+
+  - case_id: tpcds_returns_by_item
+    question: how many units were returned for each item
+    datasource_name: local
+    failure_class: physical_modelling_variation
+    reference_sql: |
+      SELECT i.i_item_id AS item, sum(sr.sr_return_quantity) AS returned_qty
+      FROM tpcds.store_returns AS sr
+      JOIN tpcds.item AS i ON i.i_item_sk = sr.sr_item_sk
+      GROUP BY i.i_item_id
+      ORDER BY returned_qty DESC, item
+      LIMIT 10
+
+  - case_id: tpcds_current_year_sales
+    question: total store sales so far this year
+    datasource_name: local
+    failure_class: context_sensitivity
+    reference_sql: |
+      SELECT sum(ss.ss_ext_sales_price) AS total
+      FROM tpcds.store_sales AS ss
+      JOIN tpcds.date_dim AS d ON d.d_date_sk = ss.ss_sold_date_sk
+      WHERE d.d_current_year = 'Y'

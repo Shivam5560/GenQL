@@ -26,6 +26,9 @@ forbidden_modules =
     neo4j
     graphdatascience
     httpx
+    fastapi
+    starlette
+    sse_starlette
 
 [importlinter:contract:no-sql-in-services]
 name = Services never touch a database driver
@@ -40,3 +43,17 @@ forbidden_modules =
     neo4j
     graphdatascience
     httpx
+    fastapi
+    starlette
+    sse_starlette
+
+[importlinter:contract:no-web-below-api]
+name = Web framework stays out of everything below genql.api
+type = forbidden
+source_modules =
+    genql.repositories
+    genql.infrastructure
+forbidden_modules =
+    fastapi
+    starlette
+    sse_starlette

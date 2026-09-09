@@ -16,7 +16,7 @@ _SEARCH = text("""
            1 - (embedding <=> CAST(:query_embedding AS vector)) AS score
     FROM genql.genql_search_document
     WHERE datasource_name = :datasource_name
-      AND (:domain_id::bigint IS NULL OR (schema_name, object_name) IN (
+      AND (CAST(:domain_id AS bigint) IS NULL OR (schema_name, object_name) IN (
             SELECT schema_name, object_name FROM genql.genql_domain_member
             WHERE domain_id = :domain_id
           ))

@@ -105,7 +105,7 @@ def test_an_unambiguous_gate_writes_the_assessment_and_asks_nothing(
 ) -> None:
     update = AmbiguityGateNode(FakeGate(CLEAR))(initial_state("q", "local", "t-1"))
 
-    assert update == {"ambiguity": CLEAR}
+    assert update == {"ambiguity": CLEAR, "contested": True}
     assert no_interrupt == []
 
 
@@ -207,3 +207,29 @@ def test_an_explicit_domain_id_is_never_overwritten() -> None:
 
     assert update == {}
     assert scoper.calls == []
+
+
+def test_a_clear_gate_with_no_prior_answers_and_no_defaults_is_not_contested(
+    no_interrupt: list[str],
+) -> None:
+    plain_clear = AmbiguityAssessment(is_ambiguous=False)
+
+    update = AmbiguityGateNode(FakeGate(plain_clear))(initial_state("q", "local", "t-1"))
+
+    assert update == {"ambiguity": plain_clear, "contested": False}
+
+
+def test_a_clear_gate_after_a_resumed_answer_is_contested(no_interrupt: list[str]) -> None:
+    plain_clear = AmbiguityAssessment(is_ambiguous=False)
+    state = initial_state("q", "local", "t-1")
+    state["clarifications"] = (("time_range", "last quarter"),)
+
+    update = AmbiguityGateNode(FakeGate(plain_clear))(state)
+
+    assert update["contested"] is True
+
+
+def test_a_clear_gate_with_an_applied_default_is_contested(no_interrupt: list[str]) -> None:
+    update = AmbiguityGateNode(FakeGate(CLEAR))(initial_state("q", "local", "t-1"))
+
+    assert update["contested"] is True

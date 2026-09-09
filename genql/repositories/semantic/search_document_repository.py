@@ -5,6 +5,7 @@ Embeds the assembled text and upserts."""
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Any
 
 from sqlalchemy import Engine, Row, text
@@ -53,10 +54,53 @@ _UPSERT_DOCUMENT = text("""
 """)
 
 
+def _content_for(  # noqa: PLR0913, PLR0917 - one field per BM25/embedding content component
+    *,
+    object_name: str,
+    object_type: str,
+    domain_name: str,
+    description: str | None,
+    business_alias: str | None,
+    columns: Sequence[tuple[str, str | None, str | None, Sequence[str] | None]],
+    include_enrichment: bool,
+) -> str:
+    """Assemble one object's BM25/embedding text.
+
+    `columns` is a sequence of `(column_name, description, unit, sample_values)`
+    tuples. When `include_enrichment` is false, the object description, the
+    business alias, and each column's description and unit are omitted —
+    everything an LLM wrote. Column names and profiled sample values stay:
+    they come from structure and data profiling, not from enrichment.
+    """
+    column_lines = [
+        f"{col_name}: {(col_description or '') if include_enrichment else ''} "
+        f"(unit: {(col_unit or 'n/a') if include_enrichment else 'n/a'}; "
+        f"samples: {list(sample_values or [])})"
+        for col_name, col_description, col_unit, sample_values in columns
+    ]
+    description_text = (description or "") if include_enrichment else ""
+    alias_text = (business_alias or "n/a") if include_enrichment else "n/a"
+    return (
+        f"{object_name} ({object_type}) in domain {domain_name}. "
+        f"{description_text} Also known as: {alias_text}. "
+        f"Columns: {'; '.join(column_lines)}"
+    )
+
+
 class SearchDocumentCompiler:
-    def __init__(self, engine: Engine, embedder: EmbeddingProvider) -> None:
+    """Compiles genql_search_document rows from object and column metadata.
+
+    `include_enrichment` exists for the ablation harness (the `no_descriptions`
+    ablation) and is never set from the environment — every real construction
+    site leaves it at its default of `True`.
+    """
+
+    def __init__(
+        self, engine: Engine, embedder: EmbeddingProvider, include_enrichment: bool = True
+    ) -> None:
         self._engine = engine
         self._embedder = embedder
+        self._include_enrichment = include_enrichment
 
     def compile(self, datasource_name: str) -> int:
         with self._engine.connect() as conn:
@@ -72,16 +116,20 @@ class SearchDocumentCompiler:
         contents: list[str] = []
         keys: list[tuple[str, str, str | None]] = []
         for row in object_rows:
-            column_lines = [
-                f"{col.column_name}: {col.description or ''} "
-                f"(unit: {col.unit or 'n/a'}; samples: {list(col.sample_values or [])})"
-                for col in columns_by_object.get((row.schema_name, row.object_name), [])
-            ]
             domain_name = row.domain_name or "unassigned"
             contents.append(
-                f"{row.object_name} ({row.object_type}) in domain {domain_name}. "
-                f"{row.description or ''} Also known as: {row.business_alias or 'n/a'}. "
-                f"Columns: {'; '.join(column_lines)}"
+                _content_for(
+                    object_name=row.object_name,
+                    object_type=row.object_type,
+                    domain_name=domain_name,
+                    description=row.description,
+                    business_alias=row.business_alias,
+                    columns=[
+                        (col.column_name, col.description, col.unit, col.sample_values)
+                        for col in columns_by_object.get((row.schema_name, row.object_name), [])
+                    ],
+                    include_enrichment=self._include_enrichment,
+                )
             )
             keys.append((row.schema_name, row.object_name, row.domain_name))
 

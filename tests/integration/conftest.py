@@ -10,7 +10,19 @@ from sqlalchemy import Engine, text
 from testcontainers.neo4j import Neo4jContainer
 from testcontainers.postgres import PostgresContainer
 
+from genql.domain.ports.chat_provider import ChatProvider
+from genql.domain.value_objects.schema_ref import SchemaRef
 from genql.infrastructure.db.engine import create_engine_from_dsn
+from genql.infrastructure.db.engine_provider import DatasourceEngineProvider
+from genql.infrastructure.gateway.openrouter_client import OpenRouterClient
+from genql.repositories.gateway.chat_provider_repository import OpenRouterChatProvider
+from genql.repositories.query.cost_estimator_repository import PostgresCostEstimator
+from genql.repositories.query.query_executor_repository import ReadOnlyQueryExecutorRepository
+from genql.repositories.query.rewrite_outcome_repository import PostgresRewriteOutcomeWriter
+from genql.repositories.semantic.datasource_repository import PostgresDatasourceRepository
+from genql.repositories.warehouse.catalog_reader_repository import (
+    PostgresCatalogReaderRepository,
+)
 
 
 @pytest.fixture(scope="session")
@@ -105,6 +117,46 @@ def _skip_without_tpcds(request: pytest.FixtureRequest, engine: Engine) -> None:
         pytest.skip("tpcds schema not seeded; run data/seed_tpcds.py")
 
 
+@pytest.fixture()
+def semantic_engine(migrated_engine: Engine) -> Engine:
+    """The same store backs semantic, warehouse, and graph reads in this test
+    environment, so it is just `migrated_engine` under the name callers of the
+    semantic layer expect."""
+    return migrated_engine
+
+
+@pytest.fixture()
+def cost_estimator(
+    migrated_engine: Engine,
+    paradedb_dsn: str,
+    register_schema: Callable[[str, str], None],
+) -> PostgresCostEstimator:
+    register_schema("local", "tpcds")
+    provider = DatasourceEngineProvider(
+        env={"GENQL_WAREHOUSE_DSN": paradedb_dsn},
+        readonly_password=os.environ["GENQL_READONLY_DB_PASSWORD"],
+    )
+    datasources = PostgresDatasourceRepository(migrated_engine)
+    return PostgresCostEstimator(provider, datasources)
+
+
+@pytest.fixture()
+def rewrite_outcome_writer(
+    migrated_engine: Engine, register_schema: Callable[[str, str], None]
+) -> PostgresRewriteOutcomeWriter:
+    register_schema("local", "tpcds")
+    # A rerun of this suite against a persistent (non-ephemeral) database
+    # would otherwise collide with a row a previous run already inserted for
+    # the same fixed sql_hash.
+    with migrated_engine.begin() as conn:
+        conn.execute(
+            text("DELETE FROM genql.genql_rewrite_outcome WHERE sql_hash IN (:a, :b)"),
+            {"a": "a" * 64, "b": "b" * 64},
+        )
+    datasources = PostgresDatasourceRepository(migrated_engine)
+    return PostgresRewriteOutcomeWriter(migrated_engine, datasources)
+
+
 @pytest.fixture(scope="session")
 def neo4j_uri() -> Iterator[str]:
     """Prefer a running stack; fall back to an ephemeral container, same
@@ -116,3 +168,55 @@ def neo4j_uri() -> Iterator[str]:
 
     with Neo4jContainer(image="neo4j:5-community") as running:
         yield running.get_connection_url()
+
+
+@pytest.fixture(scope="session")
+def openrouter_chat_provider() -> ChatProvider:
+    """One real ChatProvider shared across a session's real-provider tests.
+
+    Every test that requests this fixture is already gated behind its own
+    module-level `GENQL_OPENROUTER_API_KEY` skipif, so the key is read here
+    without a fallback.
+    """
+    return OpenRouterChatProvider(
+        client=OpenRouterClient(api_key=os.environ["GENQL_OPENROUTER_API_KEY"]),
+        model="anthropic/claude-sonnet-5",
+    )
+
+
+@pytest.fixture()
+def warehouse_executor(
+    migrated_engine: Engine,
+    paradedb_dsn: str,
+    register_schema: Callable[[str, str], None],
+) -> ReadOnlyQueryExecutorRepository:
+    """The same read-only executor the guarded execution path uses, bound to
+    `local` — so an equivalence check runs the statement under exactly the role
+    and timeout a real turn would."""
+    register_schema("local", "tpcds")
+    provider = DatasourceEngineProvider(
+        env={"GENQL_WAREHOUSE_DSN": paradedb_dsn},
+        readonly_password=os.environ["GENQL_READONLY_DB_PASSWORD"],
+    )
+    datasources = PostgresDatasourceRepository(migrated_engine)
+    warehouse = provider.readonly_engine_for(datasources.get("local"))
+    return ReadOnlyQueryExecutorRepository(warehouse, statement_timeout_ms=60_000)
+
+
+@pytest.fixture()
+def tpcds_schema(engine: Engine) -> dict[str, object]:
+    """`{schema: {object: {column: "UNKNOWN"}}}` for local.tpcds, the shape
+    `OptimizationService._schema_of` produces from a turn's SchemaLinks.
+
+    Read through the warehouse CatalogReader rather than through `genql_column`
+    as the brief assumed: the semantic store holds no rows for local.tpcds
+    unless a discovery run has been executed against this database, and a schema
+    built from an empty catalog would make every qualification silently fail
+    instead of proving anything about a rewrite rule.
+    """
+    reader = PostgresCatalogReaderRepository(engine)
+    ref = SchemaRef(datasource_name="local", schema_name="tpcds")
+    objects: dict[str, dict[str, str]] = {}
+    for column in reader.read_columns(ref):
+        objects.setdefault(column.object_name, {})[column.column_name] = "UNKNOWN"
+    return {"tpcds": objects}

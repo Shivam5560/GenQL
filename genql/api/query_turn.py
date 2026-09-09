@@ -37,7 +37,7 @@ def _applied_defaults(raw: dict[str, Any]) -> tuple[tuple[str, str], ...]:
     return tuple((dimension, rule) for dimension, rule in ambiguity.applied_defaults)
 
 
-def _to_response(thread_id: str, raw: dict[str, Any]) -> TurnResponse:
+def to_response(thread_id: str, raw: dict[str, Any]) -> TurnResponse:
     interrupts = raw.get("__interrupt__") or ()
     if interrupts:
         return TurnResponse(
@@ -46,15 +46,31 @@ def _to_response(thread_id: str, raw: dict[str, Any]) -> TurnResponse:
             applied_defaults=_applied_defaults(raw),
         )
     state = cast(QueryState, raw)
-    # An intent is reported only when it stopped the turn. On a finished
-    # analytical turn it would be noise beside the rows.
-    short_circuited = state["validated_sql"] is None and state["result"] is None
+    optimization = state.get("optimization")
+    over_budget = optimization is not None and not optimization.within_budget
+    # An intent is reported only when it stopped the turn. An over-budget turn
+    # also has no result, so it must be excluded here or a perfectly
+    # well-classified analytical question would be reported as the wrong kind
+    # of question.
+    short_circuited = state["validated_sql"] is None and state["result"] is None and not over_budget
+    plan = state.get("plan")
+    selection = state.get("selection")
     return TurnResponse(
         thread_id=thread_id,
         intent=state["intent"] if short_circuited else None,
         validated_sql=state["validated_sql"],
         result=state["result"],
         applied_defaults=_applied_defaults(raw),
+        narrowing_suggestion=(
+            optimization.narrowing_suggestion if optimization is not None and over_budget else None
+        ),
+        rewrite_rules_applied=optimization.rules_applied if optimization else (),
+        plan_text=plan.plan_text if plan is not None else None,
+        referenced_objects=plan.referenced_objects if plan is not None else (),
+        selection_method=selection.method if selection is not None else None,
+        selection_rationale=selection.rationale if selection is not None else None,
+        candidate_count=len(state.get("candidates") or ()),
+        probe_count=len(state.get("probe_results") or ()),
     )
 
 
@@ -69,10 +85,10 @@ def start_turn(  # noqa: PLR0913, PLR0917 - mirrors the graph's own start parame
     resolved = thread_id or new_thread_id()
     with locks.for_thread(resolved):
         raw = run_query(graph, question, datasource_name, resolved, domain_id)
-    return _to_response(resolved, raw)
+    return to_response(resolved, raw)
 
 
 def resume_turn(graph: Any, locks: ThreadLockFactory, answer: str, thread_id: str) -> TurnResponse:
     with locks.for_thread(thread_id):
         raw = resume_query(graph, answer, thread_id)
-    return _to_response(thread_id, raw)
+    return to_response(thread_id, raw)

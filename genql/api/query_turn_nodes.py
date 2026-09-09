@@ -56,7 +56,13 @@ class AmbiguityGateNode:
         answers = _answers(state)
         assessment = self._gate.assess(state["question"], state["datasource_name"], answers)
         if not assessment.is_ambiguous:
-            return {"ambiguity": assessment}
+            # Contested per this phase's own definition: a resumed answer was
+            # needed (clarifications non-empty) or a rule default was applied
+            # (applied_defaults non-empty) by the time the gate finally
+            # cleared. Derived from state Phase 6 already produces — not a
+            # new gate score.
+            contested = bool(answers) or bool(assessment.applied_defaults)
+            return {"ambiguity": assessment, "contested": contested}
         # Both guards matter. Without a dimension there is nothing to record
         # the answer against, so the loop would not shrink and would not
         # terminate; without a question there is nothing to show the user, so

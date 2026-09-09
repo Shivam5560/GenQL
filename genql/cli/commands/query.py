@@ -1,8 +1,10 @@
 """`genql query` — one turn of the online pipeline.
 
-Three outcomes, three renderings, two exit codes. A finished turn prints its
+Four outcomes, four renderings, two exit codes. A finished turn prints its
 SQL and rows; a paused turn prints its clarifying question plus the thread id
-to resume with; a question the system does not answer prints why. Only a typed
+to resume with; a question the system does not answer prints why; a query the
+cost gate refused prints the statement it declined to run and how to narrow
+it. Only a typed
 failure exits non-zero — a paused turn is the system working, and a non-zero
 exit would make every shell caller treat a clarifying question as breakage.
 
@@ -52,7 +54,22 @@ def _render_intent(response: TurnResponse) -> None:
     typer.echo(f"thread: {response.thread_id}")
 
 
-def _render_finished(response: TurnResponse) -> None:
+def _render_provenance(response: TurnResponse) -> None:
+    """How the answer was reached, printed only under --verbose.
+
+    Provenance is for someone auditing an answer. Printing it on every turn
+    would bury the answer itself under the reasoning that produced it.
+    """
+    typer.echo("")
+    typer.echo("Provenance:")
+    typer.echo(f"  plan: {response.plan_text or '(none)'}")
+    typer.echo(f"  referenced objects: {', '.join(response.referenced_objects) or '(none)'}")
+    typer.echo(f"  candidates: {response.candidate_count}, probes: {response.probe_count}")
+    if response.selection_method is not None:
+        typer.echo(f"  selected by {response.selection_method}: {response.selection_rationale}")
+
+
+def _render_finished(response: TurnResponse, *, verbose: bool = False) -> None:
     _render_defaults(response)
     typer.echo("SQL:")
     typer.echo(response.validated_sql or "")
@@ -68,16 +85,30 @@ def _render_finished(response: TurnResponse) -> None:
         typer.echo(f"({result.row_count} rows)")
         if result.truncated:
             typer.echo("truncated at the configured row cap; refine the question for the full set")
+    if response.rewrite_rules_applied:
+        typer.echo(f"rewrites applied: {', '.join(response.rewrite_rules_applied)}")
+    if verbose:
+        _render_provenance(response)
     typer.echo(f"thread: {response.thread_id}")
 
 
-def _render(response: TurnResponse) -> None:
+def _render_over_budget(response: TurnResponse) -> None:
+    typer.echo("SQL (not executed):")
+    typer.echo(response.validated_sql or "")
+    typer.echo("")
+    typer.echo(response.narrowing_suggestion or "")
+    typer.echo(f"thread: {response.thread_id}")
+
+
+def _render(response: TurnResponse, *, verbose: bool = False) -> None:
     if response.clarifying_question is not None:
         _render_paused(response)
+    elif response.narrowing_suggestion is not None:
+        _render_over_budget(response)
     elif response.intent is not None:
         _render_intent(response)
     else:
-        _render_finished(response)
+        _render_finished(response, verbose=verbose)
 
 
 def query(
@@ -93,6 +124,12 @@ def query(
     domain_id: int | None = typer.Option(None, "--domain-id", help="Restrict to one domain"),
     thread_id: str | None = typer.Option(
         None, "--thread-id", help="Resume a paused turn instead of starting a new one"
+    ),
+    verbose: bool = typer.Option(
+        False,
+        "--verbose",
+        help="Print the plan, referenced objects, candidate/probe counts, and "
+        "selection rationale beneath the SQL",
     ),
 ) -> None:
     """Answer a question, or ask one back when the question is under-specified."""
@@ -118,4 +155,4 @@ def query(
         typer.echo(str(exc))
         raise typer.Exit(code=1) from exc
 
-    _render(response)
+    _render(response, verbose=verbose)
