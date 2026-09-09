@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { IBM_Plex_Sans, JetBrains_Mono, Space_Mono } from 'next/font/google';
+import { AuthProvider } from '@/lib/auth';
 import '@/styles/tokens.css';
 import './globals.css';
 
@@ -27,7 +28,9 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${plexSans.variable} ${jetbrainsMono.variable} ${spaceMono.variable}`}>
-      <body className="font-sans">{children}</body>
+      <body className="font-sans">
+        <AuthProvider>{children}</AuthProvider>
+      </body>
     </html>
   );
 }
