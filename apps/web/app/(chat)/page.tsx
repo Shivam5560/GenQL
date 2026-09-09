@@ -5,8 +5,8 @@ import type { CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { useAuth } from '@/lib/auth';
-import { listDatasources, startTurn } from '@/lib/api-client';
-import { useThreadList } from '@/lib/thread-list-provider';
+import { listDatasources } from '@/lib/api-client';
+import { newThreadId, stashHandoff } from '@/lib/pending-turn-handoff';
 import { AmbientField } from '@/components/hero/ambient-field';
 import { HeroHeadline } from '@/components/hero/hero-headline';
 import { Button } from '@/components/ui/button';
@@ -18,11 +18,10 @@ const GENERIC_ERROR = 'Something went wrong — try again.';
 export default function NewThreadPage() {
   const { session } = useAuth();
   const router = useRouter();
-  const { refresh } = useThreadList();
   const [datasources, setDatasources] = useState<Datasource[]>([]);
   const [datasource, setDatasource] = useState<string>('');
   const [question, setQuestion] = useState('');
-  const [submitting, setSubmitting] = useState(false);
+  const [loadingDatasources, setLoadingDatasources] = useState(true);
 
   useEffect(() => {
     if (!session) return;
@@ -34,28 +33,28 @@ export default function NewThreadPage() {
       .catch(() => {
         setDatasources([]);
         toast.error(GENERIC_ERROR);
-      });
+      })
+      .finally(() => setLoadingDatasources(false));
   }, [session]);
 
-  async function onSubmit(e: React.FormEvent) {
+  /**
+   * Navigates immediately rather than awaiting the turn.
+   *
+   * The thread id is minted here and handed to the thread page along with the
+   * question, so the bubble is on screen before a single pipeline stage has
+   * run. The old version awaited `POST /v1/queries` — the whole four seconds —
+   * with the button reading "Asking…" and the screen otherwise unchanged.
+   */
+  function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!session || !datasource || !question.trim()) return;
-    setSubmitting(true);
-    try {
-      const response = await startTurn(session.accessToken, { question, datasource });
-      // Don't block navigation on the refetch — the sidebar picks up the new
-      // thread as soon as it resolves, which is typically before or shortly
-      // after the thread page finishes its own load.
-      void refresh();
-      router.push(`/thread/${response.thread_id}`);
-    } catch {
-      toast.error(GENERIC_ERROR);
-    } finally {
-      setSubmitting(false);
-    }
+    const threadId = newThreadId();
+    stashHandoff({ threadId, question: question.trim(), datasource });
+    router.push(`/thread/${threadId}`);
   }
 
   const selected = datasources.find((ds) => ds.name === datasource);
+  const noDatasources = !loadingDatasources && datasources.length === 0;
 
   return (
     <div className="relative isolate flex flex-1 flex-col overflow-hidden">
@@ -97,11 +96,20 @@ export default function NewThreadPage() {
                 value={question}
                 onChange={(e) => setQuestion(e.target.value)}
               />
-              <Button type="submit" disabled={submitting || !datasource || !question.trim()}>
-                {submitting ? 'Asking…' : 'Send'}
+              <Button type="submit" disabled={!datasource || !question.trim()}>
+                Send
               </Button>
             </div>
           </div>
+          {noDatasources && (
+            <p className="text-sm text-[var(--mute)]">
+              No datasources yet.{' '}
+              <a className="underline" href="/datasources">
+                Connect a warehouse
+              </a>{' '}
+              to ask your first question.
+            </p>
+          )}
         </form>
       </main>
     </div>

@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { IBM_Plex_Sans, JetBrains_Mono, Space_Mono } from 'next/font/google';
+import { IBM_Plex_Sans, JetBrains_Mono, Newsreader, Space_Mono } from 'next/font/google';
 import { AuthProvider } from '@/lib/auth';
 import { ThemeProvider } from '@/lib/theme-provider';
 import { ThemeScript } from '@/components/theme-script';
@@ -24,6 +24,16 @@ const spaceMono = Space_Mono({
   weight: ['400', '700'],
   variable: '--font-eyebrow',
 });
+// The entry screen's display face, and the only place a serif appears in this
+// app. Declared here because next/font must be initialised at module scope;
+// nothing in the workspace references `font-serif`, so the workspace's type
+// system is unaffected.
+const newsreader = Newsreader({
+  subsets: ['latin'],
+  weight: ['300', '400', '500'],
+  style: ['normal', 'italic'],
+  variable: '--font-newsreader',
+});
 
 export const metadata: Metadata = {
   title: 'GenQL',
@@ -32,7 +42,15 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${plexSans.variable} ${jetbrainsMono.variable} ${spaceMono.variable}`}>
+    // `suppressHydrationWarning`: ThemeScript below toggles `data-theme` and
+    // the `dark` class on this element before React hydrates, so the DOM it
+    // finds deliberately differs from the one the server rendered. Without
+    // this, every page load logs a mismatch on <html>.
+    <html
+      lang="en"
+      suppressHydrationWarning
+      className={`${plexSans.variable} ${jetbrainsMono.variable} ${spaceMono.variable} ${newsreader.variable}`}
+    >
       <body className="font-sans">
         <ThemeScript />
         <AuthProvider>

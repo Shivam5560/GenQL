@@ -9,6 +9,12 @@
   --brand-ink: #ffffff;
   --ok: #1f7a4d;
   --ok-soft: #e5f3ea;
+  /* Semantic failure, kept distinct from --brand: the accent marks what
+     to act on, this marks what went wrong, and a UI that spends one
+     colour on both cannot say "this failed" without also saying
+     "press this". */
+  --bad: #b3261e;
+  --bad-soft: #fbeae9;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -22,6 +28,8 @@
     --brand: #ff7a45;
     --ok: #59d692;
     --ok-soft: rgba(89, 214, 146, 0.12);
+    --bad: #ff8a7a;
+    --bad-soft: rgba(255, 138, 122, 0.12);
   }
 }
 
@@ -35,6 +43,8 @@
   --brand: #ff7a45;
   --ok: #59d692;
   --ok-soft: rgba(89, 214, 146, 0.12);
+  --bad: #ff8a7a;
+  --bad-soft: rgba(255, 138, 122, 0.12);
 }
 
 body {

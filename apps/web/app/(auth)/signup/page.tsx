@@ -1,69 +1,10 @@
-'use client';
+import { KeystoneEntry } from '@/components/keystone/keystone-entry';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/lib/auth';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { SchemaSceneBackdrop } from '@/components/three/schema-scene-backdrop';
-
+/**
+ * The same entry screen as `/login`, with the panel opened on the create-account
+ * side. One composition, two doors — rather than a second, thinner page that
+ * would have to be kept visually in step with the first.
+ */
 export default function SignupPage() {
-  const { signup } = useAuth();
-  const router = useRouter();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setSubmitting(true);
-    setError(null);
-    try {
-      await signup(email, password);
-      router.push('/');
-    } catch {
-      setError('Could not create an account with that email.');
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  return (
-    <div className="relative isolate flex min-h-screen items-center justify-center overflow-hidden px-6">
-      <SchemaSceneBackdrop />
-      <main className="w-full max-w-sm">
-        <div className="gq-glass flex flex-col gap-6 rounded-lg border border-[var(--line)] p-7">
-          <h1 className="font-eyebrow text-xs uppercase tracking-wide text-[var(--mute)]">
-            GenQL // Create account
-          </h1>
-          <form onSubmit={onSubmit} className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                required
-                minLength={8}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
-            {error && <p className="text-sm text-red-600">{error}</p>}
-            <Button type="submit" disabled={submitting}>
-              {submitting ? 'Creating account…' : 'Create account'}
-            </Button>
-          </form>
-          <p className="text-center text-sm text-[var(--mute)]">
-            Already have an account? <a className="underline" href="/login">Sign in</a>
-          </p>
-        </div>
-      </main>
-    </div>
-  );
+  return <KeystoneEntry initialMode="register" openOnMount />;
 }

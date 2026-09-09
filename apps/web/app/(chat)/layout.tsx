@@ -1,16 +1,25 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import { useAuth } from '@/lib/auth';
-import { listDatasources } from '@/lib/api-client';
+import { listDatasources, streamDatasourceEvents } from '@/lib/api-client';
 import { ThreadListProvider, useThreadList } from '@/lib/thread-list-provider';
 import { DatasourceCard } from '@/components/sidebar/datasource-card';
 import { ThreadList } from '@/components/sidebar/thread-list';
 import type { Datasource } from '@/lib/types';
 
-function DatasourceSection({ session }: { session: { accessToken: string } }) {
+function DatasourceSection({
+  session,
+  epoch,
+}: {
+  session: { accessToken: string };
+  /** Bumped when ingestion finishes, so a warehouse that just became
+      queryable appears here without a reload. */
+  epoch: number;
+}) {
   const [datasources, setDatasources] = useState<Datasource[]>([]);
   const [loadingDatasources, setLoadingDatasources] = useState(true);
 
@@ -29,7 +38,7 @@ function DatasourceSection({ session }: { session: { accessToken: string } }) {
     return () => {
       cancelled = true;
     };
-  }, [session]);
+  }, [session, epoch]);
 
   if (loadingDatasources) {
     return (
@@ -49,11 +58,49 @@ function DatasourceSection({ session }: { session: { accessToken: string } }) {
   );
 }
 
+/**
+ * Holds the app-wide datasource stream open for the life of the session.
+ *
+ * Ingesting a warehouse takes minutes, so whoever submitted it has navigated
+ * somewhere else long before it finishes. This is what lets "your warehouse is
+ * ready" find them there. It lives in the layout, not on the datasources page,
+ * for exactly that reason.
+ */
+function useDatasourceNotifications(accessToken: string | undefined, onChange: () => void) {
+  useEffect(() => {
+    if (!accessToken) return;
+    const controller = new AbortController();
+    void streamDatasourceEvents(
+      accessToken,
+      {
+        onReady: ({ datasource }) => {
+          toast.success(`${datasource} is ready to query.`);
+          onChange();
+        },
+        onFailed: ({ datasource, error_step }) => {
+          toast.error(
+            error_step
+              ? `${datasource} could not be prepared — ${error_step.replace(/_/g, ' ')} failed.`
+              : `${datasource} could not be prepared.`,
+          );
+          onChange();
+        },
+      },
+      controller.signal,
+    );
+    return () => controller.abort();
+  }, [accessToken, onChange]);
+}
+
 function ChatShell({ children }: { children: React.ReactNode }) {
   const { session, loading, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const { threads, loading: threadsLoading } = useThreadList();
+  const [datasourceEpoch, setDatasourceEpoch] = useState(0);
+  const onDatasourceChange = useCallback(() => setDatasourceEpoch((e) => e + 1), []);
+
+  useDatasourceNotifications(session?.accessToken, onDatasourceChange);
 
   useEffect(() => {
     if (!loading && !session) router.push('/login');
@@ -73,14 +120,14 @@ function ChatShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="grid min-h-screen grid-cols-[264px_1fr]">
+    <div className="grid h-screen grid-cols-[264px_1fr] overflow-hidden">
       {/* The sidebar leads the one page-load sequence; the hero's headline,
           supporting line and composer follow it on staggered delays. */}
-      <aside className="gq-slide-in flex flex-col border-r border-[var(--line)]">
+      <aside className="gq-slide-in flex min-h-0 flex-col overflow-y-auto border-r border-[var(--line)]">
         <div className="border-b border-[var(--line)] px-5 py-4 text-base font-bold uppercase tracking-wide">
           Gen<span className="text-[var(--brand)]">QL</span>
         </div>
-        <DatasourceSection session={session} />
+        <DatasourceSection session={session} epoch={datasourceEpoch} />
         {threadsLoading ? (
           <div className="py-1.5">
             <p className="font-eyebrow px-4.5 pb-1 pt-2.5 text-[0.66rem] uppercase tracking-wide text-[var(--mute)]">
@@ -128,7 +175,7 @@ function ChatShell({ children }: { children: React.ReactNode }) {
           </button>
         </div>
       </aside>
-      <div className="flex min-h-screen flex-col">{children}</div>
+      <div className="flex min-h-0 flex-col">{children}</div>
     </div>
   );
 }

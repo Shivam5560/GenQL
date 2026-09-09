@@ -61,3 +61,67 @@ export type ThemePreference = 'light' | 'dark' | 'system';
 export interface Profile {
   theme_preference: ThemePreference;
 }
+
+/** One completed pipeline node, as `GET /v1/queries/stream` reports it. */
+export interface StageEvent {
+  stage: string;
+  status: 'completed' | 'paused' | 'failed';
+  detail: string | null;
+}
+
+/**
+ * A typed failure from either stream. `error` is the exception class name —
+ * `CostBudgetExceededError`, `StaticValidationError` — so the UI can branch on
+ * the kind of failure without parsing prose out of `detail`.
+ */
+export interface StreamError {
+  error: string;
+  detail: string;
+}
+
+/** A turn that has been sent but has not reached its terminal event yet. */
+export interface PendingTurn {
+  /** Stable for the life of the pending turn, so React keys do not churn. */
+  localId: string;
+  question: string;
+  stages: StageEvent[];
+  startedAt: number;
+  error: StreamError | null;
+}
+
+export type IngestionStepStatus = 'pending' | 'running' | 'succeeded' | 'skipped' | 'failed';
+
+export interface IngestionStep {
+  name: string;
+  status: IngestionStepStatus;
+  detail: string | null;
+  records_written: number;
+  duration_ms: number;
+}
+
+export interface IngestionJob {
+  job_id: string;
+  datasource_name: string;
+  status: 'queued' | 'running' | 'succeeded' | 'failed';
+  schemas: string[];
+  steps: IngestionStep[];
+  error: string | null;
+  error_step: string | null;
+  created_at: string;
+  started_at: string | null;
+  finished_at: string | null;
+}
+
+export interface DatasourceAccepted {
+  datasource: Datasource;
+  job: IngestionJob;
+  stream_url: string;
+}
+
+export interface RegisterDatasourceArgs {
+  name: string;
+  dialect: string;
+  dsn_env_var: string;
+  description?: string | null;
+  schemas: string[];
+}

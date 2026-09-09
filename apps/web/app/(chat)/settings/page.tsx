@@ -33,7 +33,7 @@ export default function SettingsPage() {
   if (!session) return null;
 
   return (
-    <main className="mx-auto max-w-[560px] px-7 py-8">
+    <main className="mx-auto w-full max-w-[560px] overflow-y-auto px-7 py-8">
       <h1 className="font-eyebrow mb-6 text-xs uppercase tracking-wide text-[var(--mute)]">
         Settings
       </h1>
