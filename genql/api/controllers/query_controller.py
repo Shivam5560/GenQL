@@ -28,6 +28,9 @@ def start(
         request.datasource,
         request.domain_id,
         request.thread_id,
+        user_id=user.user_id,
+        threads=container.thread_repository(),
+        turn_records=container.turn_record_repository(),
     )
     return TurnResponseDto.from_domain(response)
 
@@ -40,6 +43,12 @@ def resume(
     user: Annotated[AuthenticatedUser, Depends(get_current_user)],
 ) -> TurnResponseDto:
     response = resume_turn(
-        container.query_graph(), container.thread_lock_factory(), request.answer, thread_id
+        container.query_graph(),
+        container.thread_lock_factory(),
+        request.answer,
+        thread_id,
+        user_id=user.user_id,
+        threads=container.thread_repository(),
+        turn_records=container.turn_record_repository(),
     )
     return TurnResponseDto.from_domain(response)

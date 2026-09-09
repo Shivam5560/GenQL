@@ -16,12 +16,19 @@ turn that finishes without pausing needs one for a follow-up to attach to.
 from __future__ import annotations
 
 import uuid
+import uuid as _uuid
+from datetime import UTC, datetime
 from typing import Any, cast
 
 from genql.api.query_graph import resume_query, run_query
 from genql.api.query_state import QueryState
+from genql.domain.entities.turn_record import TurnRecord
 from genql.domain.entities.turn_response import TurnResponse
 from genql.domain.ports.thread_lock import ThreadLockFactory
+from genql.domain.ports.thread_repository import ThreadRepository
+from genql.domain.ports.turn_record_repository import TurnRecordRepository
+
+_TITLE_MAX_LEN = 80
 
 
 def new_thread_id() -> str:
@@ -74,6 +81,37 @@ def to_response(thread_id: str, raw: dict[str, Any]) -> TurnResponse:
     )
 
 
+def _record_turn(  # noqa: PLR0913, PLR0917 - one field per TurnRecord input
+    threads: ThreadRepository,
+    turn_records: TurnRecordRepository,
+    thread_id: str,
+    user_id: str,
+    datasource_name: str | None,
+    question: str,
+    response: TurnResponse,
+) -> None:
+    existing = turn_records.list_for_thread(thread_id)
+    sequence = len(existing)
+    if sequence == 0:
+        assert datasource_name is not None  # the first turn on a thread always has one
+        threads.create(thread_id, user_id, datasource_name, question[:_TITLE_MAX_LEN])
+    else:
+        threads.touch(thread_id)
+    turn_records.append(
+        TurnRecord(
+            turn_id=f"tr-{_uuid.uuid4().hex}",
+            thread_id=thread_id,
+            sequence=sequence,
+            question=question,
+            validated_sql=response.validated_sql,
+            clarifying_question=response.clarifying_question,
+            result=response.result,
+            applied_defaults=response.applied_defaults,
+            created_at=datetime.now(UTC),
+        )
+    )
+
+
 def start_turn(  # noqa: PLR0913, PLR0917 - mirrors the graph's own start parameters
     graph: Any,
     locks: ThreadLockFactory,
@@ -81,14 +119,33 @@ def start_turn(  # noqa: PLR0913, PLR0917 - mirrors the graph's own start parame
     datasource_name: str,
     domain_id: int | None = None,
     thread_id: str | None = None,
+    *,
+    user_id: str | None = None,
+    threads: ThreadRepository | None = None,
+    turn_records: TurnRecordRepository | None = None,
 ) -> TurnResponse:
     resolved = thread_id or new_thread_id()
     with locks.for_thread(resolved):
         raw = run_query(graph, question, datasource_name, resolved, domain_id)
-    return to_response(resolved, raw)
+    response = to_response(resolved, raw)
+    if user_id is not None and threads is not None and turn_records is not None:
+        _record_turn(threads, turn_records, resolved, user_id, datasource_name, question, response)
+    return response
 
 
-def resume_turn(graph: Any, locks: ThreadLockFactory, answer: str, thread_id: str) -> TurnResponse:
+def resume_turn(  # noqa: PLR0913, PLR0917 - mirrors the graph's own resume parameters
+    graph: Any,
+    locks: ThreadLockFactory,
+    answer: str,
+    thread_id: str,
+    *,
+    user_id: str | None = None,
+    threads: ThreadRepository | None = None,
+    turn_records: TurnRecordRepository | None = None,
+) -> TurnResponse:
     with locks.for_thread(thread_id):
         raw = resume_query(graph, answer, thread_id)
-    return to_response(thread_id, raw)
+    response = to_response(thread_id, raw)
+    if user_id is not None and threads is not None and turn_records is not None:
+        _record_turn(threads, turn_records, thread_id, user_id, None, answer, response)
+    return response
