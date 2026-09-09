@@ -46,3 +46,14 @@ forbidden_modules =
     fastapi
     starlette
     sse_starlette
+
+[importlinter:contract:no-web-below-api]
+name = Web framework stays out of everything below genql.api
+type = forbidden
+source_modules =
+    genql.repositories
+    genql.infrastructure
+forbidden_modules =
+    fastapi
+    starlette
+    sse_starlette

@@ -10,6 +10,7 @@ from genql.repositories.semantic.enricher_repository import (
     DescriptionEnricher,
     UnitEnricher,
 )
+from genql.repositories.semantic.feedback_repository import PostgresFeedbackWriter
 from genql.repositories.semantic.hybrid_rrf_retriever_repository import HybridRrfRetriever
 from genql.repositories.semantic.join_path_reader_repository import PostgresJoinPathReader
 from genql.repositories.semantic.rule_repository import PostgresRuleReader, PostgresRuleWriter
@@ -22,6 +23,7 @@ __all__ = [
     "DenseRetriever",
     "DomainScopedRetriever",
     "HybridRrfRetriever",
+    "PostgresFeedbackWriter",
     "PostgresAmbiguityExampleReader",
     "PostgresAmbiguityExampleWriter",
     "PostgresJoinPathReader",
