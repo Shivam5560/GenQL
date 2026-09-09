@@ -12,8 +12,12 @@ from testcontainers.postgres import PostgresContainer
 
 from genql.domain.ports.chat_provider import ChatProvider
 from genql.infrastructure.db.engine import create_engine_from_dsn
+from genql.infrastructure.db.engine_provider import DatasourceEngineProvider
 from genql.infrastructure.gateway.openrouter_client import OpenRouterClient
 from genql.repositories.gateway.chat_provider_repository import OpenRouterChatProvider
+from genql.repositories.query.cost_estimator_repository import PostgresCostEstimator
+from genql.repositories.query.rewrite_outcome_repository import PostgresRewriteOutcomeWriter
+from genql.repositories.semantic.datasource_repository import PostgresDatasourceRepository
 
 
 @pytest.fixture(scope="session")
@@ -106,6 +110,46 @@ def _skip_without_tpcds(request: pytest.FixtureRequest, engine: Engine) -> None:
         ).scalar_one()
     if not seeded:
         pytest.skip("tpcds schema not seeded; run data/seed_tpcds.py")
+
+
+@pytest.fixture()
+def semantic_engine(migrated_engine: Engine) -> Engine:
+    """The same store backs semantic, warehouse, and graph reads in this test
+    environment, so it is just `migrated_engine` under the name callers of the
+    semantic layer expect."""
+    return migrated_engine
+
+
+@pytest.fixture()
+def cost_estimator(
+    migrated_engine: Engine,
+    paradedb_dsn: str,
+    register_schema: Callable[[str, str], None],
+) -> PostgresCostEstimator:
+    register_schema("local", "tpcds")
+    provider = DatasourceEngineProvider(
+        env={"GENQL_WAREHOUSE_DSN": paradedb_dsn},
+        readonly_password=os.environ["GENQL_READONLY_DB_PASSWORD"],
+    )
+    datasources = PostgresDatasourceRepository(migrated_engine)
+    return PostgresCostEstimator(provider, datasources)
+
+
+@pytest.fixture()
+def rewrite_outcome_writer(
+    migrated_engine: Engine, register_schema: Callable[[str, str], None]
+) -> PostgresRewriteOutcomeWriter:
+    register_schema("local", "tpcds")
+    # A rerun of this suite against a persistent (non-ephemeral) database
+    # would otherwise collide with a row a previous run already inserted for
+    # the same fixed sql_hash.
+    with migrated_engine.begin() as conn:
+        conn.execute(
+            text("DELETE FROM genql.genql_rewrite_outcome WHERE sql_hash IN (:a, :b)"),
+            {"a": "a" * 64, "b": "b" * 64},
+        )
+    datasources = PostgresDatasourceRepository(migrated_engine)
+    return PostgresRewriteOutcomeWriter(migrated_engine, datasources)
 
 
 @pytest.fixture(scope="session")

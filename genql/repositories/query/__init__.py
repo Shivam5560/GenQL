@@ -7,5 +7,6 @@ warehouse driver at query time.
 
 from genql.repositories.query.decomposition_strategy import DecompositionStrategy
 from genql.repositories.query.execution_plan_strategy import ExecutionPlanStrategy
+from genql.repositories.query.rewrite_rules import REWRITE_RULES
 
-__all__ = ["DecompositionStrategy", "ExecutionPlanStrategy"]
+__all__ = ["DecompositionStrategy", "ExecutionPlanStrategy", "REWRITE_RULES"]
