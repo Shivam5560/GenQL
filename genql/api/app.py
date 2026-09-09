@@ -6,13 +6,17 @@ making the transport async would not make any of it concurrent; it would only
 move the blocking off the loop by rewriting every layer.
 
 All error translation happens here, in one handler, so no controller contains a
-`try`. UnknownDatasourceError and UnknownThreadError are 404 because the client
-named something that does not exist; every other GenqlError is 400 because the
-request could not be served as asked; anything else is a bug and is 500.
+`try`. Naming something that does not exist is 404; a well-formed request that
+collides with state already there — a duplicate datasource, an ingestion
+already running — is 409, so a client can tell "retry later" from "fix this";
+every other GenqlError is 400 because the request could not be served as
+asked; anything else is a bug and is 500.
 """
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi import FastAPI, Request
@@ -28,19 +32,48 @@ from genql.api.controllers import (
     threads_controller,
 )
 from genql.domain.errors import (
+    DuplicateDatasourceError,
     GenqlError,
+    IngestionInProgressError,
     InvalidAccessTokenError,
+    NoIngestionJobError,
     ThreadOwnershipError,
     UnknownDatasourceError,
+    UnknownIngestionJobError,
     UnknownThreadError,
 )
 
-_NOT_FOUND = (UnknownDatasourceError, UnknownThreadError, ThreadOwnershipError)
+_NOT_FOUND = (
+    UnknownDatasourceError,
+    UnknownThreadError,
+    ThreadOwnershipError,
+    UnknownIngestionJobError,
+    NoIngestionJobError,
+)
 _UNAUTHORIZED = (InvalidAccessTokenError,)
+# 409, not 400: the request was well-formed and would succeed later. A client
+# that cannot tell those apart retries a malformed request forever, or gives
+# up on a queue that was merely busy.
+_CONFLICT = (DuplicateDatasourceError, IngestionInProgressError)
 
 
 def create_app(container: Any) -> FastAPI:
-    app = FastAPI(title="GenQL", version="0.1.0")
+    @asynccontextmanager
+    async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+        """Own the ingestion worker's lifetime.
+
+        Started here rather than at import time so a test app, the CLI, and
+        anything else building a container do not silently acquire a thread
+        that claims jobs out from under the process that meant to run them.
+        """
+        worker = container.ingestion_worker()
+        worker.start()
+        try:
+            yield
+        finally:
+            worker.stop()
+
+    app = FastAPI(title="GenQL", version="0.1.0", lifespan=lifespan)
     app.state.container = container
 
     settings = container.settings()
@@ -49,14 +82,20 @@ def create_app(container: Any) -> FastAPI:
         app.add_middleware(
             CORSMiddleware,
             allow_origins=origins,
-            allow_methods=["GET", "POST", "PATCH"],
+            allow_methods=["GET", "POST", "PATCH", "DELETE"],
             allow_headers=["Authorization", "Content-Type"],
         )
 
     @app.exception_handler(GenqlError)
     def _handle_genql_error(request: Request, exc: GenqlError) -> JSONResponse:
         status = (
-            404 if isinstance(exc, _NOT_FOUND) else 401 if isinstance(exc, _UNAUTHORIZED) else 400
+            404
+            if isinstance(exc, _NOT_FOUND)
+            else 401
+            if isinstance(exc, _UNAUTHORIZED)
+            else 409
+            if isinstance(exc, _CONFLICT)
+            else 400
         )
         return JSONResponse(
             status_code=status,

@@ -38,6 +38,13 @@ from genql.domain.errors.eval import (
     GoldenSetError,
     UnknownAblationError,
 )
+from genql.domain.errors.ingestion import (
+    IngestionError,
+    IngestionInProgressError,
+    NoIngestionJobError,
+    UnknownIngestionJobError,
+    UnknownIngestionStepError,
+)
 from genql.domain.errors.provider import (
     ChatProviderError,
     EmbeddingProviderError,
@@ -85,6 +92,11 @@ __all__ = [
     "UnknownSchemaRegistrationError",
     "AmbiguousScopeError",
     "MissingReadonlySecretError",
+    "IngestionError",
+    "UnknownIngestionJobError",
+    "NoIngestionJobError",
+    "IngestionInProgressError",
+    "UnknownIngestionStepError",
     "ChatProviderError",
     "EmbeddingProviderError",
     "RerankProviderError",

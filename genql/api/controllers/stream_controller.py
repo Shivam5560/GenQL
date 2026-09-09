@@ -39,5 +39,10 @@ def stream(  # noqa: PLR0913, PLR0917 - one query parameter per turn input
         domain_id,
         thread_id,
         answer,
+        # Same three collaborators the blocking endpoint passes, for the same
+        # reason: a streamed turn belongs in thread history too.
+        user_id=user.user_id,
+        threads=container.thread_repository(),
+        turn_records=container.turn_record_repository(),
     )
     return EventSourceResponse(iterate_in_threadpool(generator))

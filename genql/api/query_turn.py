@@ -81,7 +81,7 @@ def to_response(thread_id: str, raw: dict[str, Any]) -> TurnResponse:
     )
 
 
-def _record_turn(  # noqa: PLR0913, PLR0917 - one field per TurnRecord input
+def record_turn(  # noqa: PLR0913, PLR0917 - one field per TurnRecord input
     threads: ThreadRepository,
     turn_records: TurnRecordRepository,
     thread_id: str,
@@ -90,6 +90,12 @@ def _record_turn(  # noqa: PLR0913, PLR0917 - one field per TurnRecord input
     question: str,
     response: TurnResponse,
 ) -> None:
+    """Persist one finished turn, creating the thread on its first.
+
+    Public because both transports must record identically: the streaming
+    endpoint calls this immediately before its terminal event, so a turn the
+    user watched arrive is in their history when they reload the page.
+    """
     existing = turn_records.list_for_thread(thread_id)
     sequence = len(existing)
     if sequence == 0:
@@ -129,7 +135,7 @@ def start_turn(  # noqa: PLR0913, PLR0917 - mirrors the graph's own start parame
         raw = run_query(graph, question, datasource_name, resolved, domain_id)
     response = to_response(resolved, raw)
     if user_id is not None and threads is not None and turn_records is not None:
-        _record_turn(threads, turn_records, resolved, user_id, datasource_name, question, response)
+        record_turn(threads, turn_records, resolved, user_id, datasource_name, question, response)
     return response
 
 
@@ -147,5 +153,5 @@ def resume_turn(  # noqa: PLR0913, PLR0917 - mirrors the graph's own resume para
         raw = resume_query(graph, answer, thread_id)
     response = to_response(thread_id, raw)
     if user_id is not None and threads is not None and turn_records is not None:
-        _record_turn(threads, turn_records, thread_id, user_id, None, answer, response)
+        record_turn(threads, turn_records, thread_id, user_id, None, answer, response)
     return response

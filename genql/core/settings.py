@@ -110,3 +110,15 @@ class Settings(BaseSettings):
     # same pattern as every other required-at-use secret in this file —
     # so no origin is trusted until explicitly configured.
     cors_allowed_origins: str = ""
+    # Where `semantic overlay` and the ingestion pipeline look for
+    # hand-written `<datasource>.yaml` overrides.
+    semantic_overlay_dir: str = "semantic"
+    # How long the ingestion worker waits before asking the queue again when
+    # it found nothing. A tick that DID find work never waits, so this only
+    # bounds how stale an idle queue can be.
+    ingestion_poll_seconds: float = 1.0
+    # A job still marked RUNNING with no progress for this long is assumed to
+    # belong to a worker that died, and is returned to the queue. Must exceed
+    # the slowest single step — profiling a large warehouse — or a live run
+    # gets claimed a second time.
+    ingestion_stale_after_seconds: int = 900

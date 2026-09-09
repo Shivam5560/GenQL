@@ -54,3 +54,44 @@ def remove(name: str = typer.Option(..., "--name")) -> None:
         typer.echo(str(exc))
         raise typer.Exit(code=1) from exc
     typer.echo(f"removed {name}")
+
+
+@app.command("onboard")
+def onboard(  # noqa: PLR0913, PLR0917 - one CLI option each
+    name: str = typer.Option(..., "--name", help="Unique datasource name"),
+    dialect: str = typer.Option("postgres", "--dialect"),
+    dsn_env: str = typer.Option(..., "--dsn-env", help="Env var holding the DSN"),
+    schema: list[str] = typer.Option([], "--schema", help="Schema to ingest; repeatable"),
+    description: str | None = typer.Option(None, "--description"),
+    wait: bool = typer.Option(True, "--wait/--no-wait", help="Run the queued job here"),
+) -> None:
+    """Register a datasource and run the whole pipeline in one command.
+
+    The same six stages the API queues — schemas, discovery, overlay, compile,
+    graph analysis, domains — instead of six commands in the right order.
+    `--no-wait` leaves the job on the queue for a running API's worker.
+    """
+    container = Container()
+    try:
+        _datasource, job = container.onboarding_service().register_and_submit(
+            name, dialect, dsn_env, description, list(schema), user_id="cli"
+        )
+    except (GenqlError, RegistryError) as exc:
+        typer.echo(str(exc))
+        raise typer.Exit(code=1) from exc
+
+    typer.echo(f"registered {name} ({dialect}); ingestion job {job.job_id} queued")
+    if not wait:
+        return
+
+    # Drains the very job just queued: the worker claims whatever is oldest,
+    # and this process is the only one running if no API is up.
+    container.ingestion_worker().run_once()
+    final = container.onboarding_service().status(name)
+    for step in final.steps:
+        marker = "ok  " if step.status.value in ("succeeded", "skipped") else "FAIL"
+        typer.echo(f"  {marker} {step.name}: {step.detail or step.status.value}")
+    if final.status.value != "succeeded":
+        typer.echo(final.error or "ingestion failed")
+        raise typer.Exit(code=1)
+    typer.echo(f"{name} is ready to query")
