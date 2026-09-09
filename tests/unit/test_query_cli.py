@@ -73,6 +73,12 @@ def finished(truncated: bool = False) -> TurnResponse:
             columns=("count", "note"), rows=((7, None),), row_count=1, truncated=truncated
         ),
         applied_defaults=(("time_range", "default_period"),),
+        plan_text="Count the orders.",
+        referenced_objects=("shop.orders",),
+        selection_method="probe_resolved",
+        selection_rationale="the probe returned 7",
+        candidate_count=2,
+        probe_count=1,
     )
 
 
@@ -112,6 +118,24 @@ def test_the_defaults_wording_does_not_overclaim_that_the_value_was_used(
 
     assert "Applied defaults:" not in result.stdout
     assert "not yet applied" in result.stdout
+
+
+def test_provenance_is_printed_only_under_verbose(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Provenance is for someone auditing an answer. Printed on every turn it
+    would bury the answer under the reasoning that produced it, so the flag
+    is what adds the block and nothing else changes."""
+    _install(monkeypatch, finished())
+    argv = ["query", "how many orders", "--datasource", "local"]
+
+    plain = runner.invoke(app, argv)
+    verbose = runner.invoke(app, [*argv, "--verbose"])
+
+    assert "Provenance:" not in plain.stdout
+    assert "Provenance:" in verbose.stdout
+    assert "Count the orders." in verbose.stdout
+    assert "referenced objects: shop.orders" in verbose.stdout
+    assert "candidates: 2, probes: 1" in verbose.stdout
+    assert "selected by probe_resolved: the probe returned 7" in verbose.stdout
 
 
 def test_a_truncated_result_says_so(monkeypatch: pytest.MonkeyPatch) -> None:

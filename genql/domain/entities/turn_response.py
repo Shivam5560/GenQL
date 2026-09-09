@@ -29,9 +29,10 @@ class TurnResponse(BaseModel):
     # beside paused, short-circuited, and finished.
     narrowing_suggestion: str | None = None
     rewrite_rules_applied: tuple[str, ...] = ()
-    # Provenance fields the HTTP DTO reads. Populated here with defaults in
-    # Task 20 (the API layer needs them to exist); Task 22 fills them in from
-    # graph state.
+    # Provenance: how the answer was reached, for the HTTP DTO and for
+    # `genql query --verbose`. Every field keeps a default because a paused or
+    # short-circuited turn planned nothing — an empty field there is the
+    # honest report, not a missing one.
     plan_text: str | None = None
     referenced_objects: tuple[str, ...] = ()
     selection_method: str | None = None

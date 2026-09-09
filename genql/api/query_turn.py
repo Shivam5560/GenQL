@@ -53,6 +53,8 @@ def to_response(thread_id: str, raw: dict[str, Any]) -> TurnResponse:
     # well-classified analytical question would be reported as the wrong kind
     # of question.
     short_circuited = state["validated_sql"] is None and state["result"] is None and not over_budget
+    plan = state.get("plan")
+    selection = state.get("selection")
     return TurnResponse(
         thread_id=thread_id,
         intent=state["intent"] if short_circuited else None,
@@ -63,6 +65,12 @@ def to_response(thread_id: str, raw: dict[str, Any]) -> TurnResponse:
             optimization.narrowing_suggestion if optimization is not None and over_budget else None
         ),
         rewrite_rules_applied=optimization.rules_applied if optimization else (),
+        plan_text=plan.plan_text if plan is not None else None,
+        referenced_objects=plan.referenced_objects if plan is not None else (),
+        selection_method=selection.method if selection is not None else None,
+        selection_rationale=selection.rationale if selection is not None else None,
+        candidate_count=len(state.get("candidates") or ()),
+        probe_count=len(state.get("probe_results") or ()),
     )
 
 
