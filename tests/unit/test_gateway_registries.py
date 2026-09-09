@@ -15,6 +15,6 @@ def test_the_three_registries_are_distinct_and_populated() -> None:
     assert CHAT_PROVIDERS.name == "chat_providers"
     assert EMBEDDING_PROVIDERS.name == "embedding_providers"
     assert RERANK_PROVIDERS.name == "rerank_providers"
-    assert "openrouter" in CHAT_PROVIDERS.keys()  # noqa: SIM118 - .keys() returns a list, not a dict
-    assert "openrouter" in EMBEDDING_PROVIDERS.keys()  # noqa: SIM118
+    assert {"openrouter", "openai"} <= set(CHAT_PROVIDERS.keys())
+    assert {"openrouter", "openai"} <= set(EMBEDDING_PROVIDERS.keys())
     assert {"openrouter", "cohere"} <= set(RERANK_PROVIDERS.keys())

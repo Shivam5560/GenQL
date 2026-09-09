@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     join_path_strategy: str = "weighted_shortest_path"
     max_join_path_hops: int = 4
     openrouter_api_key: str = ""
+    # Empty by default, same pattern as openrouter_api_key — only required
+    # once a chat_provider/embedding_provider setting actually selects "openai".
+    openai_api_key: str = ""
     cohere_api_key: str | None = None
     chat_provider: str = "openrouter"
     embedding_provider: str = "openrouter"

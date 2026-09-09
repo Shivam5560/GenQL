@@ -26,3 +26,4 @@ data/generated/
 node_modules/
 dist/
 .superpowers/
+.vercel/
