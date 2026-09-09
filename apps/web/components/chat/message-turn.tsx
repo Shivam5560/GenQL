@@ -3,14 +3,12 @@ import { SqlCard } from './sql-card';
 
 export function MessageTurn({
   turn,
-  isLatest,
   revealed,
   onReveal,
   accessToken,
   threadId,
 }: {
   turn: TurnRecord;
-  isLatest: boolean;
   revealed: boolean;
   onReveal?: () => void;
   accessToken: string;
@@ -27,10 +25,12 @@ export function MessageTurn({
         ) : (
           <>
             {turn.recap && <p className="max-w-[64ch] text-sm text-[var(--mute)]">{turn.recap}</p>}
+            {/* Every unrevealed turn stays executable, not just the latest one:
+                `revealed` alone decides whether results are shown. */}
             <SqlCard
               turn={turn}
               revealed={revealed}
-              onReveal={isLatest ? onReveal : undefined}
+              onReveal={onReveal}
               accessToken={accessToken}
               threadId={threadId}
             />

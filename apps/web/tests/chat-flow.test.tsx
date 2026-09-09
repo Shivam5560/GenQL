@@ -23,7 +23,6 @@ describe('MessageTurn', () => {
     render(
       <MessageTurn
         turn={EXECUTED_TURN}
-        isLatest
         revealed={false}
         onReveal={() => {}}
         accessToken="test-token"
@@ -41,7 +40,6 @@ describe('MessageTurn', () => {
     const { rerender } = render(
       <MessageTurn
         turn={EXECUTED_TURN}
-        isLatest
         revealed={revealed}
         onReveal={() => {
           revealed = true;
@@ -57,7 +55,6 @@ describe('MessageTurn', () => {
     rerender(
       <MessageTurn
         turn={EXECUTED_TURN}
-        isLatest
         revealed={revealed}
         onReveal={() => {}}
         accessToken="test-token"
@@ -74,7 +71,6 @@ describe('MessageTurn', () => {
     render(
       <MessageTurn
         turn={EXECUTED_TURN}
-        isLatest={false}
         revealed
         accessToken="test-token"
         threadId="t-thread"

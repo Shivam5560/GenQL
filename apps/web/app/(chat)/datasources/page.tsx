@@ -8,10 +8,13 @@ import type { Datasource } from '@/lib/types';
 export default function DatasourcesPage() {
   const { session } = useAuth();
   const [datasources, setDatasources] = useState<Datasource[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!session) return;
-    listDatasources(session.accessToken).then(setDatasources);
+    listDatasources(session.accessToken)
+      .then(setDatasources)
+      .catch(() => setError('Something went wrong — try again.'));
   }, [session]);
 
   return (
@@ -19,7 +22,9 @@ export default function DatasourcesPage() {
       <h1 className="font-eyebrow mb-6 text-xs uppercase tracking-wide text-[var(--mute)]">
         Datasources
       </h1>
-      {datasources === null ? (
+      {error ? (
+        <p className="text-sm text-red-600">{error}</p>
+      ) : datasources === null ? (
         <p className="text-sm text-[var(--mute)]">Loading…</p>
       ) : (
         <div className="flex flex-col gap-2.5">

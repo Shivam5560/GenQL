@@ -8,6 +8,8 @@ import { MessageTurn } from '@/components/chat/message-turn';
 import { Button } from '@/components/ui/button';
 import type { ThreadDetail } from '@/lib/types';
 
+const GENERIC_ERROR = 'Something went wrong — try again.';
+
 export default function ThreadPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: threadId } = usePromise(params);
   const { session } = useAuth();
@@ -15,21 +17,28 @@ export default function ThreadPage({ params }: { params: Promise<{ id: string }>
   const [input, setInput] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [revealedIds, setRevealedIds] = useState<Set<string>>(new Set());
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!session) return;
-    getThread(session.accessToken, threadId).then((loaded) => {
-      setDetail(loaded);
-      // Every turn loaded from history was already seen by the user in an
-      // earlier session — reveal all of them immediately.
-      setRevealedIds(new Set(loaded.turns.map((t) => t.turn_id)));
-    });
+    getThread(session.accessToken, threadId)
+      .then((loaded) => {
+        setDetail(loaded);
+        // Every turn loaded from history was already seen by the user in an
+        // earlier session — reveal all of them immediately.
+        setRevealedIds(new Set(loaded.turns.map((t) => t.turn_id)));
+      })
+      .catch(() => setError(GENERIC_ERROR));
   }, [session, threadId]);
 
   if (!session || !detail) {
     return (
       <main className="flex flex-1 items-center justify-center">
-        <p className="text-sm text-[var(--mute)]">Loading…</p>
+        {error ? (
+          <p className="text-sm text-red-600">{error}</p>
+        ) : (
+          <p className="text-sm text-[var(--mute)]">Loading…</p>
+        )}
       </main>
     );
   }
@@ -41,9 +50,9 @@ export default function ThreadPage({ params }: { params: Promise<{ id: string }>
     e.preventDefault();
     if (!session || !detail || !input.trim()) return;
     setSubmitting(true);
+    setError(null);
     try {
       const question = input;
-      setInput('');
       const response = awaitingClarification
         ? await resumeTurn(session.accessToken, threadId, question)
         : await startTurn(session.accessToken, {
@@ -51,6 +60,9 @@ export default function ThreadPage({ params }: { params: Promise<{ id: string }>
             datasource: detail.summary.datasource_name,
             thread_id: threadId,
           });
+      // Only clear the box once the request has actually succeeded, so a
+      // failure leaves the user's typed question where they can retry it.
+      setInput('');
       const nextSequence = detail.turns.length;
       const localTurn = toLocalTurnRecord(question, nextSequence, response);
       setDetail((prev) => (prev ? { ...prev, turns: [...prev.turns, localTurn] } : prev));
@@ -60,6 +72,8 @@ export default function ThreadPage({ params }: { params: Promise<{ id: string }>
       if (localTurn.clarifying_question) {
         setRevealedIds((prev) => new Set(prev).add(localTurn.turn_id));
       }
+    } catch {
+      setError(GENERIC_ERROR);
     } finally {
       setSubmitting(false);
     }
@@ -74,11 +88,10 @@ export default function ThreadPage({ params }: { params: Promise<{ id: string }>
         </span>
       </div>
       <div className="mx-auto flex w-full max-w-[900px] flex-1 flex-col gap-6 overflow-y-auto px-7 py-6">
-        {detail.turns.map((turn, index) => (
+        {detail.turns.map((turn) => (
           <MessageTurn
             key={turn.turn_id}
             turn={turn}
-            isLatest={index === detail.turns.length - 1}
             revealed={revealedIds.has(turn.turn_id)}
             onReveal={() => setRevealedIds((prev) => new Set(prev).add(turn.turn_id))}
             accessToken={session.accessToken}
@@ -102,6 +115,7 @@ export default function ThreadPage({ params }: { params: Promise<{ id: string }>
             {submitting ? 'Asking…' : 'Send'}
           </Button>
         </div>
+        {error && <p className="mx-auto mt-2 max-w-[900px] text-sm text-red-600">{error}</p>}
       </form>
     </>
   );

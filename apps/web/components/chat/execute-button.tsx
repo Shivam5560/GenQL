@@ -18,7 +18,7 @@ export function ExecuteButton({ onReveal }: { onReveal: () => void }) {
     <Button
       onClick={handleClick}
       disabled={running}
-      className="bg-[var(--accent)] font-sans text-sm font-semibold text-[var(--accent-ink)] hover:brightness-105"
+      className="bg-[var(--brand)] font-sans text-sm font-semibold text-[var(--brand-ink)] hover:brightness-105"
     >
       {running ? 'Running…' : '▶ Execute'}
     </Button>

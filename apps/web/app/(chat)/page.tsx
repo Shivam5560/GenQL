@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { Datasource } from '@/lib/types';
 
+const GENERIC_ERROR = 'Something went wrong — try again.';
+
 export default function NewThreadPage() {
   const { session } = useAuth();
   const router = useRouter();
@@ -15,6 +17,7 @@ export default function NewThreadPage() {
   const [datasource, setDatasource] = useState<string>('');
   const [question, setQuestion] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!session) return;
@@ -23,16 +26,22 @@ export default function NewThreadPage() {
         setDatasources(list);
         if (list[0]) setDatasource(list[0].name);
       })
-      .catch(() => setDatasources([]));
+      .catch(() => {
+        setDatasources([]);
+        setError(GENERIC_ERROR);
+      });
   }, [session]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!session || !datasource || !question.trim()) return;
     setSubmitting(true);
+    setError(null);
     try {
       const response = await startTurn(session.accessToken, { question, datasource });
       router.push(`/thread/${response.thread_id}`);
+    } catch {
+      setError(GENERIC_ERROR);
     } finally {
       setSubmitting(false);
     }
@@ -67,6 +76,7 @@ export default function NewThreadPage() {
             {submitting ? 'Asking…' : 'Send'}
           </Button>
         </div>
+        {error && <p className="text-sm text-red-600">{error}</p>}
       </form>
     </main>
   );

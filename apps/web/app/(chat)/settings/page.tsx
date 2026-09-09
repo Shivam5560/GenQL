@@ -3,24 +3,28 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { getProfile, updateTheme } from '@/lib/api-client';
-import { Button } from '@/components/ui/button';
 import type { ThemePreference } from '@/lib/types';
 
 const THEMES: ThemePreference[] = ['light', 'dark', 'system'];
+const GENERIC_ERROR = 'Something went wrong — try again.';
 
 export default function SettingsPage() {
-  const { session, logout } = useAuth();
+  const { session } = useAuth();
   const [theme, setTheme] = useState<ThemePreference | null>(null);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!session) return;
-    getProfile(session.accessToken).then((profile) => setTheme(profile.theme_preference));
+    getProfile(session.accessToken)
+      .then((profile) => setTheme(profile.theme_preference))
+      .catch(() => setError(GENERIC_ERROR));
   }, [session]);
 
   async function onChangeTheme(next: ThemePreference) {
     if (!session) return;
     setSaving(true);
+    setError(null);
     try {
       const profile = await updateTheme(session.accessToken, next);
       setTheme(profile.theme_preference);
@@ -28,6 +32,8 @@ export default function SettingsPage() {
         'data-theme',
         profile.theme_preference === 'system' ? '' : profile.theme_preference,
       );
+    } catch {
+      setError(GENERIC_ERROR);
     } finally {
       setSaving(false);
     }
@@ -55,7 +61,7 @@ export default function SettingsPage() {
                 onClick={() => onChangeTheme(option)}
                 className={`font-eyebrow rounded border px-3 py-1.5 text-[0.7rem] uppercase tracking-wide ${
                   theme === option
-                    ? 'border-[var(--accent)] bg-[var(--panel-2)] text-[var(--ink)]'
+                    ? 'border-[var(--brand)] bg-[var(--panel-2)] text-[var(--ink)]'
                     : 'border-[var(--line)] text-[var(--mute)]'
                 }`}
               >
@@ -64,9 +70,7 @@ export default function SettingsPage() {
             ))}
           </div>
         </div>
-        <Button variant="outline" onClick={() => logout()}>
-          Sign out
-        </Button>
+        {error && <p className="text-sm text-red-600">{error}</p>}
       </div>
     </main>
   );

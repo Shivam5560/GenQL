@@ -21,7 +21,7 @@ export function ThreadList({ threads }: { threads: ThreadSummary[] }) {
             href={href}
             className={`block border-l-2 px-4.5 py-2 text-sm ${
               active
-                ? 'border-l-[var(--accent)] bg-[var(--panel-2)] font-semibold text-[var(--ink)]'
+                ? 'border-l-[var(--brand)] bg-[var(--panel-2)] font-semibold text-[var(--ink)]'
                 : 'border-l-transparent text-[var(--mute)]'
             }`}
           >
