@@ -11,11 +11,8 @@ import os
 from collections.abc import Callable
 
 import pytest
-from dependency_injector import providers
 
-from genql.api.query_turn import start_turn
 from genql.composition_root import Container
-from genql.core.settings import Settings
 from genql.domain.entities.turn_response import TurnResponse
 
 pytestmark = [
@@ -37,19 +34,11 @@ EXPENSIVE = "join every store sale to every catalog sale and count the pairs"
 def turn_with_budget() -> Callable[..., TurnResponse]:
     """One real turn through the fully-wired Container, with only
     `cost_budget` changed.
-
-    The override is ad hoc: it rebuilds the whole `settings` provider because
-    that is the only seam a declarative container offers today. Part B's Task 17
-    introduces `Container.with_overrides`; come back here then and collapse this
-    into it.
     """
 
     def _turn(question: str, cost_budget: float) -> TurnResponse:
-        container = Container()
-        container.settings.override(providers.Singleton(Settings, cost_budget=cost_budget))
-        return start_turn(
-            container.query_graph(), container.thread_lock_factory(), question, "local"
-        )
+        container = Container.with_overrides(cost_budget=cost_budget)
+        return container.turn_runner().run(question, "local")
 
     return _turn
 
