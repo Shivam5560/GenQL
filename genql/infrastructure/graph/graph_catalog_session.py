@@ -17,28 +17,29 @@ from typing import Any, Literal
 from genql.infrastructure.graph.gds_client_provider import GdsClientProvider
 
 _NODE_QUERY = "MATCH (o:Object {datasource_name: $datasource_name}) RETURN id(o) AS id"
-# The legacy `gds.graph.project.cypher` procedure projects every (source,
-# target) row the relationship query returns as a directed edge in that
-# exact order — an undirected Cypher pattern (`-[:REFERENCES]-`, no
-# arrowhead) still returns each relationship as ONE row, not one per
-# direction, so it does NOT produce an undirected projection on its own
-# (confirmed against a real Leiden run: "the Leiden algorithm works only
-# with undirected graphs" fired even with the undirected pattern). The
-# procedure has no orientation config, so the standard workaround is to
-# return each edge twice, once per direction, via UNION ALL — Leiden (which
-# is undefined on directed graphs) and join-path mining (which must reach
-# dim2 from dim1 through a shared fact table, even though the FK edges
-# themselves only point fact -> dim) then see a graph that behaves as
-# undirected.
 _RELATIONSHIP_QUERY = (
     "MATCH (s:Object {datasource_name: $datasource_name})"
     "-[:REFERENCES]->(t:Object {datasource_name: $datasource_name}) "
-    "RETURN id(s) AS source, id(t) AS target "
-    "UNION ALL "
-    "MATCH (s:Object {datasource_name: $datasource_name})"
-    "-[:REFERENCES]->(t:Object {datasource_name: $datasource_name}) "
-    "RETURN id(t) AS source, id(s) AS target"
+    "RETURN id(s) AS source, id(t) AS target"
 )
+
+# The legacy `gds.graph.project.cypher` procedure always marks its projected
+# relationship set as directed (`direction: "DIRECTED"` in the graph's own
+# schema, confirmed by inspecting a live projection) regardless of how the
+# Cypher pattern was written — an undirected MATCH pattern, or a query that
+# returns each edge in both directions, changes nothing, since GDS algorithms
+# check this orientation flag, not whether the edge set happens to be
+# symmetric. The only way to get a genuinely undirected relationship set is
+# `gds.graph.relationships.toUndirected`, which derives a second, explicitly
+# undirected relationship type from the projected one. Every caller that
+# needs undirected traversal — Leiden (undefined on directed graphs) and
+# join-path mining (must reach dim2 from dim1 through a shared fact table,
+# even though the FK edges themselves only point fact -> dim) — must pass
+# this name as its `relationshipTypes`/`relationship_types` argument; a
+# caller that has no reason to ignore edge direction (FastRP's structural
+# embeddings, where the fact-points-to-dimension direction is itself real
+# signal) uses the graph's default relationship set instead.
+UNDIRECTED_RELATIONSHIP_TYPE = "REFERENCES_UNDIRECTED"
 
 
 class GraphCatalogSession:
@@ -54,6 +55,11 @@ class GraphCatalogSession:
             _NODE_QUERY,
             _RELATIONSHIP_QUERY,
             parameters={"datasource_name": self._datasource_name},
+        )
+        gds.graph.relationships.toUndirected(
+            self._graph,
+            relationship_type="__ALL__",
+            mutate_relationship_type=UNDIRECTED_RELATIONSHIP_TYPE,
         )
         return self._graph
 

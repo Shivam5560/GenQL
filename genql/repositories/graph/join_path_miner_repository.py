@@ -24,7 +24,10 @@ from neo4j.exceptions import DriverError, Neo4jError
 from genql.domain.entities.join_path import JoinPath
 from genql.domain.errors import GraphAnalysisError
 from genql.infrastructure.graph.gds_client_provider import GdsClientProvider
-from genql.infrastructure.graph.graph_catalog_session import GraphCatalogSession
+from genql.infrastructure.graph.graph_catalog_session import (
+    UNDIRECTED_RELATIONSHIP_TYPE,
+    GraphCatalogSession,
+)
 from genql.repositories.graph.registry import JOIN_PATH_STRATEGIES
 
 _LIST_OBJECTS_AND_EDGES = """
@@ -34,10 +37,13 @@ RETURN o.qualified_name AS qualified_name, o.object_name AS object_name,
        o.schema_name AS schema_name, collect(t.qualified_name) AS targets
 """
 
-_SHORTEST_PATH = """
-MATCH (source:Object {datasource_name: $datasource_name, qualified_name: $source_qualified_name})
-MATCH (target:Object {datasource_name: $datasource_name, qualified_name: $target_qualified_name})
-CALL gds.shortestPath.dijkstra.stream($graph_name, {sourceNode: source, targetNode: target})
+_SHORTEST_PATH = f"""
+MATCH (source:Object {{datasource_name: $datasource_name, qualified_name: $source_qualified_name}})
+MATCH (target:Object {{datasource_name: $datasource_name, qualified_name: $target_qualified_name}})
+CALL gds.shortestPath.dijkstra.stream($graph_name, {{
+    sourceNode: source, targetNode: target,
+    relationshipTypes: ['{UNDIRECTED_RELATIONSHIP_TYPE}']
+}})
 YIELD path
 RETURN [n IN nodes(path) | n.object_name] AS names, length(path) AS hops
 """
