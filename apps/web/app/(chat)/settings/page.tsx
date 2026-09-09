@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useAuth } from '@/lib/auth';
-import { getProfile, updateTheme } from '@/lib/api-client';
+import { useTheme } from '@/lib/theme-provider';
+import { updateTheme } from '@/lib/api-client';
 import type { ThemePreference } from '@/lib/types';
 
 const THEMES: ThemePreference[] = ['light', 'dark', 'system'];
@@ -10,16 +11,11 @@ const GENERIC_ERROR = 'Something went wrong — try again.';
 
 export default function SettingsPage() {
   const { session } = useAuth();
-  const [theme, setTheme] = useState<ThemePreference | null>(null);
+  // The provider already loaded the saved preference and owns applying it to
+  // <html> — both `data-theme` and `.dark` — so this page only has to save.
+  const { preference, setPreference } = useTheme();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!session) return;
-    getProfile(session.accessToken)
-      .then((profile) => setTheme(profile.theme_preference))
-      .catch(() => setError(GENERIC_ERROR));
-  }, [session]);
 
   async function onChangeTheme(next: ThemePreference) {
     if (!session) return;
@@ -27,11 +23,7 @@ export default function SettingsPage() {
     setError(null);
     try {
       const profile = await updateTheme(session.accessToken, next);
-      setTheme(profile.theme_preference);
-      document.documentElement.setAttribute(
-        'data-theme',
-        profile.theme_preference === 'system' ? '' : profile.theme_preference,
-      );
+      setPreference(profile.theme_preference);
     } catch {
       setError(GENERIC_ERROR);
     } finally {
@@ -60,7 +52,7 @@ export default function SettingsPage() {
                 disabled={saving}
                 onClick={() => onChangeTheme(option)}
                 className={`font-eyebrow rounded border px-3 py-1.5 text-[0.7rem] uppercase tracking-wide ${
-                  theme === option
+                  preference === option
                     ? 'border-[var(--brand)] bg-[var(--panel-2)] text-[var(--ink)]'
                     : 'border-[var(--line)] text-[var(--mute)]'
                 }`}

@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import { IBM_Plex_Sans, JetBrains_Mono, Space_Mono } from 'next/font/google';
 import { AuthProvider } from '@/lib/auth';
+import { ThemeProvider } from '@/lib/theme-provider';
+import { ThemeScript } from '@/components/theme-script';
 import '@/styles/tokens.css';
 import './globals.css';
 
@@ -29,7 +31,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${plexSans.variable} ${jetbrainsMono.variable} ${spaceMono.variable}`}>
       <body className="font-sans">
-        <AuthProvider>{children}</AuthProvider>
+        <ThemeScript />
+        <AuthProvider>
+          <ThemeProvider>{children}</ThemeProvider>
+        </AuthProvider>
       </body>
     </html>
   );
