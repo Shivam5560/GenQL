@@ -237,3 +237,14 @@ class UnknownThreadError(QueryError):
             "finished, or its checkpoint has expired"
         )
         self.thread_id = thread_id
+
+
+class OptimizationError(QueryError):
+    """The rewrite-and-cost-gate stage could not reach a verdict.
+
+    Not raised for an over-budget query — that is a normal, typed outcome.
+    """
+
+
+class CostEstimationError(QueryError):
+    """EXPLAIN itself failed against the warehouse."""

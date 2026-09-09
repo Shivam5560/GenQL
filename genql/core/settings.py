@@ -73,3 +73,11 @@ class Settings(BaseSettings):
     # path retrieves as few-shot context. Small on purpose: these are
     # few-shot exemplars, not a retrieval corpus to page through.
     ambiguity_example_top_k: int = 3
+    # PostgreSQL planner cost units (arbitrary, not wall-clock) read from
+    # EXPLAIN's Total Cost. A rough proxy until Phase 8's ablation harness can
+    # correlate it against measured time on this specific warehouse.
+    cost_budget: float = 100_000.0
+    # Off by default because EXPLAIN (ANALYZE, BUFFERS) re-runs the statement:
+    # recording actuals for every turn would silently double warehouse load
+    # for a purely diagnostic feature.
+    record_execution_actuals: bool = False
