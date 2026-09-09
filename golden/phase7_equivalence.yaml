@@ -1,0 +1,69 @@
+# Six hand-picked TPC-DS questions with their reference SQL.
+#
+# Phase 7 uses `reference_sql` as the statement whose results must survive each
+# rewrite rule unchanged. Phase 8's golden-set runner uses the same field as the
+# expected result for `question`. One file, two consumers, no duplicate authoring
+# — which is why the schema carries `question` and `failure_class` even though
+# Phase 7 reads neither.
+cases:
+  - case_id: tpcds_store_sales_by_month
+    question: total store sales by month in 2001
+    datasource_name: local
+    failure_class: context_sensitivity
+    reference_sql: |
+      SELECT d.d_moy AS month, sum(ss.ss_ext_sales_price) AS total
+      FROM tpcds.store_sales AS ss
+      JOIN tpcds.date_dim AS d ON d.d_date_sk = ss.ss_sold_date_sk
+      WHERE d.d_year = 2001
+      GROUP BY d.d_moy
+      ORDER BY d.d_moy
+
+  - case_id: tpcds_customer_count_by_state
+    question: how many customers are in each state
+    datasource_name: local
+    failure_class: ambiguous_intent
+    reference_sql: |
+      SELECT ca.ca_state AS state, count(*) AS customers
+      FROM tpcds.customer AS c
+      JOIN tpcds.customer_address AS ca ON ca.ca_address_sk = c.c_current_addr_sk
+      GROUP BY ca.ca_state
+
+  - case_id: tpcds_top_items_by_revenue
+    question: the ten items with the highest store revenue
+    datasource_name: local
+    failure_class: absent_business_knowledge
+    reference_sql: |
+      SELECT i.i_item_id AS item, sum(ss.ss_ext_sales_price) AS revenue
+      FROM tpcds.store_sales AS ss
+      JOIN tpcds.item AS i ON i.i_item_sk = ss.ss_item_sk
+      GROUP BY i.i_item_id
+      ORDER BY revenue DESC, item
+      LIMIT 10
+
+  - case_id: tpcds_returns_share
+    question: what share of store sales were returned
+    datasource_name: local
+    failure_class: physical_modelling_variation
+    reference_sql: |
+      SELECT count(sr.sr_returned_date_sk) AS returned, count(*) AS sold
+      FROM tpcds.store_sales AS ss
+      LEFT JOIN tpcds.store_returns AS sr
+        ON sr.sr_item_sk = ss.ss_item_sk AND sr.sr_ticket_number = ss.ss_ticket_number
+
+  - case_id: tpcds_sales_by_channel
+    question: total sales through each channel
+    datasource_name: local
+    failure_class: absent_business_knowledge
+    reference_sql: |
+      SELECT 'store' AS channel, sum(ss_ext_sales_price) AS total FROM tpcds.store_sales
+      UNION ALL
+      SELECT 'catalog' AS channel, sum(cs_ext_sales_price) AS total FROM tpcds.catalog_sales
+
+  - case_id: tpcds_promotion_lift
+    question: average sale price for promoted versus unpromoted items
+    datasource_name: local
+    failure_class: absent_business_knowledge
+    reference_sql: |
+      SELECT ss.ss_promo_sk IS NOT NULL AS promoted, avg(ss.ss_ext_sales_price) AS avg_price
+      FROM tpcds.store_sales AS ss
+      GROUP BY ss.ss_promo_sk IS NOT NULL

@@ -11,13 +11,18 @@ from testcontainers.neo4j import Neo4jContainer
 from testcontainers.postgres import PostgresContainer
 
 from genql.domain.ports.chat_provider import ChatProvider
+from genql.domain.value_objects.schema_ref import SchemaRef
 from genql.infrastructure.db.engine import create_engine_from_dsn
 from genql.infrastructure.db.engine_provider import DatasourceEngineProvider
 from genql.infrastructure.gateway.openrouter_client import OpenRouterClient
 from genql.repositories.gateway.chat_provider_repository import OpenRouterChatProvider
 from genql.repositories.query.cost_estimator_repository import PostgresCostEstimator
+from genql.repositories.query.query_executor_repository import ReadOnlyQueryExecutorRepository
 from genql.repositories.query.rewrite_outcome_repository import PostgresRewriteOutcomeWriter
 from genql.repositories.semantic.datasource_repository import PostgresDatasourceRepository
+from genql.repositories.warehouse.catalog_reader_repository import (
+    PostgresCatalogReaderRepository,
+)
 
 
 @pytest.fixture(scope="session")
@@ -177,3 +182,41 @@ def openrouter_chat_provider() -> ChatProvider:
         client=OpenRouterClient(api_key=os.environ["GENQL_OPENROUTER_API_KEY"]),
         model="anthropic/claude-sonnet-5",
     )
+
+
+@pytest.fixture()
+def warehouse_executor(
+    migrated_engine: Engine,
+    paradedb_dsn: str,
+    register_schema: Callable[[str, str], None],
+) -> ReadOnlyQueryExecutorRepository:
+    """The same read-only executor the guarded execution path uses, bound to
+    `local` — so an equivalence check runs the statement under exactly the role
+    and timeout a real turn would."""
+    register_schema("local", "tpcds")
+    provider = DatasourceEngineProvider(
+        env={"GENQL_WAREHOUSE_DSN": paradedb_dsn},
+        readonly_password=os.environ["GENQL_READONLY_DB_PASSWORD"],
+    )
+    datasources = PostgresDatasourceRepository(migrated_engine)
+    warehouse = provider.readonly_engine_for(datasources.get("local"))
+    return ReadOnlyQueryExecutorRepository(warehouse, statement_timeout_ms=60_000)
+
+
+@pytest.fixture()
+def tpcds_schema(engine: Engine) -> dict[str, object]:
+    """`{schema: {object: {column: "UNKNOWN"}}}` for local.tpcds, the shape
+    `OptimizationService._schema_of` produces from a turn's SchemaLinks.
+
+    Read through the warehouse CatalogReader rather than through `genql_column`
+    as the brief assumed: the semantic store holds no rows for local.tpcds
+    unless a discovery run has been executed against this database, and a schema
+    built from an empty catalog would make every qualification silently fail
+    instead of proving anything about a rewrite rule.
+    """
+    reader = PostgresCatalogReaderRepository(engine)
+    ref = SchemaRef(datasource_name="local", schema_name="tpcds")
+    objects: dict[str, dict[str, str]] = {}
+    for column in reader.read_columns(ref):
+        objects.setdefault(column.object_name, {})[column.column_name] = "UNKNOWN"
+    return {"tpcds": objects}
