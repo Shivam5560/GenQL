@@ -1135,7 +1135,7 @@ git commit -m "feat(auth): add ProfileService"
 
 ---
 
-## Task 11: `get_current_user` dependency and auth wiring across existing routes
+## Task 11: `get_current_user` dependency, auth wiring across existing routes, and CORS
 
 **Model:** sonnet
 
@@ -1144,12 +1144,15 @@ git commit -m "feat(auth): add ProfileService"
 - Modify: `genql/api/controllers/query_controller.py`, `stream_controller.py`,
   `feedback_controller.py`, `datasource_controller.py`
 - Modify: `genql/api/app.py`
+- Modify: `genql/core/settings.py`
 
 **Interfaces:**
 - Consumes: `TokenVerifier` (Task 4), `AuthenticatedUser` (Task 3), `InvalidAccessTokenError`
   (Task 4), `AuthContainer.token_verifier` (Task 8).
 - Produces: `get_current_user`, a FastAPI dependency every later controller task (12-14) uses;
-  every existing route now requires a valid `Authorization: Bearer` header.
+  every existing route now requires a valid `Authorization: Bearer` header; `Settings.cors_allowed_origins`
+  and CORS middleware, which Phase 9b's frontend plan depends on for its direct (non-proxied)
+  browser-to-backend calls to be accepted at all.
 
 - [ ] **Step 1: Add `get_current_user` to `deps.py`**
 
@@ -1229,16 +1232,57 @@ to:
 (`ThreadOwnershipError` joins `_NOT_FOUND` here rather than getting its own tuple, per spec §6: a
 non-owner must see the same 404 an unknown thread would produce.)
 
-- [ ] **Step 4: Type-check**
+- [ ] **Step 4: Enable CORS for the frontend's origin**
 
-Run: `uv run mypy genql/api/deps.py genql/api/controllers genql/api/app.py --strict`
+The Phase 9b frontend plan calls this backend directly from client-side JavaScript (with
+`Authorization: Bearer`, not cookies — no CSRF exposure from enabling CORS here), which the browser
+will refuse without an explicit CORS allow-list. Add to `genql/core/settings.py`, alongside
+`gotrue_jwt_secret`:
+
+```python
+    # Comma-separated origins allowed to call this API directly from
+    # client-side JavaScript (the Phase 9b frontend). Empty by default —
+    # same pattern as every other required-at-use secret in this file —
+    # so no origin is trusted until explicitly configured.
+    cors_allowed_origins: str = ""
+```
+
+In `genql/api/app.py`, add CORS middleware in `create_app`, immediately after the `FastAPI(...)`
+construction:
+
+```python
+from fastapi.middleware.cors import CORSMiddleware
+
+
+def create_app(container: Any) -> FastAPI:
+    app = FastAPI(title="GenQL", version="0.1.0")
+    app.state.container = container
+
+    settings = container.settings()
+    origins = [o.strip() for o in settings.cors_allowed_origins.split(",") if o.strip()]
+    if origins:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=origins,
+            allow_methods=["GET", "POST", "PATCH"],
+            allow_headers=["Authorization", "Content-Type"],
+        )
+```
+
+(Read `genql/api/app.py`'s current `create_app` first — this inserts after the existing
+`app.state.container = container` line and before the exception handler registration, not as a
+full replacement of the function.)
+
+- [ ] **Step 5: Type-check**
+
+Run: `uv run mypy genql/api/deps.py genql/api/controllers genql/api/app.py genql/core/settings.py --strict`
 Expected: no errors.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
-git add genql/api/deps.py genql/api/controllers/query_controller.py genql/api/controllers/stream_controller.py genql/api/controllers/feedback_controller.py genql/api/controllers/datasource_controller.py genql/api/app.py
-git commit -m "feat(api): require authentication on every existing route"
+git add genql/api/deps.py genql/api/controllers/query_controller.py genql/api/controllers/stream_controller.py genql/api/controllers/feedback_controller.py genql/api/controllers/datasource_controller.py genql/api/app.py genql/core/settings.py
+git commit -m "feat(api): require authentication on every existing route, enable CORS for the frontend"
 ```
 
 ---
