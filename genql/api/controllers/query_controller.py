@@ -7,9 +7,10 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends
 
-from genql.api.deps import get_container
+from genql.api.deps import get_container, get_current_user
 from genql.api.dtos.query_dtos import ResumeTurnRequest, StartTurnRequest, TurnResponseDto
 from genql.api.query_turn import resume_turn, start_turn
+from genql.domain.value_objects.authenticated_user import AuthenticatedUser
 
 router = APIRouter(tags=["queries"])
 
@@ -18,6 +19,7 @@ router = APIRouter(tags=["queries"])
 def start(
     request: StartTurnRequest,
     container: Annotated[Any, Depends(get_container)],
+    user: Annotated[AuthenticatedUser, Depends(get_current_user)],
 ) -> TurnResponseDto:
     response = start_turn(
         container.query_graph(),
@@ -35,6 +37,7 @@ def resume(
     thread_id: str,
     request: ResumeTurnRequest,
     container: Annotated[Any, Depends(get_container)],
+    user: Annotated[AuthenticatedUser, Depends(get_current_user)],
 ) -> TurnResponseDto:
     response = resume_turn(
         container.query_graph(), container.thread_lock_factory(), request.answer, thread_id

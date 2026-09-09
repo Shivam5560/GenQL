@@ -14,8 +14,9 @@ from fastapi import APIRouter, Depends
 from sse_starlette.sse import EventSourceResponse
 from starlette.concurrency import iterate_in_threadpool
 
-from genql.api.deps import get_container
+from genql.api.deps import get_container, get_current_user
 from genql.api.sse.event_stream import stage_event_stream
+from genql.domain.value_objects.authenticated_user import AuthenticatedUser
 
 router = APIRouter(tags=["queries"])
 
@@ -25,6 +26,7 @@ def stream(  # noqa: PLR0913, PLR0917 - one query parameter per turn input
     question: str,
     datasource: str,
     container: Annotated[Any, Depends(get_container)],
+    user: Annotated[AuthenticatedUser, Depends(get_current_user)],
     domain_id: int | None = None,
     thread_id: str | None = None,
     answer: str | None = None,

@@ -16,6 +16,7 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from genql.api.controllers import (
@@ -24,18 +25,37 @@ from genql.api.controllers import (
     query_controller,
     stream_controller,
 )
-from genql.domain.errors import GenqlError, UnknownDatasourceError, UnknownThreadError
+from genql.domain.errors import (
+    GenqlError,
+    InvalidAccessTokenError,
+    ThreadOwnershipError,
+    UnknownDatasourceError,
+    UnknownThreadError,
+)
 
-_NOT_FOUND = (UnknownDatasourceError, UnknownThreadError)
+_NOT_FOUND = (UnknownDatasourceError, UnknownThreadError, ThreadOwnershipError)
+_UNAUTHORIZED = (InvalidAccessTokenError,)
 
 
 def create_app(container: Any) -> FastAPI:
     app = FastAPI(title="GenQL", version="0.1.0")
     app.state.container = container
 
+    settings = container.settings()
+    origins = [o.strip() for o in settings.cors_allowed_origins.split(",") if o.strip()]
+    if origins:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=origins,
+            allow_methods=["GET", "POST", "PATCH"],
+            allow_headers=["Authorization", "Content-Type"],
+        )
+
     @app.exception_handler(GenqlError)
     def _handle_genql_error(request: Request, exc: GenqlError) -> JSONResponse:
-        status = 404 if isinstance(exc, _NOT_FOUND) else 400
+        status = (
+            404 if isinstance(exc, _NOT_FOUND) else 401 if isinstance(exc, _UNAUTHORIZED) else 400
+        )
         return JSONResponse(
             status_code=status,
             content={"error": type(exc).__name__, "detail": str(exc)},

@@ -102,3 +102,8 @@ class Settings(BaseSettings):
     # every test and CLI path that never touches auth, matching the
     # readonly_db_password pattern: a typed error at first use, not at import.
     gotrue_jwt_secret: str = ""
+    # Comma-separated origins allowed to call this API directly from
+    # client-side JavaScript (the Phase 9b frontend). Empty by default —
+    # same pattern as every other required-at-use secret in this file —
+    # so no origin is trusted until explicitly configured.
+    cors_allowed_origins: str = ""

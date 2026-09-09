@@ -10,9 +10,10 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, status
 
-from genql.api.deps import get_container
+from genql.api.deps import get_container, get_current_user
 from genql.api.dtos.feedback_dtos import FeedbackRequest
 from genql.domain.entities.feedback import Feedback
+from genql.domain.value_objects.authenticated_user import AuthenticatedUser
 
 router = APIRouter(tags=["feedback"])
 
@@ -22,6 +23,7 @@ def submit(
     thread_id: str,
     request: FeedbackRequest,
     container: Annotated[Any, Depends(get_container)],
+    user: Annotated[AuthenticatedUser, Depends(get_current_user)],
 ) -> None:
     feedback = Feedback(
         thread_id=thread_id,
