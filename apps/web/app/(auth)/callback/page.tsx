@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { SchemaSceneBackdrop } from '@/components/three/schema-scene-backdrop';
 
 export default function OAuthCallbackPage() {
   const [error, setError] = useState(false);
@@ -32,16 +33,26 @@ export default function OAuthCallbackPage() {
 
   if (error) {
     return (
-      <main className="mx-auto flex min-h-screen max-w-sm flex-col items-center justify-center gap-4 px-6 text-center">
-        <p className="text-sm text-[var(--mute)]">Sign-in did not complete. Try again.</p>
-        <a className="text-sm underline" href="/login">Back to sign in</a>
-      </main>
+      <div className="relative isolate flex min-h-screen items-center justify-center overflow-hidden px-6">
+        <SchemaSceneBackdrop />
+        <main className="w-full max-w-sm">
+          <div className="gq-glass flex flex-col items-center gap-4 rounded-lg border border-[var(--line)] p-7 text-center">
+            <p className="text-sm text-[var(--mute)]">Sign-in did not complete. Try again.</p>
+            <a className="text-sm underline" href="/login">Back to sign in</a>
+          </div>
+        </main>
+      </div>
     );
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-sm flex-col items-center justify-center gap-4 px-6">
-      <p className="text-sm text-[var(--mute)]">Signing you in…</p>
-    </main>
+    <div className="relative isolate flex min-h-screen items-center justify-center overflow-hidden px-6">
+      <SchemaSceneBackdrop />
+      <main className="w-full max-w-sm">
+        <div className="gq-glass flex flex-col items-center gap-4 rounded-lg border border-[var(--line)] p-7">
+          <p className="text-sm text-[var(--mute)]">Signing you in…</p>
+        </div>
+      </main>
+    </div>
   );
 }
