@@ -31,5 +31,7 @@ export function toLocalTurnRecord(
     row_count: response.row_count,
     applied_defaults: response.applied_defaults,
     created_at: new Date().toISOString(),
+    // Only meaningful when non-empty — an empty array and a missing field both mean "nothing to show".
+    referenced_objects: response.referenced_objects.length > 0 ? response.referenced_objects : undefined,
   };
 }

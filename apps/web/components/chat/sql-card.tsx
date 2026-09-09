@@ -4,6 +4,7 @@ import { useState } from 'react';
 import type { TurnRecord } from '@/lib/types';
 import { DialectSelect } from './dialect-select';
 import { ExecuteButton } from './execute-button';
+import { ReferencedObjects } from './referenced-objects';
 import { ResultTable } from './result-table';
 
 export function SqlCard({
@@ -40,6 +41,9 @@ export function SqlCard({
       <pre className="overflow-x-auto whitespace-pre-wrap px-4 py-3.5 font-mono text-[0.8rem] leading-relaxed">
         {turn.validated_sql}
       </pre>
+      {turn.referenced_objects && turn.referenced_objects.length > 0 && (
+        <ReferencedObjects objects={turn.referenced_objects} />
+      )}
       {revealed ? (
         <ResultTable turn={turn} accessToken={accessToken} threadId={threadId} />
       ) : (

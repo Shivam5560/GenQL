@@ -38,6 +38,10 @@ export interface TurnRecord {
   row_count: number;
   applied_defaults: [string, string][];
   created_at: string;
+  // Optional: not persisted server-side yet (TurnRecord/TurnRecordDto on the backend have no
+  // such field), so it's only ever populated for a turn created fresh in this browser session —
+  // turns reloaded from GET /v1/threads/{id} will not have it.
+  referenced_objects?: string[];
 }
 
 export interface ThreadDetail {
