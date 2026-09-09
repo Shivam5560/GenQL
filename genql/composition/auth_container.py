@@ -23,6 +23,7 @@ from genql.repositories.query.sqlalchemy_thread_repository import SqlAlchemyThre
 from genql.repositories.query.sqlalchemy_turn_record_repository import (
     SqlAlchemyTurnRecordRepository,
 )
+from genql.services.auth.profile_service import ProfileService
 from genql.services.query.thread_service import ThreadService
 
 
@@ -46,3 +47,4 @@ class AuthContainer(EvalContainer):
         threads=thread_repository,
         turns=turn_record_repository,
     )
+    profile_service = providers.Singleton(ProfileService, profiles=user_profile_repository)

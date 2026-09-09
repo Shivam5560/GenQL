@@ -22,6 +22,7 @@ from fastapi.responses import JSONResponse
 from genql.api.controllers import (
     datasource_controller,
     feedback_controller,
+    profile_controller,
     query_controller,
     stream_controller,
     threads_controller,
@@ -71,4 +72,5 @@ def create_app(container: Any) -> FastAPI:
     app.include_router(feedback_controller.router, prefix="/v1")
     app.include_router(datasource_controller.router, prefix="/v1")
     app.include_router(threads_controller.router, prefix="/v1")
+    app.include_router(profile_controller.router, prefix="/v1")
     return app
