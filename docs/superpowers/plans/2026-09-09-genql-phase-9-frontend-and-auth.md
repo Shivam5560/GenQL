@@ -273,6 +273,12 @@ file first — it was last read with `paradedb` then `neo4j`, so insert between 
       PORT: "9999"
       API_EXTERNAL_URL: ${GENQL_GOTRUE_EXTERNAL_URL:-http://localhost:9999}
       GOTRUE_DISABLE_SIGNUP: "false"
+      # No SMTP is configured (the spike's logs show "Noop mail client being
+      # used") so GoTrue's default confirm-by-email flow has no way to ever
+      # deliver a confirmation link — without this, /signup returns a user
+      # with no session, and the frontend's login-after-signup flow silently
+      # gets no tokens back. Revisit if/when real email delivery is added.
+      GOTRUE_MAILER_AUTOCONFIRM: "true"
       GOTRUE_EXTERNAL_GOOGLE_ENABLED: ${GENQL_GOOGLE_OAUTH_ENABLED:-false}
       GOTRUE_EXTERNAL_GOOGLE_CLIENT_ID: ${GENQL_GOOGLE_OAUTH_CLIENT_ID:-}
       GOTRUE_EXTERNAL_GOOGLE_SECRET: ${GENQL_GOOGLE_OAUTH_CLIENT_SECRET:-}
