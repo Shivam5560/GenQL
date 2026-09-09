@@ -9,7 +9,7 @@ from genql.domain.entities.schema_link import SchemaLink
 
 
 def render_link(link: SchemaLink) -> str:
-    parts = [f"- {link.object_qualified_name}"]
+    parts = [f"- {link.schema_qualified_name}"]
     if link.column_names:
         parts.append(f"    columns: {', '.join(link.column_names)}")
     if link.join_paths:

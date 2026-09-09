@@ -86,7 +86,11 @@ def test_planning_without_links_is_refused_before_any_provider_call() -> None:
 def test_the_prompt_names_every_object_column_join_path_and_metric() -> None:
     prompt = build_planning_prompt("revenue by customer", LINKS)
 
-    assert "local.shop.orders" in prompt
+    # schema.object, not datasource.schema.object — the generated SQL must
+    # reference real Postgres identifiers, and "local" (the datasource name)
+    # is not a Postgres database Postgres can cross-reference.
+    assert "shop.orders" in prompt
+    assert "local.shop.orders" not in prompt
     assert "total" in prompt
     assert "orders->customers" in prompt
     assert "net_revenue" in prompt
