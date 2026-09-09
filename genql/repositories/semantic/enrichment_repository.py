@@ -3,12 +3,29 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import Any
 
 from sqlalchemy import Engine, text
 
 from genql.domain.entities.column_enrichment import ColumnEnrichment
 from genql.domain.entities.object_enrichment import ObjectEnrichment
 from genql.domain.value_objects.schema_ref import SchemaRef
+
+
+# No pgvector adapter is registered on this engine (it's created from a plain
+# DSN via SQLAlchemy, with no `register_vector` hook) — nothing else in this
+# codebase reads a `vector` column's value back into Python, only ever uses
+# it inside a SQL distance expression (see DenseRetriever), so this is the
+# first read path to hit it. Without an adapter, psycopg returns the column
+# as pgvector's own text wire format, `"[0.1,0.2,...]"`, not a Python
+# sequence — `tuple(that_string)` would silently iterate its characters.
+def _parse_embedding(value: Any) -> tuple[float, ...]:
+    if value is None:
+        return ()
+    if isinstance(value, str):
+        return tuple(float(x) for x in value.strip("[]").split(",") if x)
+    return tuple(value)
+
 
 _SELECT_OBJECT_ENRICHMENTS = text("""
     SELECT datasource_name, schema_name, object_name, description, business_alias,
@@ -67,9 +84,8 @@ class PostgresEnrichmentRepository:
         return [
             ObjectEnrichment.model_validate(
                 {
-                    **r._mapping,
-                    "embedding": tuple(r._mapping["embedding"] or ())  # noqa: SLF001
-                    or None,
+                    **r._mapping,  # noqa: SLF001
+                    "embedding": _parse_embedding(r._mapping["embedding"]) or None,  # noqa: SLF001
                 }
             )
             for r in rows
