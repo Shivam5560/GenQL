@@ -96,3 +96,9 @@ class Settings(BaseSettings):
     api_port: int = 8000
     # Where `genql eval` looks for *.yaml fixtures.
     golden_set_dir: str = "golden"
+    # Must exactly match docker/compose.yaml's gotrue service's
+    # GOTRUE_JWT_SECRET — GoTrue signs access tokens with it, GoTrueJwtVerifier
+    # verifies with it. Empty by default so Settings() still constructs in
+    # every test and CLI path that never touches auth, matching the
+    # readonly_db_password pattern: a typed error at first use, not at import.
+    gotrue_jwt_secret: str = ""
