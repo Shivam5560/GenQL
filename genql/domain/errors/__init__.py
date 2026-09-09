@@ -7,6 +7,7 @@ existing `from genql.domain.errors import X` keeps working untouched.
 
 from __future__ import annotations
 
+from genql.domain.errors.auth import InvalidAccessTokenError
 from genql.domain.errors.base import GenqlError
 from genql.domain.errors.datasource import (
     AmbiguousScopeError,
@@ -59,9 +60,12 @@ from genql.domain.errors.query import (
     ThreadLockError,
     UnknownThreadError,
 )
+from genql.domain.errors.thread_history import ThreadOwnershipError
 
 __all__ = [
     "GenqlError",
+    "InvalidAccessTokenError",
+    "ThreadOwnershipError",
     "DiscoveryError",
     "CatalogAccessError",
     "ProfilingError",
