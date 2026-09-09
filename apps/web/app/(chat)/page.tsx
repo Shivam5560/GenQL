@@ -3,8 +3,10 @@
 import { useEffect, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import { useAuth } from '@/lib/auth';
 import { listDatasources, startTurn } from '@/lib/api-client';
+import { useThreadList } from '@/lib/thread-list-provider';
 import { AmbientField } from '@/components/hero/ambient-field';
 import { HeroHeadline } from '@/components/hero/hero-headline';
 import { Button } from '@/components/ui/button';
@@ -16,11 +18,11 @@ const GENERIC_ERROR = 'Something went wrong — try again.';
 export default function NewThreadPage() {
   const { session } = useAuth();
   const router = useRouter();
+  const { refresh } = useThreadList();
   const [datasources, setDatasources] = useState<Datasource[]>([]);
   const [datasource, setDatasource] = useState<string>('');
   const [question, setQuestion] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!session) return;
@@ -31,7 +33,7 @@ export default function NewThreadPage() {
       })
       .catch(() => {
         setDatasources([]);
-        setError(GENERIC_ERROR);
+        toast.error(GENERIC_ERROR);
       });
   }, [session]);
 
@@ -39,12 +41,15 @@ export default function NewThreadPage() {
     e.preventDefault();
     if (!session || !datasource || !question.trim()) return;
     setSubmitting(true);
-    setError(null);
     try {
       const response = await startTurn(session.accessToken, { question, datasource });
+      // Don't block navigation on the refetch — the sidebar picks up the new
+      // thread as soon as it resolves, which is typically before or shortly
+      // after the thread page finishes its own load.
+      void refresh();
       router.push(`/thread/${response.thread_id}`);
     } catch {
-      setError(GENERIC_ERROR);
+      toast.error(GENERIC_ERROR);
     } finally {
       setSubmitting(false);
     }
@@ -97,7 +102,6 @@ export default function NewThreadPage() {
               </Button>
             </div>
           </div>
-          {error && <p className="text-sm text-red-600">{error}</p>}
         </form>
       </main>
     </div>

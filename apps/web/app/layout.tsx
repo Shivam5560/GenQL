@@ -3,9 +3,11 @@ import { IBM_Plex_Sans, JetBrains_Mono, Space_Mono } from 'next/font/google';
 import { AuthProvider } from '@/lib/auth';
 import { ThemeProvider } from '@/lib/theme-provider';
 import { ThemeScript } from '@/components/theme-script';
+import { AppToaster } from '@/components/app-toaster';
 import '@/styles/tokens.css';
 import './globals.css';
 import '@/styles/motion.css';
+import '@/styles/toast.css';
 
 const plexSans = IBM_Plex_Sans({
   subsets: ['latin'],
@@ -34,7 +36,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="font-sans">
         <ThemeScript />
         <AuthProvider>
-          <ThemeProvider>{children}</ThemeProvider>
+          <ThemeProvider>
+            {children}
+            <AppToaster />
+          </ThemeProvider>
         </AuthProvider>
       </body>
     </html>

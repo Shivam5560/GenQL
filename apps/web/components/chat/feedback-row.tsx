@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { submitFeedback } from '@/lib/api-client';
 
 export function FeedbackRow({ accessToken, threadId }: { accessToken: string; threadId: string }) {
@@ -8,7 +9,10 @@ export function FeedbackRow({ accessToken, threadId }: { accessToken: string; th
 
   async function pick(rating: 'good' | 'bad') {
     setPicked(rating);
-    await submitFeedback(accessToken, threadId, { rating }).catch(() => setPicked(null));
+    await submitFeedback(accessToken, threadId, { rating }).catch(() => {
+      setPicked(null);
+      toast.error('Could not send feedback — try again.');
+    });
   }
 
   const baseClass = 'font-eyebrow rounded border px-2.5 py-1 text-[0.66rem] uppercase tracking-wide';

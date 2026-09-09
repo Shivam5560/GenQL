@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, use as usePromise } from 'react';
+import { toast } from 'sonner';
 import { useAuth } from '@/lib/auth';
 import { getThread, resumeTurn, startTurn } from '@/lib/api-client';
 import { toLocalTurnRecord } from '@/lib/recap';
@@ -10,6 +11,15 @@ import type { ThreadDetail } from '@/lib/types';
 
 const GENERIC_ERROR = 'Something went wrong — try again.';
 
+function ThreadSkeleton() {
+  return (
+    <div className="mx-auto flex w-full max-w-[900px] flex-1 flex-col gap-6 overflow-y-auto px-7 py-6">
+      <div className="ml-auto h-9 w-2/3 max-w-[420px] animate-pulse rounded-lg bg-[var(--panel-2)]" />
+      <div className="h-28 w-full animate-pulse rounded-lg bg-[var(--panel-2)]" />
+    </div>
+  );
+}
+
 export default function ThreadPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: threadId } = usePromise(params);
   const { session } = useAuth();
@@ -17,9 +27,9 @@ export default function ThreadPage({ params }: { params: Promise<{ id: string }>
   const [input, setInput] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [revealedIds, setRevealedIds] = useState<Set<string>>(new Set());
-  const [error, setError] = useState<string | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
 
-  useEffect(() => {
+  function loadThread() {
     if (!session) return;
     getThread(session.accessToken, threadId)
       .then((loaded) => {
@@ -27,18 +37,37 @@ export default function ThreadPage({ params }: { params: Promise<{ id: string }>
         // Every turn loaded from history was already seen by the user in an
         // earlier session — reveal all of them immediately.
         setRevealedIds(new Set(loaded.turns.map((t) => t.turn_id)));
+        setLoadFailed(false);
       })
-      .catch(() => setError(GENERIC_ERROR));
+      .catch(() => {
+        setLoadFailed(true);
+        toast.error(GENERIC_ERROR);
+      });
+  }
+
+  useEffect(() => {
+    loadThread();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, threadId]);
 
-  if (!session || !detail) {
+  if (!session || (!detail && !loadFailed)) {
     return (
-      <main className="flex flex-1 items-center justify-center">
-        {error ? (
-          <p className="text-sm text-red-600">{error}</p>
-        ) : (
-          <p className="text-sm text-[var(--mute)]">Loading…</p>
-        )}
+      <>
+        <div className="flex items-center justify-between border-b border-[var(--line)] px-7 py-3.5">
+          <div className="h-4 w-40 animate-pulse rounded bg-[var(--panel-2)]" />
+        </div>
+        <ThreadSkeleton />
+      </>
+    );
+  }
+
+  if (!detail) {
+    return (
+      <main className="flex flex-1 flex-col items-center justify-center gap-3">
+        <p className="text-sm text-[var(--mute)]">Couldn&apos;t load this thread.</p>
+        <Button type="button" onClick={loadThread}>
+          Retry
+        </Button>
       </main>
     );
   }
@@ -50,7 +79,6 @@ export default function ThreadPage({ params }: { params: Promise<{ id: string }>
     e.preventDefault();
     if (!session || !detail || !input.trim()) return;
     setSubmitting(true);
-    setError(null);
     try {
       const question = input;
       const response = awaitingClarification
@@ -73,7 +101,7 @@ export default function ThreadPage({ params }: { params: Promise<{ id: string }>
         setRevealedIds((prev) => new Set(prev).add(localTurn.turn_id));
       }
     } catch {
-      setError(GENERIC_ERROR);
+      toast.error(GENERIC_ERROR);
     } finally {
       setSubmitting(false);
     }
@@ -115,7 +143,6 @@ export default function ThreadPage({ params }: { params: Promise<{ id: string }>
             {submitting ? 'Asking…' : 'Send'}
           </Button>
         </div>
-        {error && <p className="mx-auto mt-2 max-w-[900px] text-sm text-red-600">{error}</p>}
       </form>
     </>
   );

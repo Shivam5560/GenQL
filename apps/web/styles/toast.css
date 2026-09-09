@@ -1,0 +1,59 @@
+/* Sonner theming — matches the Swiss Modernism 2.0 tokens in tokens.css
+   instead of sonner's default rounded, shadowed look. Toasts use the sans
+   body font (not the mono/eyebrow faces reserved for labels and data). */
+
+.gq-toast {
+  border-radius: var(--radius-md, 0.375rem) !important;
+  border: 1px solid var(--line) !important;
+  background: var(--panel) !important;
+  color: var(--ink) !important;
+  box-shadow: 0 2px 10px rgba(10, 10, 10, 0.08) !important;
+  font-family: var(--font-sans), sans-serif;
+}
+
+.gq-toast-title {
+  color: var(--ink);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.gq-toast-description {
+  color: var(--mute);
+  font-size: 0.8125rem;
+}
+
+.gq-toast-close {
+  background: var(--panel) !important;
+  border: 1px solid var(--line) !important;
+  color: var(--mute) !important;
+}
+
+.gq-toast-action {
+  background: var(--brand) !important;
+  color: var(--brand-ink) !important;
+  border-radius: 0.25rem !important;
+}
+
+.gq-toast-cancel {
+  background: var(--panel-2) !important;
+  color: var(--mute) !important;
+  border-radius: 0.25rem !important;
+}
+
+.gq-toast-success {
+  border-color: var(--ok) !important;
+  background: var(--ok-soft) !important;
+}
+
+.gq-toast-success .gq-toast-title,
+.gq-toast-success [data-icon] {
+  color: var(--ok);
+}
+
+.gq-toast-error {
+  border-color: var(--brand) !important;
+}
+
+.gq-toast-error [data-icon] {
+  color: var(--brand);
+}

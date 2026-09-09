@@ -1,20 +1,32 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import { useAuth } from '@/lib/auth';
 import { listDatasources } from '@/lib/api-client';
 import type { Datasource } from '@/lib/types';
 
+function DatasourceRowSkeleton() {
+  return (
+    <div className="rounded-md border border-[var(--line)] bg-[var(--panel)] px-4 py-3">
+      <div className="flex items-center justify-between">
+        <div className="h-4 w-32 animate-pulse rounded bg-[var(--panel-2)]" />
+        <div className="h-3 w-14 animate-pulse rounded bg-[var(--panel-2)]" />
+      </div>
+      <div className="mt-2 h-3 w-2/3 animate-pulse rounded bg-[var(--panel-2)]" />
+    </div>
+  );
+}
+
 export default function DatasourcesPage() {
   const { session } = useAuth();
   const [datasources, setDatasources] = useState<Datasource[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!session) return;
     listDatasources(session.accessToken)
       .then(setDatasources)
-      .catch(() => setError('Something went wrong — try again.'));
+      .catch(() => toast.error('Something went wrong — try again.'));
   }, [session]);
 
   return (
@@ -22,10 +34,12 @@ export default function DatasourcesPage() {
       <h1 className="font-eyebrow mb-6 text-xs uppercase tracking-wide text-[var(--mute)]">
         Datasources
       </h1>
-      {error ? (
-        <p className="text-sm text-red-600">{error}</p>
-      ) : datasources === null ? (
-        <p className="text-sm text-[var(--mute)]">Loading…</p>
+      {datasources === null ? (
+        <div className="flex flex-col gap-2.5">
+          <DatasourceRowSkeleton />
+          <DatasourceRowSkeleton />
+          <DatasourceRowSkeleton />
+        </div>
       ) : (
         <div className="flex flex-col gap-2.5">
           {datasources.map((ds) => (

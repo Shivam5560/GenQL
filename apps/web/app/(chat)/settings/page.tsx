@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { useAuth } from '@/lib/auth';
 import { useTheme } from '@/lib/theme-provider';
 import { updateTheme } from '@/lib/api-client';
@@ -15,17 +16,15 @@ export default function SettingsPage() {
   // <html> — both `data-theme` and `.dark` — so this page only has to save.
   const { preference, setPreference } = useTheme();
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   async function onChangeTheme(next: ThemePreference) {
     if (!session) return;
     setSaving(true);
-    setError(null);
     try {
       const profile = await updateTheme(session.accessToken, next);
       setPreference(profile.theme_preference);
     } catch {
-      setError(GENERIC_ERROR);
+      toast.error(GENERIC_ERROR);
     } finally {
       setSaving(false);
     }
@@ -62,7 +61,6 @@ export default function SettingsPage() {
             ))}
           </div>
         </div>
-        {error && <p className="text-sm text-red-600">{error}</p>}
       </div>
     </main>
   );

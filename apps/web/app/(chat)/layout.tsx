@@ -4,27 +4,60 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
-import { listDatasources, listThreads } from '@/lib/api-client';
+import { listDatasources } from '@/lib/api-client';
+import { ThreadListProvider, useThreadList } from '@/lib/thread-list-provider';
 import { DatasourceCard } from '@/components/sidebar/datasource-card';
 import { ThreadList } from '@/components/sidebar/thread-list';
-import type { Datasource, ThreadSummary } from '@/lib/types';
+import type { Datasource } from '@/lib/types';
 
-export default function ChatLayout({ children }: { children: React.ReactNode }) {
+function DatasourceSection({ session }: { session: { accessToken: string } }) {
+  const [datasources, setDatasources] = useState<Datasource[]>([]);
+  const [loadingDatasources, setLoadingDatasources] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    listDatasources(session.accessToken)
+      .then((list) => {
+        if (!cancelled) setDatasources(list);
+      })
+      .catch(() => {
+        if (!cancelled) setDatasources([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingDatasources(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [session]);
+
+  if (loadingDatasources) {
+    return (
+      <div className="border-b border-[var(--line)] px-4.5 py-4">
+        <div className="mb-2.5 h-[0.66rem] w-20 animate-pulse rounded bg-[var(--panel-2)]" />
+        <div className="h-[3.25rem] animate-pulse rounded-md bg-[var(--panel-2)]" />
+      </div>
+    );
+  }
+
+  if (!datasources[0]) return null;
+
+  return (
+    <div className="border-b border-[var(--line)] px-4.5 py-4">
+      <DatasourceCard datasource={datasources[0]} />
+    </div>
+  );
+}
+
+function ChatShell({ children }: { children: React.ReactNode }) {
   const { session, loading, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
-  const [datasources, setDatasources] = useState<Datasource[]>([]);
-  const [threads, setThreads] = useState<ThreadSummary[]>([]);
+  const { threads, loading: threadsLoading } = useThreadList();
 
   useEffect(() => {
     if (!loading && !session) router.push('/login');
   }, [loading, session, router]);
-
-  useEffect(() => {
-    if (!session) return;
-    listDatasources(session.accessToken).then(setDatasources).catch(() => setDatasources([]));
-    listThreads(session.accessToken).then(setThreads).catch(() => setThreads([]));
-  }, [session]);
 
   if (loading || !session) {
     return (
@@ -47,10 +80,21 @@ export default function ChatLayout({ children }: { children: React.ReactNode }) 
         <div className="border-b border-[var(--line)] px-5 py-4 text-base font-bold uppercase tracking-wide">
           Gen<span className="text-[var(--brand)]">QL</span>
         </div>
-        <div className="border-b border-[var(--line)] px-4.5 py-4">
-          {datasources[0] && <DatasourceCard datasource={datasources[0]} />}
-        </div>
-        <ThreadList threads={threads} />
+        <DatasourceSection session={session} />
+        {threadsLoading ? (
+          <div className="py-1.5">
+            <p className="font-eyebrow px-4.5 pb-1 pt-2.5 text-[0.66rem] uppercase tracking-wide text-[var(--mute)]">
+              Threads
+            </p>
+            <div className="flex flex-col gap-2 px-4.5 py-1">
+              <div className="h-4 w-3/4 animate-pulse rounded bg-[var(--panel-2)]" />
+              <div className="h-4 w-1/2 animate-pulse rounded bg-[var(--panel-2)]" />
+              <div className="h-4 w-2/3 animate-pulse rounded bg-[var(--panel-2)]" />
+            </div>
+          </div>
+        ) : (
+          <ThreadList threads={threads} />
+        )}
         <nav className="mt-auto flex flex-col border-t border-[var(--line)] py-1.5">
           <Link
             href="/datasources"
@@ -86,5 +130,13 @@ export default function ChatLayout({ children }: { children: React.ReactNode }) 
       </aside>
       <div className="flex min-h-screen flex-col">{children}</div>
     </div>
+  );
+}
+
+export default function ChatLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <ThreadListProvider>
+      <ChatShell>{children}</ChatShell>
+    </ThreadListProvider>
   );
 }
