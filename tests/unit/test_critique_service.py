@@ -43,14 +43,31 @@ def test_a_clean_candidate_has_no_deterministic_defects() -> None:
     assert reports[0].score == 0.9
 
 
-def test_an_unknown_column_becomes_a_fatal_deterministic_defect() -> None:
+def test_an_unknown_column_becomes_a_repairable_deterministic_defect() -> None:
+    # Repairable, not fatal: SchemaLink.column_names only covers the retrieved
+    # objects (schema_linking caps at search_top_k), so an unknown column here
+    # is a real but unproven signal — strong enough for the model to weigh,
+    # not strong enough to alone kill a candidate.
     chat = RecordingChatProvider(_batch([{"candidate_index": 0, "defects": [], "score": 0.1}]))
 
     reports = CritiqueService(chat).critique(
         PLAN, (CANDIDATE_B,), ("SELECT o.bogus_col FROM local.shop.orders o LIMIT 1",), LINKS
     )
 
-    assert any(d.severity == "fatal" for d in reports[0].defects)
+    assert any(d.severity == "repairable" for d in reports[0].defects)
+    assert not reports[0].is_fatal
+
+
+def test_a_select_alias_used_in_order_by_is_not_an_unknown_column() -> None:
+    """`SELECT COUNT(*) AS n ... ORDER BY n` — `n` is not a base-table column,
+    it is the SELECT list's own alias, and flagging it made every ranked/top-N
+    query carry a spurious defect."""
+    chat = RecordingChatProvider(_batch([{"candidate_index": 0, "defects": [], "score": 0.9}]))
+    sql = "SELECT o.id, COUNT(*) AS n FROM local.shop.orders o GROUP BY o.id ORDER BY n LIMIT 1"
+
+    reports = CritiqueService(chat).critique(PLAN, (CANDIDATE_A,), (sql,), LINKS)
+
+    assert reports[0].defects == ()
 
 
 def test_the_deterministic_check_makes_no_model_call() -> None:
@@ -73,7 +90,7 @@ def test_model_found_defects_and_deterministic_defects_both_survive() -> None:
                 {
                     "candidate_index": 0,
                     "defects": [
-                        {"dimension": "grain", "severity": "repairable", "message": "wrong grain"}
+                        {"dimension": "grain", "severity": "fatal", "message": "wrong grain"}
                     ],
                     "score": 0.4,
                 }

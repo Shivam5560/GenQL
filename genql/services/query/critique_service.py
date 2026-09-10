@@ -132,9 +132,26 @@ class CritiqueService:
             # StaticValidationService already guarantees sql parses; this is
             # defence in depth, not a path any current caller can reach.
             return ()
+        # `find_all(exp.Column)` returns every column-shaped identifier in the
+        # tree, including SELECT-list aliases referenced from ORDER BY/GROUP BY
+        # and CTE/derived-table names used as a column source — neither is a
+        # base-table column that could be "unknown" against SchemaLink. Without
+        # excluding them, `SELECT COUNT(*) AS n ... ORDER BY n` flags `n`
+        # itself, which is every top-N query.
+        aliases = {a.alias for a in expression.find_all(exp.Alias) if a.alias}
+        aliases |= {t.alias_or_name for t in expression.find_all(exp.TableAlias) if t.alias_or_name}
+        aliases |= {c.alias_or_name for c in expression.find_all(exp.CTE) if c.alias_or_name}
         referenced = {col.name for col in expression.find_all(exp.Column)}
-        unknown = sorted(referenced - known_columns)
+        unknown = sorted(referenced - known_columns - aliases)
+        # `known_columns` is only the retrieved objects' columns (schema_linking
+        # caps retrieval at search_top_k), so a legitimate join to an object
+        # outside that window also looks "unknown" here. That signal is real
+        # enough to surface to the model but not proven enough to alone kill a
+        # candidate, so it is repairable rather than fatal — only the LLM half
+        # of critique, which sees the full plan, may still score it fatal.
         return tuple(
-            Defect(dimension=None, severity="fatal", message=f"references unknown column {col!r}")
+            Defect(
+                dimension=None, severity="repairable", message=f"references unknown column {col!r}"
+            )
             for col in unknown
         )
