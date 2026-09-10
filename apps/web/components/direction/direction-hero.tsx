@@ -93,10 +93,10 @@ export function DirectionHero() {
             style={{ '--gq-delay': '330ms' } as CSSProperties}
           >
             <a
-              href="#workspace"
+              href="#trail"
               className={`${cta} bg-[var(--brand)] text-[var(--brand-ink)] hover:opacity-90`}
             >
-              See it work
+              Walk the trail
             </a>
             <a
               href="https://github.com/Shivam5560/GenQL"

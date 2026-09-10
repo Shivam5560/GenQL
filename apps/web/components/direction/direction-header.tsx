@@ -20,6 +20,9 @@ export function DirectionHeader({ onAuth }: { onAuth: (mode: AuthMode) => void }
       </div>
       <div className="flex items-center gap-4 md:gap-7">
         <nav className="hidden items-center gap-6 font-eyebrow text-[10.5px] uppercase tracking-[0.14em] text-[var(--mute)] md:flex">
+          <a href="#trail" className="hover:text-[var(--ink)]">
+            Trail
+          </a>
           <a href="#workspace" className="hover:text-[var(--ink)]">
             Workspace
           </a>

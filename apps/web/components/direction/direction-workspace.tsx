@@ -15,16 +15,17 @@ export function DirectionWorkspace() {
         <div className="flex flex-wrap items-end justify-between gap-9">
           <div>
             <span className="font-eyebrow text-[10px] uppercase tracking-[0.2em] text-[var(--mute)]">
-              01 — THE WORKSPACE
+              02 — THE WORKSPACE
             </span>
             <h2 className="mt-4 font-serif text-[clamp(2rem,4vw,3.6rem)] font-light leading-tight tracking-[-0.02em]">
-              This is what you use.{' '}
-              <span className="font-extralight italic text-[var(--mute)]">Start to finish.</span>
+              The spine moves up.{' '}
+              <span className="font-extralight italic text-[var(--mute)]">The rail is gone.</span>
             </h2>
           </div>
           <p className="max-w-[42ch] text-[1.05rem] leading-relaxed text-[var(--mute)]">
-            Pick a warehouse, ask a question in plain language, and read the SQL before anything
-            runs. Results, feedback, and your next question all live on the same screen.
+            A 212px rail forced twelve stages into a column nobody reads. Above the answer, the
+            same twelve become a progress bar you can interrogate, and the query gets the full
+            width.
           </p>
         </div>
 

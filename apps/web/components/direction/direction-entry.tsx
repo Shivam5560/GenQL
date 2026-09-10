@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { DirectionHeader } from './direction-header';
 import { DirectionHero } from './direction-hero';
+import { DirectionTrail } from './direction-trail';
 import { DirectionWorkspace } from './direction-workspace';
 import { DirectionGates } from './direction-gates';
 import { DirectionFooter } from './direction-footer';
@@ -36,6 +37,7 @@ export function DirectionEntry({
       <DirectionHeader onAuth={openAuth} />
       <main>
         <DirectionHero />
+        <DirectionTrail />
         <DirectionWorkspace />
         <DirectionGates />
       </main>

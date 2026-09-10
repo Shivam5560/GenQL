@@ -21,7 +21,7 @@ export function DirectionGates() {
     <section className="border-t border-[var(--line)] px-6 py-16 md:px-10 md:py-24">
       <div className="mx-auto max-w-[1400px]">
         <span className="font-eyebrow text-[10px] uppercase tracking-[0.2em] text-[var(--mute)]">
-          02 — THE GATES
+          03 — THE GATES
         </span>
         <h2 className="mt-4 max-w-[22ch] font-serif text-[clamp(2rem,4vw,3.6rem)] font-light leading-tight tracking-[-0.02em]">
           Three places AuraSQL{' '}
