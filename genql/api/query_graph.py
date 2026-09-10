@@ -8,28 +8,24 @@ inert.
 
 Four conditional edges now. Out of intent_classification: only
 `analytical_sql` proceeds, and the other three intents reach END with the
-intent recorded — cheap, and it keeps questions the downstream stages were
-never designed for away from them. Out of ambiguity_gate: an ambiguous
-assessment routes back to ambiguity_gate itself, so the node re-runs after the
-resumed answer lands in state. Out of static_validation: Phase 5's retry edge,
-unchanged. Out of rewrite_and_cost_gate: Phase 7's budget verdict — the newest
-edge, and the only one that can end a turn with neither rows nor a question,
-because a statement that stays over budget is answered with an explanation and
-a suggested narrowing instead of being run.
+intent recorded. Out of ambiguity_gate: an ambiguous assessment routes to
+ambiguity_interrupt, not back to the gate itself — that split exists so the
+model call never sits in front of an interrupt() that re-runs it on resume;
+see query_turn_nodes.py's module docstring for why. Out of static_validation:
+Phase 5's retry edge, unchanged. Out of rewrite_and_cost_gate: Phase 7's
+budget verdict, the only edge that can end a turn with neither rows nor a
+question.
 
-domain_scoping and schema_linking now run BEFORE ambiguity_gate, not after —
-both depend only on the question and datasource, never on the gate's output or
-on clarifications, so reordering them changes nothing about what they compute.
-What it buys: the gate can read `links` and drop a dimension the schema
-cannot express (see AmbiguityGateService's time_range filter) instead of
-relying on the model to notice a linked object has no date column, which is
-the over-triggering the parent spec's ambiguity_threshold alone could not fix.
+domain_scoping and schema_linking run BEFORE ambiguity_gate, not after — both
+depend only on the question and datasource, so reordering them changes
+nothing about what they compute. It lets the gate read `links` and drop a
+dimension the schema cannot express (AmbiguityGateService's time_range
+filter) instead of relying on the model to notice.
 
-The gate self-loop provably terminates without a retry counter. Every pass
-either finds nothing left to ask (AMBIGUITY_DIMENSIONS is a fixed six-element
-tuple, and a dimension that has been answered or defaulted is never asked
-again) or removes exactly one dimension from that set. Phase 5's guardrail loop
-needed a counter because guardrail rules do not shrink; this one does.
+The gate/interrupt cycle provably terminates without a retry counter: every
+full pass either finds nothing left to ask (AMBIGUITY_DIMENSIONS is a fixed
+six-element tuple; an answered or defaulted dimension is never asked again)
+or removes exactly one dimension from that set.
 
 The graph does not catch or re-wrap — the CLI does.
 """
@@ -59,6 +55,7 @@ class NodeFn(Protocol):
 
 INTENT_CLASSIFICATION = "intent_classification"
 AMBIGUITY_GATE = "ambiguity_gate"
+AMBIGUITY_INTERRUPT = "ambiguity_interrupt"
 DOMAIN_SCOPING = "domain_scoping"
 SCHEMA_LINKING = "schema_linking"
 PLANNING = "planning"
@@ -87,15 +84,11 @@ def route_after_intent(state: QueryState) -> str:
 
 
 def route_after_gate(state: QueryState) -> str:
-    """Ambiguous, so re-assess after the answer; otherwise proceed to planning.
-
-    The loop-back target is ambiguity_gate itself. On re-entry the node sees a
-    `clarifications` tuple one pair longer than last time, so the gate has one
-    fewer dimension it can ask about.
-    """
+    """Ambiguous, so pause for an answer, via ambiguity_interrupt (not the
+    gate itself — see the module docstring); otherwise proceed to planning."""
     ambiguity = state["ambiguity"]
     if ambiguity is not None and ambiguity.is_ambiguous:
-        return AMBIGUITY_GATE
+        return AMBIGUITY_INTERRUPT
     return PLANNING
 
 
@@ -139,6 +132,7 @@ def route_after_cost_gate(state: QueryState) -> str:
 def build_query_graph(  # noqa: PLR0913, PLR0917 - one parameter per pipeline stage
     intent_classification: NodeFn,
     ambiguity_gate: NodeFn,
+    ambiguity_interrupt: NodeFn,
     domain_scoping: NodeFn,
     schema_linking: NodeFn,
     planning: NodeFn,
@@ -155,6 +149,7 @@ def build_query_graph(  # noqa: PLR0913, PLR0917 - one parameter per pipeline st
     graph: StateGraph[QueryState] = StateGraph(QueryState)
     graph.add_node(INTENT_CLASSIFICATION, intent_classification)
     graph.add_node(AMBIGUITY_GATE, ambiguity_gate)
+    graph.add_node(AMBIGUITY_INTERRUPT, ambiguity_interrupt)
     graph.add_node(DOMAIN_SCOPING, domain_scoping)
     graph.add_node(SCHEMA_LINKING, schema_linking)
     graph.add_node(PLANNING, planning)
@@ -177,8 +172,9 @@ def build_query_graph(  # noqa: PLR0913, PLR0917 - one parameter per pipeline st
     graph.add_conditional_edges(
         AMBIGUITY_GATE,
         route_after_gate,
-        {AMBIGUITY_GATE: AMBIGUITY_GATE, PLANNING: PLANNING},
+        {AMBIGUITY_INTERRUPT: AMBIGUITY_INTERRUPT, PLANNING: PLANNING},
     )
+    graph.add_edge(AMBIGUITY_INTERRUPT, AMBIGUITY_GATE)
     graph.add_edge(PLANNING, CANDIDATE_GENERATION)
     graph.add_edge(CANDIDATE_GENERATION, STATIC_VALIDATION)
     graph.add_conditional_edges(

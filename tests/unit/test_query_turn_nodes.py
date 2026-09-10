@@ -1,18 +1,16 @@
-"""The three new adapters, with no provider, no database, and no graph.
+"""The four new adapters, with no provider, no database, and no graph.
 
-AmbiguityGateNode is the one with real behaviour, and it is tested through a
-fake `interrupt` rather than a real one: calling langgraph's interrupt() outside
-a running graph raises, and what these tests need to assert is the node's
-bookkeeping — that it appends exactly the dimension it asked about, paired with
-exactly the answer it got back. The real interrupt is exercised by the graph
-tests below and by the checkpointer integration test.
+AmbiguityGateNode never interrupts — it only assesses and returns, so these
+tests need no fake interrupt at all. AmbiguityInterruptNode (the one that
+does interrupt, tested through a fake rather than a real one) has its own
+tests in test_ambiguity_interrupt_node.py, split out to stay under the house
+file-length limit — VAGUE and CLEAR below are shared with that file.
 """
 
 from __future__ import annotations
 
 import pytest
 
-import genql.api.query_turn_nodes as turn_nodes
 from genql.api.query_state import initial_state
 from genql.api.query_turn_nodes import (
     AmbiguityGateNode,
@@ -75,19 +73,6 @@ class FakeScoper:
         return self.domain_id
 
 
-@pytest.fixture()
-def no_interrupt(monkeypatch: pytest.MonkeyPatch) -> list[str]:
-    """Replaces langgraph's interrupt() with a recorder that returns an answer."""
-    asked: list[str] = []
-
-    def fake_interrupt(value: str) -> str:
-        asked.append(value)
-        return "last quarter"
-
-    monkeypatch.setattr(turn_nodes, "interrupt", fake_interrupt)
-    return asked
-
-
 def test_intent_classification_writes_the_intent() -> None:
     classifier = FakeClassifier("metadata_question")
 
@@ -102,45 +87,22 @@ def test_intent_classification_does_not_swallow_its_typed_failure() -> None:
         IntentClassificationNode(RaisingClassifier())(initial_state("q", "local", "t-1"))
 
 
-def test_an_unambiguous_gate_writes_the_assessment_and_asks_nothing(
-    no_interrupt: list[str],
-) -> None:
+def test_an_unambiguous_gate_writes_the_assessment_and_asks_nothing() -> None:
     update = AmbiguityGateNode(FakeGate(CLEAR))(initial_state("q", "local", "t-1"))
 
     assert update == {"ambiguity": CLEAR, "contested": True, "gate_scores": ()}
-    assert no_interrupt == []
 
 
-def test_an_ambiguous_gate_interrupts_with_the_clarifying_question(
-    no_interrupt: list[str],
-) -> None:
-    AmbiguityGateNode(FakeGate(VAGUE))(initial_state("q", "local", "t-1"))
-
-    assert no_interrupt == ["Over what time period?"]
-
-
-def test_the_answer_is_recorded_against_the_dimension_that_was_asked_about(
-    no_interrupt: list[str],
-) -> None:
+def test_an_ambiguous_gate_never_interrupts_itself() -> None:
+    """AmbiguityGateNode always returns normally — it is AmbiguityInterruptNode
+    that pauses — so its own result (including gate_scores) is always
+    committed to state before any interrupt can happen."""
     update = AmbiguityGateNode(FakeGate(VAGUE))(initial_state("q", "local", "t-1"))
 
-    assert update["clarifications"] == (("time_range", "last quarter"),)
-    assert update["ambiguity"] == VAGUE
+    assert update == {"ambiguity": VAGUE, "gate_scores": ()}
 
 
-def test_clarifications_accumulate_rather_than_replace(no_interrupt: list[str]) -> None:
-    state = initial_state("q", "local", "t-1")
-    state["clarifications"] = (("entity", "stores"),)
-
-    update = AmbiguityGateNode(FakeGate(VAGUE))(state)
-
-    assert update["clarifications"] == (
-        ("entity", "stores"),
-        ("time_range", "last quarter"),
-    )
-
-
-def test_the_gate_is_given_the_answers_collected_so_far(no_interrupt: list[str]) -> None:
+def test_the_gate_is_given_the_answers_collected_so_far() -> None:
     gate = FakeGate(VAGUE)
     state = initial_state("q", "local", "t-1")
     state["clarifications"] = (("entity", "stores"),)
@@ -148,40 +110,6 @@ def test_the_gate_is_given_the_answers_collected_so_far(no_interrupt: list[str])
     AmbiguityGateNode(gate)(state)
 
     assert gate.calls == [("q", "local", (("entity", "stores"),))]
-
-
-def test_an_ambiguous_assessment_with_no_question_never_interrupts(
-    no_interrupt: list[str],
-) -> None:
-    """Defence in depth: AmbiguityGateService already rejects this, but a node
-    that called interrupt(None) would pause the turn with nothing to show the
-    user and no way to answer."""
-    broken = AmbiguityAssessment(is_ambiguous=True, missing_dimension="grain")
-
-    update = AmbiguityGateNode(FakeGate(broken))(initial_state("q", "local", "t-1"))
-
-    assert no_interrupt == []
-    assert update == {"ambiguity": broken, "gate_scores": ()}
-
-
-def test_clarifications_restored_from_a_checkpoint_as_lists_still_work(
-    no_interrupt: list[str],
-) -> None:
-    """A checkpoint round-trip returns `[["entity", "stores"]]`, not
-    `(("entity", "stores"),)` — langgraph serialises state through JSON. The
-    node normalises, so the gate still receives the tuples its port declares
-    and appending the new answer does not fail on `list + tuple`."""
-    gate = FakeGate(VAGUE)
-    state = initial_state("q", "local", "t-1")
-    state["clarifications"] = [["entity", "stores"]]  # type: ignore[typeddict-item]
-
-    update = AmbiguityGateNode(gate)(state)
-
-    assert gate.calls == [("q", "local", (("entity", "stores"),))]
-    assert update["clarifications"] == (
-        ("entity", "stores"),
-        ("time_range", "last quarter"),
-    )
 
 
 def test_domain_scoping_writes_the_resolved_id() -> None:
@@ -211,9 +139,7 @@ def test_an_explicit_domain_id_is_never_overwritten() -> None:
     assert scoper.calls == []
 
 
-def test_a_clear_gate_with_no_prior_answers_and_no_defaults_is_not_contested(
-    no_interrupt: list[str],
-) -> None:
+def test_a_clear_gate_with_no_prior_answers_and_no_defaults_is_not_contested() -> None:
     plain_clear = AmbiguityAssessment(is_ambiguous=False)
 
     update = AmbiguityGateNode(FakeGate(plain_clear))(initial_state("q", "local", "t-1"))
@@ -221,7 +147,7 @@ def test_a_clear_gate_with_no_prior_answers_and_no_defaults_is_not_contested(
     assert update == {"ambiguity": plain_clear, "contested": False, "gate_scores": ()}
 
 
-def test_a_clear_gate_after_a_resumed_answer_is_contested(no_interrupt: list[str]) -> None:
+def test_a_clear_gate_after_a_resumed_answer_is_contested() -> None:
     plain_clear = AmbiguityAssessment(is_ambiguous=False)
     state = initial_state("q", "local", "t-1")
     state["clarifications"] = (("time_range", "last quarter"),)
@@ -231,7 +157,7 @@ def test_a_clear_gate_after_a_resumed_answer_is_contested(no_interrupt: list[str
     assert update["contested"] is True
 
 
-def test_a_clear_gate_with_an_applied_default_is_contested(no_interrupt: list[str]) -> None:
+def test_a_clear_gate_with_an_applied_default_is_contested() -> None:
     update = AmbiguityGateNode(FakeGate(CLEAR))(initial_state("q", "local", "t-1"))
 
     assert update["contested"] is True

@@ -34,6 +34,7 @@ from genql.api.query_nodes import (
 from genql.api.query_optimizer_nodes import RewriteAndCostGateNode
 from genql.api.query_turn_nodes import (
     AmbiguityGateNode,
+    AmbiguityInterruptNode,
     DomainScopingNode,
     IntentClassificationNode,
 )
@@ -110,6 +111,7 @@ class OptimizerContainer(AmbiguityContainer):
                 AmbiguityContainer.settings.provided.contested_min_resolved_dimensions
             ),
         ),
+        ambiguity_interrupt=providers.Singleton(AmbiguityInterruptNode),
         domain_scoping=providers.Singleton(
             DomainScopingNode, scoper=AmbiguityContainer.domain_scoping_service
         ),

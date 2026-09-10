@@ -56,6 +56,13 @@ def clear_gate(state: dict[str, Any]) -> dict[str, Any]:
     return {"ambiguity": CLEAR, "contested": False}
 
 
+def unreached_interrupt(state: dict[str, Any]) -> dict[str, Any]:
+    """clear_gate never reports ambiguous, so route_after_gate never sends
+    the graph here — registered only because build_query_graph requires a
+    node for every stage it wires."""
+    raise AssertionError("ambiguity_interrupt must not be reached when the gate is never ambiguous")
+
+
 def no_scope(state: dict[str, Any]) -> dict[str, Any]:
     return {"domain_id": None}
 
@@ -132,6 +139,7 @@ def build(  # noqa: PLR0913, PLR0917 - one parameter per overridable stage
     generate: Any,
     intent: Any = analytical_intent,
     gate: Any = clear_gate,
+    interrupt_node: Any = unreached_interrupt,
     scope: Any = no_scope,
     critique: Any = critique_node,
     probing: Any = probing_node,
@@ -143,6 +151,7 @@ def build(  # noqa: PLR0913, PLR0917 - one parameter per overridable stage
     return build_query_graph(
         intent,
         gate,
+        interrupt_node,
         scope,
         link_node,
         plan_node,

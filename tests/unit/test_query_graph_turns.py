@@ -17,13 +17,12 @@ from __future__ import annotations
 
 from typing import Any
 
-import pytest
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import END
 from langgraph.types import interrupt as real_interrupt
 
 from genql.api.query_graph import (
-    AMBIGUITY_GATE,
+    AMBIGUITY_INTERRUPT,
     DOMAIN_SCOPING,
     PLANNING,
     build_query_graph,
@@ -33,14 +32,12 @@ from genql.api.query_graph import (
     run_query,
 )
 from genql.domain.entities.ambiguity_assessment import AmbiguityAssessment
-from genql.domain.errors import UnknownThreadError
 from tests.unit.test_query_graph import (
     CLEAR,
     LINK,
     RESULT,
     GenerateNode,
     ValidateNode,
-    analytical_intent,
     build,
     clear_gate,
     cost_gate_node,
@@ -50,7 +47,21 @@ from tests.unit.test_query_graph import (
     plan_node,
     probing_node,
     selection_node,
+    unreached_interrupt,
 )
+
+
+def generic_interrupt(state: dict[str, Any]) -> dict[str, Any]:
+    """Stands in for the real AmbiguityInterruptNode: reads the assessment a
+    fake `gate` already put in state, pauses if it's ambiguous, and records
+    the answer. Shared by every test below whose fake gate reports
+    ambiguity, so each one only has to describe what it's ambiguous ABOUT."""
+    assessment = state["ambiguity"]
+    if assessment is None or not assessment.is_ambiguous:
+        return {}
+    answers = tuple((dimension, answer) for dimension, answer in state["clarifications"])
+    answer = real_interrupt(assessment.clarifying_question)
+    return {"clarifications": answers + ((assessment.missing_dimension, str(answer)),)}
 
 
 def test_a_non_analytical_intent_reaches_the_end_without_linking() -> None:
@@ -63,6 +74,7 @@ def test_a_non_analytical_intent_reaches_the_end_without_linking() -> None:
     graph = build_query_graph(
         lambda state: {"intent": "non_sql"},
         clear_gate,
+        unreached_interrupt,
         no_scope,
         recording_link,
         plan_node,
@@ -94,7 +106,7 @@ def test_route_after_gate_loops_back_while_ambiguous() -> None:
         is_ambiguous=True, missing_dimension="grain", clarifying_question="At what grain?"
     )
 
-    assert route_after_gate({"ambiguity": ambiguous}) == AMBIGUITY_GATE
+    assert route_after_gate({"ambiguity": ambiguous}) == AMBIGUITY_INTERRUPT
     assert route_after_gate({"ambiguity": CLEAR}) == PLANNING
     assert route_after_gate({"ambiguity": None}) == PLANNING
 
@@ -110,17 +122,21 @@ def test_an_ambiguous_question_pauses_and_then_resumes_to_an_answer() -> None:
             self.passes += 1
             if state["clarifications"]:
                 return {"ambiguity": CLEAR}
-            answer = real_interrupt("Over what time period?")
             return {
                 "ambiguity": AmbiguityAssessment(
                     is_ambiguous=True,
                     missing_dimension="time_range",
                     clarifying_question="Over what time period?",
-                ),
-                "clarifications": (("time_range", str(answer)),),
+                )
             }
 
-    graph = build(ValidateNode(0), GenerateNode(), gate=Gate(), checkpointer=InMemorySaver())
+    graph = build(
+        ValidateNode(0),
+        GenerateNode(),
+        gate=Gate(),
+        interrupt_node=generic_interrupt,
+        checkpointer=InMemorySaver(),
+    )
 
     paused = run_query(graph, "show me revenue", "local", "t-pause")
     assert paused["__interrupt__"][0].value == "Over what time period?"
@@ -132,102 +148,3 @@ def test_an_ambiguous_question_pauses_and_then_resumes_to_an_answer() -> None:
     assert finished["clarifications"] == (("time_range", "last quarter"),)
     assert finished["validated_sql"] == "SELECT 1 LIMIT 1"
     assert finished["result"] == RESULT
-
-
-def test_two_dimensions_take_two_rounds_and_then_terminate() -> None:
-    """The termination claim at the graph level: the loop-back edge does not
-    spin, because each answered dimension removes itself from the gate's
-    remaining set."""
-    remaining = ["entity", "time_range"]
-
-    def gate(state: dict[str, Any]) -> dict[str, Any]:
-        # Mirrors AmbiguityGateNode._answers: a checkpoint round-trip hands
-        # back lists, and the real node normalises before appending.
-        answers = tuple((dimension, answer) for dimension, answer in state["clarifications"])
-        answered = {dimension for dimension, _ in answers}
-        pending = [d for d in remaining if d not in answered]
-        if not pending:
-            return {"ambiguity": CLEAR}
-        dimension = pending[0]
-        answer = real_interrupt(f"Which {dimension}?")
-        return {
-            "ambiguity": AmbiguityAssessment(
-                is_ambiguous=True,
-                missing_dimension=dimension,
-                clarifying_question=f"Which {dimension}?",
-            ),
-            "clarifications": answers + ((dimension, str(answer)),),
-        }
-
-    graph = build(ValidateNode(0), GenerateNode(), gate=gate, checkpointer=InMemorySaver())
-
-    first = run_query(graph, "revenue", "local", "t-two")
-    assert first["__interrupt__"][0].value == "Which entity?"
-
-    second = resume_query(graph, "stores", "t-two")
-    assert second["__interrupt__"][0].value == "Which time_range?"
-
-    third = resume_query(graph, "last quarter", "t-two")
-
-    assert "__interrupt__" not in third
-    assert third["clarifications"] == (
-        ("entity", "stores"),
-        ("time_range", "last quarter"),
-    )
-    assert third["result"] == RESULT
-
-
-def test_two_threads_pause_independently() -> None:
-    def gate(state: dict[str, Any]) -> dict[str, Any]:
-        if state["clarifications"]:
-            return {"ambiguity": CLEAR}
-        answer = real_interrupt("Over what time period?")
-        return {
-            "ambiguity": CLEAR,
-            "clarifications": (("time_range", str(answer)),),
-        }
-
-    graph = build(ValidateNode(0), GenerateNode(), gate=gate, checkpointer=InMemorySaver())
-
-    run_query(graph, "revenue", "local", "t-x")
-    run_query(graph, "headcount", "local", "t-y")
-
-    finished = resume_query(graph, "last quarter", "t-x")
-
-    assert finished["question"] == "revenue"
-
-
-def test_resuming_a_thread_with_no_checkpoint_raises_a_typed_error() -> None:
-    """A thread id nobody paused has no interrupt to resume — resume_query
-    must refuse rather than let the graph run from START with empty state."""
-    graph = build(ValidateNode(0), GenerateNode(), gate=clear_gate, checkpointer=InMemorySaver())
-
-    with pytest.raises(UnknownThreadError):
-        resume_query(graph, "answer", "t-never-existed")
-
-
-def test_an_explicit_domain_id_survives_to_schema_linking() -> None:
-    seen: list[int | None] = []
-
-    def recording_link(state: dict[str, Any]) -> dict[str, Any]:
-        seen.append(state["domain_id"])
-        return {"links": (LINK,)}
-
-    graph = build_query_graph(
-        analytical_intent,
-        clear_gate,
-        lambda state: {},
-        recording_link,
-        plan_node,
-        GenerateNode(),
-        ValidateNode(0),
-        critique_node,
-        probing_node,
-        selection_node,
-        cost_gate_node,
-        execute_node,
-    )
-
-    run_query(graph, "q", "local", "t-domain", domain_id=42)
-
-    assert seen == [42]

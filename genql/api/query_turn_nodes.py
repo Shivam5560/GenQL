@@ -1,17 +1,27 @@
-"""Three adapters for the three stages prepended to Phase 5's graph.
+"""Four adapters for the stages prepended to Phase 5's graph.
 
 They live in their own file rather than joining query_nodes.py for two
 reasons: query_nodes.py is already the five generation-path adapters and one
 file per responsibility is the house rule, and this is the only module in
 genql/api/ that calls interrupt(), which is worth being able to find.
 
-AmbiguityGateNode is the one that carries real behaviour, and it is written to
-be idempotent under re-execution. LangGraph resumes an interrupted node by
-running it AGAIN from its first line — interrupt() raises on the first pass and
-returns the resume value on the second — so everything before the interrupt
-call runs twice. Here that is one `assess` call whose result is overwritten,
-which costs one model call and changes nothing. Anything with a side effect
-would have to move after the interrupt.
+AmbiguityGateNode (the model call) and AmbiguityInterruptNode (the pause) are
+split into two nodes rather than one, specifically so the expensive part is
+never in front of an interrupt() call. LangGraph resumes an interrupted node
+by running it AGAIN from its first line — interrupt() raises on the first pass
+and returns the resume value on the second — so everything before the
+interrupt call runs twice. When the assess() call sat before interrupt() in
+one node, that meant a full, real model call was thrown away on every single
+clarification round, guaranteed, every time — confirmed costing 4-9s live.
+Moving the interrupt into its own node means the only thing that reruns on
+resume is a state read, not a provider call: AmbiguityGateNode always returns
+normally (never interrupts, so its result is always committed to state
+before the pause), and AmbiguityInterruptNode's only job is to read the
+already-committed assessment and pause if it says to.
+
+The two-node cycle (gate -> interrupt -> gate -> ...) still terminates by the
+same proof the single-node self-loop always had: each full cycle resolves one
+more dimension from a fixed six-element set.
 """
 
 from __future__ import annotations
@@ -21,6 +31,7 @@ from typing import Any
 from langgraph.types import interrupt
 
 from genql.api.query_state import QueryState
+from genql.domain.errors import AmbiguityGateError
 from genql.domain.ports.ambiguity_gate import AmbiguityGate
 from genql.domain.ports.domain_scoper import DomainScoper
 from genql.domain.ports.intent_classifier import IntentClassifier
@@ -55,6 +66,10 @@ def _known_scores(state: QueryState) -> tuple[tuple[str, float], ...]:
 
 
 class AmbiguityGateNode:
+    """Never interrupts — only assesses and returns. Always a normal return,
+    so its result (the assessment, and the gate_scores cache) is always
+    committed to state before any pause can happen, in AmbiguityInterruptNode."""
+
     def __init__(self, gate: AmbiguityGate, contested_min_resolved: int = 1) -> None:
         self._gate = gate
         self._contested_min_resolved = contested_min_resolved
@@ -99,21 +114,32 @@ class AmbiguityGateNode:
                 "contested": contested,
                 "gate_scores": assessment.dimension_scores,
             }
+        return {"ambiguity": assessment, "gate_scores": assessment.dimension_scores}
+
+
+class AmbiguityInterruptNode:
+    """The only interrupt() call in the graph, and nothing else. Reads an
+    assessment AmbiguityGateNode already committed to state — never computes
+    one — so re-execution on resume costs a dict read, not a model call."""
+
+    def __call__(self, state: QueryState) -> dict[str, Any]:
+        assessment = state["ambiguity"]
+        if assessment is None or not assessment.is_ambiguous:
+            return {}
         # Both guards matter. Without a dimension there is nothing to record
         # the answer against, so the loop would not shrink and would not
         # terminate; without a question there is nothing to show the user, so
         # the turn would pause with no way to resume it. AmbiguityGateService
-        # already refuses to produce either, and this refuses to act on one.
+        # already refuses to produce either; this is defence in depth against
+        # a future implementation of the port that doesn't.
         dimension = assessment.missing_dimension
         question = assessment.clarifying_question
         if dimension is None or not question:
-            return {"ambiguity": assessment, "gate_scores": assessment.dimension_scores}
+            raise AmbiguityGateError(
+                "the gate reported ambiguous with no dimension or no question to ask"
+            )
         answer = interrupt(question)
-        return {
-            "ambiguity": assessment,
-            "clarifications": answers + ((dimension, str(answer)),),
-            "gate_scores": assessment.dimension_scores,
-        }
+        return {"clarifications": _answers(state) + ((dimension, str(answer)),)}
 
 
 class DomainScopingNode:

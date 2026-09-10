@@ -31,6 +31,7 @@ from genql.api.query_nodes import (
 )
 from genql.api.query_turn_nodes import (
     AmbiguityGateNode,
+    AmbiguityInterruptNode,
     DomainScopingNode,
     IntentClassificationNode,
 )
@@ -80,6 +81,7 @@ class TurnContainer(QueryContainer):
             IntentClassificationNode, classifier=intent_classification_service
         ),
         ambiguity_gate=providers.Singleton(AmbiguityGateNode, gate=ambiguity_gate_service),
+        ambiguity_interrupt=providers.Singleton(AmbiguityInterruptNode),
         domain_scoping=providers.Singleton(DomainScopingNode, scoper=domain_scoping_service),
         schema_linking=providers.Singleton(
             SchemaLinkingNode, linker=QueryContainer.schema_linking_service
