@@ -16,8 +16,10 @@ from genql.core.settings import Settings
 from genql.domain.ports.datasource_repository import DatasourceRepository
 from genql.domain.ports.schema_registration_repository import SchemaRegistrationRepository
 from genql.domain.ports.scope_resolver import ScopeResolver
+from genql.infrastructure.auth.fernet_secret_cipher import FernetSecretCipher
 from genql.infrastructure.catalog.catalog_reader_factory import CatalogReaderFactoryImpl
 from genql.infrastructure.catalog.profile_reader_factory import ProfileReaderFactoryImpl
+from genql.infrastructure.db.dsn_schemes import DSN_SCHEMES
 from genql.infrastructure.db.engine import create_engine_from_dsn
 from genql.infrastructure.db.engine_provider import DatasourceEngineProvider
 from genql.repositories.semantic.catalog_writer_repository import (
@@ -72,9 +74,12 @@ class CoreContainer(containers.DeclarativeContainer):
     )
     join_path_writer = providers.Singleton(PostgresJoinPathWriterRepository, engine=semantic_engine)
 
+    secret_cipher = providers.Singleton(FernetSecretCipher, key=settings.provided.secret_key)
+
     engine_provider = providers.Singleton(
         DatasourceEngineProvider,
         env=os.environ,
+        cipher=secret_cipher,
         readonly_password=settings.provided.readonly_db_password,
     )
 
@@ -107,6 +112,8 @@ class CoreContainer(containers.DeclarativeContainer):
         datasources=datasource_repository,
         dialects=providers.Callable(CATALOG_READERS.keys),
         dialect_registry=CATALOG_READERS.name,
+        dsn_schemes=DSN_SCHEMES,
+        cipher=secret_cipher,
         env=os.environ,
         engines=engine_provider,
     )

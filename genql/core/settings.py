@@ -50,6 +50,22 @@ class Settings(BaseSettings):
     # pattern for a required-at-use-time secret is exactly openrouter_api_key's
     # — default empty, typed error at the point of use.
     readonly_db_password: str = ""
+    # The Fernet key that warehouse passwords are encrypted under. Empty by
+    # default for the same reason as readonly_db_password — `migrations/env.py`
+    # and every container unit test construct Settings() without one — and the
+    # typed failure (MissingEncryptionKeyError) is raised at the point a
+    # credential is actually written or read. Rotating it makes every stored
+    # credential unreadable, so it belongs in the deployment's secret store,
+    # not in a .env someone regenerates.
+    secret_key: str = ""
+    # YAML rule defaults for the ambiguity gate. Off: the two rules shipped in
+    # `semantic/local.yaml` silently bound every question to "the most recent
+    # complete calendar year", which is how a plain "top 10 stores by sales"
+    # acquired a date predicate nobody asked for — and, against a star schema
+    # whose date column is a surrogate key, an invalid one. Rules are a real
+    # feature and the machinery is intact; they are disabled until a question
+    # actually needs one, at which point this flips back to True.
+    rules_enabled: bool = False
     # Below this per-dimension confidence, the gate treats the dimension as
     # unspecified and asks about it. Originally 0.7, reasoned as "a wrong
     # assumption costs a whole wasted pipeline run, while an unnecessary

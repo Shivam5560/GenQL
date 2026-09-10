@@ -61,6 +61,26 @@ def step_events(job: IngestionJob) -> list[dict[str, str]]:
     ]
 
 
+def progress_event(job: IngestionJob) -> dict[str, str]:
+    """How far along the whole pipeline is, as one number.
+
+    Emitted alongside the step batch rather than left for the client to derive:
+    the fraction counts a running step as half done and divides by the full
+    STEP_SEQUENCE rather than by this job's step list, and a client
+    reimplementing both rules would draw a resumed job's bar in the wrong
+    place the first time either rule changed.
+    """
+    return _event(
+        "progress",
+        {
+            "job_id": job.job_id,
+            "datasource": job.datasource_name,
+            "status": job.status.value,
+            "progress": job.progress,
+        },
+    )
+
+
 def terminal_event(job: IngestionJob) -> dict[str, str]:
     payload = IngestionJobDto.from_domain(job).model_dump()
     if job.status is JobStatus.FAILED:
@@ -123,6 +143,7 @@ def ingestion_event_stream(
         if current != previous:
             previous = current
             yield from step_events(job)
+            yield progress_event(job)
         if job.terminal:
             yield terminal_event(job)
             return

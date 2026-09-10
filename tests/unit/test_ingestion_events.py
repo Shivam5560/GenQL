@@ -10,6 +10,8 @@ from __future__ import annotations
 import json
 from datetime import UTC, datetime
 
+import pytest
+
 from genql.api.sse.ingestion_events import (
     ingestion_event_stream,
     transitions,
@@ -90,9 +92,30 @@ def test_progress_is_re_sent_only_when_something_actually_changed() -> None:
 
     events = stream([running, running, advanced, done])
 
-    # Three observed changes, so three step events — the repeated identical
-    # poll in the middle emitted nothing.
-    assert names(events) == ["step", "step", "step", "done"]
+    # Three observed changes, so three step-plus-progress batches — the
+    # repeated identical poll in the middle emitted nothing.
+    assert names(events) == [
+        "step",
+        "progress",
+        "step",
+        "progress",
+        "step",
+        "progress",
+        "done",
+    ]
+
+
+def test_progress_reports_a_fraction_the_client_can_draw_directly() -> None:
+    """A running step counts half, and the denominator is the whole pipeline —
+    otherwise a one-step job would report itself as 50% of everything."""
+    running = make_job(
+        JobStatus.RUNNING, (IngestionStep(name="discovery", status=StepStatus.RUNNING),)
+    )
+
+    events = stream([running, make_job(JobStatus.SUCCEEDED, running.steps)])
+
+    progress = json.loads(next(e for e in events if e["event"] == "progress")["data"])
+    assert progress["progress"] == pytest.approx(0.5 / 6)
 
 
 def test_a_step_event_carries_the_count_the_stage_reported() -> None:

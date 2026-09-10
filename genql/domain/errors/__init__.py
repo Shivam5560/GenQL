@@ -15,7 +15,9 @@ from genql.domain.errors.datasource import (
     DuplicateDatasourceError,
     EmptySchemaError,
     MissingDatasourceSecretError,
+    MissingEncryptionKeyError,
     MissingReadonlySecretError,
+    UndecryptableDatasourceSecretError,
     UnknownDatasourceError,
     UnknownSchemaRegistrationError,
 )
@@ -88,6 +90,8 @@ __all__ = [
     "UnknownDatasourceError",
     "DuplicateDatasourceError",
     "MissingDatasourceSecretError",
+    "MissingEncryptionKeyError",
+    "UndecryptableDatasourceSecretError",
     "EmptySchemaError",
     "UnknownSchemaRegistrationError",
     "AmbiguousScopeError",

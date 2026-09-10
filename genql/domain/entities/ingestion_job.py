@@ -95,6 +95,31 @@ class IngestionJob(BaseModel):
     def terminal(self) -> bool:
         return self.status in (JobStatus.SUCCEEDED, JobStatus.FAILED)
 
+    @property
+    def progress(self) -> float:
+        """How far through the pipeline this job is, 0.0 to 1.0.
+
+        Counted over STEP_SEQUENCE, not over `self.steps`: a job resumed at
+        `semantic_compile` carries three steps, and reporting "1 of 3 done"
+        would show a warehouse two thirds of the way through its survey as
+        one third. A running step counts as half — the six steps are wildly
+        unequal in length and discovery alone can be minutes, so a bar that
+        sits perfectly still through it reads as a hang.
+
+        SKIPPED counts as done, because it is: the step had nothing to do.
+        """
+        done = sum(
+            1.0
+            if step.status in (StepStatus.SUCCEEDED, StepStatus.SKIPPED)
+            else 0.5
+            if step.status is StepStatus.RUNNING
+            else 0.0
+            for step in self.steps
+        )
+        if self.status is JobStatus.SUCCEEDED:
+            return 1.0
+        return min(done / len(STEP_SEQUENCE), 1.0)
+
     def step(self, name: str) -> IngestionStep | None:
         return next((s for s in self.steps if s.name == name), None)
 

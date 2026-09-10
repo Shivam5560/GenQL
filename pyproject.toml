@@ -9,6 +9,8 @@ authors = [
 requires-python = ">=3.12"
 dependencies = [
     "alembic>=1.19.2",
+    # Fernet, for the warehouse passwords the semantic store now holds.
+    "cryptography>=45",
     "dependency-injector>=4.49.1",
     "fastapi>=0.141.1",
     "graphdatascience>=1.22",

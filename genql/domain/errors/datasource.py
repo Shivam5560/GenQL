@@ -23,15 +23,62 @@ class DuplicateDatasourceError(DatasourceError):
 
 
 class MissingDatasourceSecretError(DatasourceError):
-    """The environment variable a datasource names is unset or empty."""
+    """A datasource carries neither a stored credential nor a readable one.
 
-    def __init__(self, datasource_name: str, env_var: str) -> None:
-        super().__init__(
-            f"datasource {datasource_name!r} names environment variable {env_var!r}, "
-            "which is unset or empty"
-        )
+    `env_var` is the variable that was consulted, when one was named at all.
+    A datasource registered through the API stores its own credential and
+    names no variable, so the two cases produce different sentences.
+    """
+
+    def __init__(self, datasource_name: str, env_var: str | None = None) -> None:
+        if env_var:
+            message = (
+                f"datasource {datasource_name!r} names environment variable {env_var!r}, "
+                "which is unset or empty"
+            )
+        else:
+            message = (
+                f"datasource {datasource_name!r} has no stored connection credential. "
+                "Reconnect the warehouse from the datasources page."
+            )
+        super().__init__(message)
         self.datasource_name = datasource_name
         self.env_var = env_var
+
+
+class MissingEncryptionKeyError(DatasourceError):
+    """GENQL_SECRET_KEY is unset, so no warehouse password can be stored.
+
+    Raised at registration rather than at connect time: a datasource whose
+    password could not be encrypted must never reach the row, because the row
+    would then be a warehouse nobody can connect to and nobody can repair
+    without re-entering credentials this API deliberately cannot read back.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(
+            "GENQL_SECRET_KEY is unset or empty, so warehouse credentials cannot be "
+            "encrypted. Generate one with "
+            '`python -c "from cryptography.fernet import Fernet; '
+            'print(Fernet.generate_key().decode())"` and set it on the server.'
+        )
+
+
+class UndecryptableDatasourceSecretError(DatasourceError):
+    """The stored credential does not decrypt under the current key.
+
+    Almost always a rotated or mistyped GENQL_SECRET_KEY rather than a corrupt
+    row, which is why the message says so: the fix is the key, or re-entering
+    the connection.
+    """
+
+    def __init__(self, datasource_name: str) -> None:
+        super().__init__(
+            f"the stored credential for datasource {datasource_name!r} could not be "
+            "decrypted with the current GENQL_SECRET_KEY. Restore the original key, "
+            "or reconnect the warehouse to store its credential again."
+        )
+        self.datasource_name = datasource_name
 
 
 class EmptySchemaError(DatasourceError):

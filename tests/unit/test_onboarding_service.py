@@ -26,6 +26,7 @@ from genql.domain.errors import (
     UnknownDatasourceError,
     UnknownIngestionStepError,
 )
+from genql.domain.value_objects.datasource_connection import DatasourceConnection
 from genql.services.datasource.onboarding_service import OnboardingService
 
 
@@ -38,19 +39,30 @@ class StubClock:
         return self._now
 
 
+CONNECTION = DatasourceConnection(
+    host="warehouse.internal", port=5432, database="analytics", username="reader", password="p"
+)
+
+
 class FakeDatasourceService:
     def __init__(self, raises: Exception | None = None) -> None:
         self.raises = raises
         self.registered: list[str] = []
 
     def register(
-        self, name: str, dialect: str, dsn_env_var: str, description: str | None
+        self, name: str, dialect: str, connection: DatasourceConnection, description: str | None
     ) -> Datasource:
         if self.raises is not None:
             raise self.raises
         self.registered.append(name)
         return Datasource(
-            name=name, dialect=dialect, dsn_env_var=dsn_env_var, description=description
+            name=name,
+            dialect=dialect,
+            host=connection.host,
+            port=connection.port,
+            database=connection.database,
+            username=connection.username,
+            description=description,
         )
 
 
@@ -123,7 +135,7 @@ def test_registering_queues_a_job_and_returns_before_any_stage_runs() -> None:
     service, jobs = build()
 
     datasource, job = service.register_and_submit(
-        "warehouse", "postgres", "WAREHOUSE_DSN", None, ["shop"], "u-1"
+        "warehouse", "postgres", CONNECTION, None, ["shop"], "u-1"
     )
 
     assert datasource.name == "warehouse"
@@ -139,7 +151,7 @@ def test_an_unset_dsn_variable_fails_the_request_rather_than_the_job() -> None:
     )
 
     with pytest.raises(MissingDatasourceSecretError):
-        service.register_and_submit("warehouse", "postgres", "DSN", None, [], "u-1")
+        service.register_and_submit("warehouse", "postgres", CONNECTION, None, [], "u-1")
 
     assert jobs.submitted == []
 
@@ -150,7 +162,7 @@ def test_a_second_job_for_a_datasource_already_ingesting_is_refused() -> None:
     service, _ = build(jobs)
 
     with pytest.raises(IngestionInProgressError) as caught:
-        service.register_and_submit("warehouse", "postgres", "DSN", None, [], "u-1")
+        service.register_and_submit("warehouse", "postgres", CONNECTION, None, [], "u-1")
 
     assert caught.value.job_id == "live"
 

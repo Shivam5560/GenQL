@@ -1,8 +1,14 @@
 """Persists registered datasources.
 
-Note what is NOT here: a DSN. The row carries the name of an environment
-variable and nothing else, so the semantic store never holds a warehouse
-credential.
+The row carries where the warehouse is — host, port, database, user — in the
+clear, and its password as ciphertext the semantic store cannot read. Nothing
+here encrypts or decrypts: DatasourceService does that on the way in and
+DatasourceEngineProvider on the way out, so a `SELECT *` of this table yields
+a connection nobody can use without the process key.
+
+A datasource registered before credentials could be stored carries
+`dsn_env_var` instead and no connection columns at all; both shapes read back
+through the same query.
 """
 
 from __future__ import annotations
@@ -14,20 +20,26 @@ from sqlalchemy import Connection, Engine, text
 from genql.domain.entities.datasource import Datasource
 from genql.domain.errors import DuplicateDatasourceError, UnknownDatasourceError
 
-_INSERT = text("""
-    INSERT INTO genql.genql_datasource (name, dialect, dsn_env_var, description, enabled)
-    VALUES (:name, :dialect, :dsn_env_var, :description, :enabled)
+_COLUMNS = (
+    "name, dialect, dsn_env_var, host, port, database, username, "
+    "password_ciphertext, options, description, enabled"
+)
+
+_INSERT = text(f"""
+    INSERT INTO genql.genql_datasource ({_COLUMNS})
+    VALUES (:name, :dialect, :dsn_env_var, :host, :port, :database, :username,
+            :password_ciphertext, :options, :description, :enabled)
     ON CONFLICT (name) DO NOTHING
     RETURNING name
 """)
 
-_SELECT_ONE = text("""
-    SELECT name, dialect, dsn_env_var, description, enabled
+_SELECT_ONE = text(f"""
+    SELECT {_COLUMNS}
     FROM genql.genql_datasource WHERE name = :name
 """)
 
-_SELECT_ALL = text("""
-    SELECT name, dialect, dsn_env_var, description, enabled
+_SELECT_ALL = text(f"""
+    SELECT {_COLUMNS}
     FROM genql.genql_datasource
     WHERE (NOT :enabled_only) OR enabled
     ORDER BY name

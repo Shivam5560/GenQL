@@ -1,18 +1,22 @@
 """The wire contract for the datasource routes.
 
-`dsn_env_var` is omitted: it names the environment variable holding a
-warehouse credential, and even the variable's name is not something a client
-of this API needs or should see.
+The password travels in exactly one direction. `RegisterDatasourceRequest`
+carries it inbound, over whatever TLS the deployment terminates; `DatasourceDto`
+has no field for it and no `from_domain` branch that could add one, so no
+response, log line, or client cache can hold it. `endpoint` is the printable
+half — `host:port/database` — which is what a person needs in order to confirm
+they connected the right warehouse.
 """
 
 from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from genql.domain.entities.datasource import Datasource
 from genql.domain.entities.ingestion_job import IngestionJob, IngestionStep
+from genql.domain.value_objects.datasource_connection import DatasourceConnection
 
 
 class DatasourceDto(BaseModel):
@@ -20,6 +24,9 @@ class DatasourceDto(BaseModel):
     dialect: str
     description: str | None = None
     enabled: bool = True
+    #: `host:port/database`, or None for a datasource that reads its DSN from
+    #: the server environment.
+    endpoint: str | None = None
 
     @classmethod
     def from_domain(cls, datasource: Datasource) -> DatasourceDto:
@@ -28,20 +35,37 @@ class DatasourceDto(BaseModel):
             dialect=datasource.dialect,
             description=datasource.description,
             enabled=datasource.enabled,
+            endpoint=datasource.endpoint,
         )
 
 
 class RegisterDatasourceRequest(BaseModel):
     name: str
     dialect: str = "postgres"
-    #: The NAME of an environment variable, never a connection string. The
-    #: server reads the DSN from its own environment at connect time, so a
-    #: warehouse credential never crosses this API in either direction.
-    dsn_env_var: str
+    host: str
+    port: int = Field(default=5432, gt=0, le=65535)
+    database: str
+    username: str
+    #: Encrypted the moment it lands and never read back out of this API.
+    password: str = ""
+    #: Driver query string — `sslmode=require`, `connect_timeout=10`. Passed
+    #: through verbatim because which options are legal is the driver's
+    #: business, not this schema's.
+    options: str | None = None
     description: str | None = None
     #: Schemas to ingest. Empty means "whatever the scope resolver defaults
     #: to", which is the single-schema case the CLI has always supported.
     schemas: list[str] = []
+
+    def to_connection(self) -> DatasourceConnection:
+        return DatasourceConnection(
+            host=self.host.strip(),
+            port=self.port,
+            database=self.database.strip(),
+            username=self.username.strip(),
+            password=self.password,
+            options=(self.options or "").strip() or None,
+        )
 
 
 class RetryIngestionRequest(BaseModel):
@@ -75,6 +99,9 @@ class IngestionJobDto(BaseModel):
     steps: list[IngestionStepDto] = []
     error: str | None = None
     error_step: str | None = None
+    #: 0.0-1.0 across the whole six-step pipeline, so a client can draw a bar
+    #: without knowing what the steps are or how many there should be.
+    progress: float = 0.0
     created_at: datetime
     started_at: datetime | None = None
     finished_at: datetime | None = None
@@ -87,6 +114,7 @@ class IngestionJobDto(BaseModel):
             status=job.status.value,
             schemas=list(job.schemas),
             steps=[IngestionStepDto.from_domain(s) for s in job.steps],
+            progress=job.progress,
             error=job.error,
             error_step=job.error_step,
             created_at=job.created_at,

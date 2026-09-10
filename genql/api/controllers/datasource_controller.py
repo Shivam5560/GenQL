@@ -54,7 +54,7 @@ def register_datasource(
     datasource, job = container.onboarding_service().register_and_submit(
         request.name,
         request.dialect,
-        request.dsn_env_var,
+        request.to_connection(),
         request.description,
         request.schemas,
         user.user_id,

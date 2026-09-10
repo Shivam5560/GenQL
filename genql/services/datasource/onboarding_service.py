@@ -32,6 +32,7 @@ from genql.domain.errors import (
 from genql.domain.ports.clock import Clock
 from genql.domain.ports.datasource_repository import DatasourceRepository
 from genql.domain.ports.ingestion_job_repository import IngestionJobRepository
+from genql.domain.value_objects.datasource_connection import DatasourceConnection
 from genql.services.datasource.datasource_service import DatasourceService
 
 
@@ -52,7 +53,7 @@ class OnboardingService:
         self,
         name: str,
         dialect: str,
-        dsn_env_var: str,
+        connection: DatasourceConnection,
         description: str | None,
         schemas: Sequence[str],
         user_id: str,
@@ -63,7 +64,7 @@ class OnboardingService:
         by the time the caller sees a 202 the datasource row exists, so an
         immediate GET /v1/datasources lists it — as "ingesting", not as ready.
         """
-        datasource = self._datasources.register(name, dialect, dsn_env_var, description)
+        datasource = self._datasources.register(name, dialect, connection, description)
         return datasource, self._queue(name, tuple(schemas), user_id, start_from=None)
 
     def retry(self, datasource_name: str, start_from: str | None, user_id: str) -> IngestionJob:
