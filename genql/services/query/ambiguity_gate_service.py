@@ -126,6 +126,7 @@ class AmbiguityGateService:
         datasource_name: str,
         answers: tuple[tuple[str, str], ...] = (),
         links: tuple[SchemaLink, ...] = (),
+        known_scores: tuple[tuple[str, float], ...] = (),
     ) -> AmbiguityAssessment:
         defaults = self._defaults(datasource_name)
         applied = tuple(
@@ -152,17 +153,44 @@ class AmbiguityGateService:
         if not open_dimensions:
             return AmbiguityAssessment(is_ambiguous=False, applied_defaults=applied)
 
-        response = self._score(question, open_dimensions, answers)
-        scored = {score.dimension: score.confidence for score in response.scores}
+        known = dict(known_scores)
+        # Re-score a dimension only if it has never been judged, or was judged
+        # under threshold and therefore still needs a fresh clarifying
+        # question — a dimension already known to be confidently specified
+        # does not need re-confirming just because a DIFFERENT dimension was
+        # answered since. This is what turns the round that finally has
+        # nothing left to ask into a free, deterministic check instead of a
+        # full model call: `to_score` is empty exactly when every open
+        # dimension is already known and confident.
+        to_score = tuple(
+            dimension
+            for dimension in open_dimensions
+            if dimension not in known or known[dimension] < self._threshold
+        )
+        response = None
+        if to_score:
+            response = self._score(question, to_score, answers)
+            for score in response.scores:
+                known[score.dimension] = score.confidence
+            # A dimension the model omitted scores 0.0: silence is not
+            # evidence that the question specified it.
+            for dimension in to_score:
+                known.setdefault(dimension, 0.0)
+        dimension_scores = tuple((d, known[d]) for d in open_dimensions if d in known)
+
         under = tuple(
             dimension
             for dimension in open_dimensions
-            # A dimension the model omitted scores 0.0: silence is not
-            # evidence that the question specified it.
-            if scored.get(dimension, 0.0) < self._threshold
+            if known.get(dimension, 0.0) < self._threshold
         )
         if not under:
-            return AmbiguityAssessment(is_ambiguous=False, applied_defaults=applied)
+            return AmbiguityAssessment(
+                is_ambiguous=False, applied_defaults=applied, dimension_scores=dimension_scores
+            )
+        # `under` non-empty implies `to_score` was non-empty (every dimension
+        # in `under` was either newly scored or already-known-low-and-thus-
+        # rescored above), so `response` is never None here.
+        assert response is not None  # see comment above: under non-empty implies to_score was too
         # The dimension the question was actually written about wins, so the
         # answer is recorded against what was asked. It is trusted only after
         # being confirmed both open and genuinely under threshold; a model that
@@ -182,6 +210,7 @@ class AmbiguityGateService:
             missing_dimension=missing,
             clarifying_question=clarifying_question,
             applied_defaults=applied,
+            dimension_scores=dimension_scores,
         )
 
     def _defaults(self, datasource_name: str) -> dict[str, str]:

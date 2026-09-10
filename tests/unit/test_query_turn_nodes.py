@@ -59,6 +59,7 @@ class FakeGate:
         datasource_name: str,
         answers: tuple[tuple[str, str], ...] = (),
         links: tuple[object, ...] = (),
+        known_scores: tuple[tuple[str, float], ...] = (),
     ) -> AmbiguityAssessment:
         self.calls.append((question, datasource_name, answers))
         return self.queue.pop(0) if self.queue else CLEAR
@@ -106,7 +107,7 @@ def test_an_unambiguous_gate_writes_the_assessment_and_asks_nothing(
 ) -> None:
     update = AmbiguityGateNode(FakeGate(CLEAR))(initial_state("q", "local", "t-1"))
 
-    assert update == {"ambiguity": CLEAR, "contested": True}
+    assert update == {"ambiguity": CLEAR, "contested": True, "gate_scores": ()}
     assert no_interrupt == []
 
 
@@ -160,7 +161,7 @@ def test_an_ambiguous_assessment_with_no_question_never_interrupts(
     update = AmbiguityGateNode(FakeGate(broken))(initial_state("q", "local", "t-1"))
 
     assert no_interrupt == []
-    assert update == {"ambiguity": broken}
+    assert update == {"ambiguity": broken, "gate_scores": ()}
 
 
 def test_clarifications_restored_from_a_checkpoint_as_lists_still_work(
@@ -217,7 +218,7 @@ def test_a_clear_gate_with_no_prior_answers_and_no_defaults_is_not_contested(
 
     update = AmbiguityGateNode(FakeGate(plain_clear))(initial_state("q", "local", "t-1"))
 
-    assert update == {"ambiguity": plain_clear, "contested": False}
+    assert update == {"ambiguity": plain_clear, "contested": False, "gate_scores": ()}
 
 
 def test_a_clear_gate_after_a_resumed_answer_is_contested(no_interrupt: list[str]) -> None:

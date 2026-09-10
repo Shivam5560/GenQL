@@ -48,6 +48,12 @@ def _answers(state: QueryState) -> tuple[tuple[str, str], ...]:
     return tuple((dimension, answer) for dimension, answer in state["clarifications"])
 
 
+def _known_scores(state: QueryState) -> tuple[tuple[str, float], ...]:
+    """`gate_scores` as tuples again — the same checkpoint round-trip
+    normalisation `_answers` does, for the same reason."""
+    return tuple((dimension, confidence) for dimension, confidence in state["gate_scores"])
+
+
 class AmbiguityGateNode:
     def __init__(self, gate: AmbiguityGate, contested_min_resolved: int = 1) -> None:
         self._gate = gate
@@ -56,7 +62,11 @@ class AmbiguityGateNode:
     def __call__(self, state: QueryState) -> dict[str, Any]:
         answers = _answers(state)
         assessment = self._gate.assess(
-            state["question"], state["datasource_name"], answers, state["links"] or ()
+            state["question"],
+            state["datasource_name"],
+            answers,
+            state["links"] or (),
+            _known_scores(state),
         )
         if not assessment.is_ambiguous:
             # Contested per Phase 6.5's original definition: any resumed
@@ -84,7 +94,11 @@ class AmbiguityGateNode:
             # affected; production wires a higher value via Settings.
             resolved = len(answers) + len(assessment.applied_defaults)
             contested = resolved >= self._contested_min_resolved
-            return {"ambiguity": assessment, "contested": contested}
+            return {
+                "ambiguity": assessment,
+                "contested": contested,
+                "gate_scores": assessment.dimension_scores,
+            }
         # Both guards matter. Without a dimension there is nothing to record
         # the answer against, so the loop would not shrink and would not
         # terminate; without a question there is nothing to show the user, so
@@ -93,11 +107,12 @@ class AmbiguityGateNode:
         dimension = assessment.missing_dimension
         question = assessment.clarifying_question
         if dimension is None or not question:
-            return {"ambiguity": assessment}
+            return {"ambiguity": assessment, "gate_scores": assessment.dimension_scores}
         answer = interrupt(question)
         return {
             "ambiguity": assessment,
             "clarifications": answers + ((dimension, str(answer)),),
+            "gate_scores": assessment.dimension_scores,
         }
 
 

@@ -24,6 +24,12 @@ class AmbiguityGate(Protocol):
     date column in scope, say) instead of relying on the model to notice.
     Defaults to `()` so a caller with no schema knowledge yet (or a fake in a
     test) need not pass anything and gets the pre-schema-aware behaviour.
+
+    Takes `known_scores` — every per-dimension confidence a previous call
+    already measured for this exact question — so a resumed assessment does
+    not pay a model call to re-confirm a dimension nothing has changed about.
+    The returned `AmbiguityAssessment.dimension_scores` is the caller's cache
+    to persist and pass back on the next round.
     """
 
     def assess(
@@ -32,4 +38,5 @@ class AmbiguityGate(Protocol):
         datasource_name: str,
         answers: tuple[tuple[str, str], ...] = (),
         links: tuple[SchemaLink, ...] = (),
+        known_scores: tuple[tuple[str, float], ...] = (),
     ) -> AmbiguityAssessment: ...

@@ -41,6 +41,12 @@ class QueryState(TypedDict):
     intent: str | None
     ambiguity: AmbiguityAssessment | None
     clarifications: tuple[tuple[str, str], ...]
+    # Every per-dimension confidence AmbiguityGateService has measured for
+    # this question so far, across every gate round. Lets a resumed gate call
+    # skip re-scoring a dimension nothing has changed about, instead of
+    # paying a full model call just to reconfirm what a previous round
+    # already established confidently.
+    gate_scores: tuple[tuple[str, float], ...]
     links: tuple[SchemaLink, ...] | None
     plan: QueryPlan | None
     # Phase 5/6's single `candidate` becomes a tuple: the non-contested path
@@ -87,6 +93,7 @@ def initial_state(
         intent=None,
         ambiguity=None,
         clarifications=(),
+        gate_scores=(),
         links=None,
         plan=None,
         candidates=(),
