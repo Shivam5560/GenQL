@@ -4,7 +4,16 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 
-const GOTRUE_URL = process.env.NEXT_PUBLIC_GOTRUE_URL ?? 'http://localhost:9999';
+/**
+ * Where the browser sends someone for an OAuth sign-in.
+ *
+ * Through this app's own origin by default, for the same reason every API call
+ * is: the browser should not have to resolve the backend's hostname, which on
+ * a tunnelled deployment both rotates and can be filtered by an ISP resolver.
+ * `/api/backend/gotrue/authorize` forwards to GoTrue and passes its 302 back,
+ * so the provider redirect still happens — it just starts from here.
+ */
+const GOTRUE_URL = process.env.NEXT_PUBLIC_GOTRUE_URL ?? '/api/backend/gotrue';
 const APP_ORIGIN = process.env.NEXT_PUBLIC_APP_ORIGIN ?? 'http://localhost:3000';
 
 export type AuthMode = 'login' | 'register';

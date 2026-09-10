@@ -14,7 +14,19 @@ import type {
   TurnResponse,
 } from './types';
 
-const API_ORIGIN = process.env.NEXT_PUBLIC_GENQL_API_ORIGIN ?? 'http://localhost:8000';
+/**
+ * Every call goes through this app's own origin, not the backend's.
+ *
+ * `/api/backend/[...path]` forwards server-side to wherever the API actually
+ * lives. A relative base is what makes that true in every environment at once:
+ * the browser resolves it against the page it loaded, so there is no backend
+ * hostname for it to resolve, no CORS preflight, and no build-time coupling to
+ * a tunnel URL that rotates.
+ *
+ * Overridable for the case this does not serve — pointing a local frontend
+ * straight at a local API, with no proxy in between.
+ */
+const API_ORIGIN = process.env.NEXT_PUBLIC_GENQL_API_ORIGIN ?? '/api/backend';
 
 export class ApiError extends Error {
   constructor(
