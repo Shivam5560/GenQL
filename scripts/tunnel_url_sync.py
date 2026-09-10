@@ -42,11 +42,14 @@ URL_PATTERN = re.compile(r"https://[a-z0-9-]+\.trycloudflare\.com")
 
 # What each variable should hold. GoTrue sits behind a path prefix because one
 # quick tunnel is one hostname; see docker/Caddyfile for why that split.
+#
+# Server-side only, and deliberately so. The browser reaches both services
+# through the frontend's own `/api/backend/*` proxy, so no NEXT_PUBLIC_ copy of
+# either URL exists to go stale — which is also why a rotation no longer needs
+# the client bundle rebuilt, only the functions redeployed.
 VARIABLES = {
     "GENQL_API_ORIGIN": "",
-    "NEXT_PUBLIC_GENQL_API_ORIGIN": "",
     "GOTRUE_URL": "/gotrue",
-    "NEXT_PUBLIC_GOTRUE_URL": "/gotrue",
 }
 
 
