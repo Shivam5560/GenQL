@@ -337,7 +337,11 @@ function ThreadView({ threadId }: { threadId: string }) {
                 onChange={(e) => setInput(e.target.value)}
                 disabled={running}
               />
-              <Button type="submit" disabled={running || (!input.trim() && !suggestion)}>
+              <Button
+                type="submit"
+                disabled={running || (!input.trim() && !suggestion)}
+                className="font-eyebrow text-[0.68rem] uppercase tracking-[0.12em]"
+              >
                 Send
               </Button>
             </div>

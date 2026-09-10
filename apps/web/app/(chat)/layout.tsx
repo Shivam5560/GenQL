@@ -50,7 +50,7 @@ function SidebarLink({ href, label, active }: { href: string; label: string; act
   return (
     <Link
       href={href}
-      className={`block border-l-2 px-4.5 py-2 text-sm ${
+      className={`block border-l-2 px-4.5 py-2 font-eyebrow text-[0.72rem] uppercase tracking-[0.1em] ${
         active
           ? 'border-l-[var(--brand)] bg-[var(--panel-2)] font-semibold text-[var(--ink)]'
           : 'border-l-transparent text-[var(--mute)]'
@@ -129,7 +129,7 @@ function ChatShell({ children }: { children: React.ReactNode }) {
         }`}
       >
         <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[var(--line)] px-4.5 py-3.5">
-          <Link href="/" className="text-base font-bold uppercase tracking-wide">
+          <Link href="/" className="font-eyebrow text-[0.9rem] font-medium uppercase tracking-[0.14em]">
             Gen<span className="text-[var(--brand)]">QL</span>
           </Link>
           <ThemeToggle />
@@ -140,7 +140,7 @@ function ChatShell({ children }: { children: React.ReactNode }) {
         <div className="shrink-0 px-4.5 pb-2.5 pt-3">
           <Link
             href="/"
-            className={`flex items-center justify-center gap-1.5 rounded-md border px-3 py-2 text-sm font-semibold ${
+            className={`flex items-center justify-center gap-1.5 rounded-md border px-3 py-2 font-eyebrow text-[0.72rem] uppercase tracking-[0.1em] ${
               pathname === '/'
                 ? 'border-[var(--brand)] bg-[var(--panel-2)] text-[var(--ink)]'
                 : 'border-[var(--line)] text-[var(--ink)]'
@@ -179,7 +179,7 @@ function ChatShell({ children }: { children: React.ReactNode }) {
           <button
             type="button"
             onClick={onSignOut}
-            className="shrink-0 rounded border border-[var(--line)] px-2 py-1 text-[0.72rem] text-[var(--mute)]"
+            className="shrink-0 rounded border border-[var(--line)] px-2 py-1 font-eyebrow text-[0.62rem] uppercase tracking-[0.1em] text-[var(--mute)]"
           >
             Sign out
           </button>
@@ -201,7 +201,7 @@ function ChatShell({ children }: { children: React.ReactNode }) {
               ☰
             </span>
           </button>
-          <span className="text-sm font-bold uppercase tracking-wide">
+          <span className="font-eyebrow text-[0.82rem] font-medium uppercase tracking-[0.14em]">
             Gen<span className="text-[var(--brand)]">QL</span>
           </span>
         </div>

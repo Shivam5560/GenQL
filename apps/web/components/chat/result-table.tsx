@@ -162,7 +162,7 @@ export function ResultTable({
           {/* The count states what is on screen and what exists, because those
               are two different numbers and the difference is the whole reason
               there is a button next to it. */}
-          <span className="text-[0.72rem] text-[var(--mute)]">
+          <span className="font-eyebrow text-[0.62rem] uppercase tracking-[0.1em] text-[var(--mute)]">
             {hidden === 0
               ? `${total} ${total === 1 ? 'row' : 'rows'}`
               : expanded
@@ -173,14 +173,14 @@ export function ResultTable({
             <button
               type="button"
               onClick={() => setExpanded((open) => !open)}
-              className="rounded border border-[var(--line)] px-2.5 py-1 text-[0.72rem] font-medium text-[var(--ink)]"
+              className="rounded border border-[var(--line)] px-2.5 py-1 font-eyebrow text-[0.62rem] uppercase tracking-[0.1em] text-[var(--ink)]"
             >
               {expanded ? 'Show first 8' : `Show all ${total}`}
             </button>
           )}
           <button
             type="button"
-            className="rounded border border-[var(--line)] px-2.5 py-1 text-[0.72rem] font-medium text-[var(--mute)]"
+            className="rounded border border-[var(--line)] px-2.5 py-1 font-eyebrow text-[0.62rem] uppercase tracking-[0.1em] text-[var(--mute)]"
             onClick={() => downloadCsv(turn)}
           >
             Download CSV

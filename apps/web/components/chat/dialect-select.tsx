@@ -13,12 +13,16 @@ export function DialectSelect({
 }) {
   return (
     <Select value={value} onValueChange={(next) => next && onChange(next)}>
-      <SelectTrigger className="h-7 w-[118px] border-[var(--line)] text-[0.72rem]">
+      <SelectTrigger className="h-7 w-[118px] border-[var(--line)] font-eyebrow text-[0.62rem] uppercase tracking-[0.08em]">
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
         {DIALECTS.map((dialect) => (
-          <SelectItem key={dialect} value={dialect} className="text-[0.72rem]">
+          <SelectItem
+            key={dialect}
+            value={dialect}
+            className="font-eyebrow text-[0.62rem] uppercase tracking-[0.08em]"
+          >
             {dialect}
           </SelectItem>
         ))}

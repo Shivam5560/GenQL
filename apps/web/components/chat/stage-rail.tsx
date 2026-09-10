@@ -162,7 +162,9 @@ export function StageRail({
       aria-label="Pipeline stages for this turn"
       className="hidden w-[212px] shrink-0 flex-col gap-3 border-l border-[var(--line)] bg-[var(--panel-2)] px-4 py-5 lg:flex"
     >
-      <p className="text-[0.78rem] font-semibold">How this was answered</p>
+      <p className="font-eyebrow text-[0.66rem] uppercase tracking-[0.14em] text-[var(--mute)]">
+        How this was answered
+      </p>
       <ol className="flex flex-col gap-2 overflow-y-auto">
         {rows.map((row) => (
           <li key={row.key} className="flex gap-2">

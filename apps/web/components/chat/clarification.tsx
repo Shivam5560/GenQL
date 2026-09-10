@@ -57,7 +57,9 @@ export function Clarification({
               className="rounded-full border border-[var(--brand)] px-3.5 py-1.5 text-[0.84rem] text-[var(--ink)]"
             >
               {suggestion}
-              <span className="pl-1.5 text-[0.74rem] text-[var(--mute)]">default</span>
+              <span className="pl-1.5 font-eyebrow text-[0.6rem] uppercase tracking-[0.08em] text-[var(--mute)]">
+                default
+              </span>
             </button>
           )}
           {alternatives.map((option) => (

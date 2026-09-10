@@ -27,7 +27,7 @@ function CopyButton({ text }: { text: string }) {
   return (
     <button
       type="button"
-      className={`rounded border px-2.5 py-1 text-[0.72rem] font-medium ${
+      className={`rounded border px-2.5 py-1 font-eyebrow text-[0.62rem] uppercase tracking-[0.1em] ${
         copied ? 'border-[var(--ok)] text-[var(--ok)]' : 'border-[var(--line)] text-[var(--mute)]'
       }`}
       onClick={() => {
@@ -64,12 +64,16 @@ export function SqlCard({
   return (
     <div className="overflow-hidden rounded-lg border border-[var(--line)] bg-[var(--panel)]">
       <div className="flex items-center justify-between gap-2.5 border-b border-[var(--line)] bg-[var(--panel-2)] px-4 py-2">
-        <div className="flex items-baseline gap-2">
-          <span className="text-[0.78rem] font-semibold">Generated SQL</span>
+        <div className="flex items-baseline gap-2.5">
+          <span className="font-eyebrow text-[0.68rem] uppercase tracking-[0.14em] text-[var(--mute)]">
+            Generated SQL
+          </span>
           {/* The pipeline parsed and cost-checked this statement before it
               reached the browser. Saying so here is the difference between
               reading a suggestion and reading a query. */}
-          <span className="text-[0.72rem] text-[var(--ok)]">Validated</span>
+          <span className="font-eyebrow text-[0.68rem] uppercase tracking-[0.1em] text-[var(--ok)]">
+            ● Validated
+          </span>
         </div>
         <div className="flex items-center gap-2">
           <DialectSelect value={dialect} onChange={setDialect} />

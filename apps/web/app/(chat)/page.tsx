@@ -87,7 +87,11 @@ export default function NewThreadPage() {
                 onChange={(e) => setQuestion(e.target.value)}
                 autoFocus
               />
-              <Button type="submit" disabled={!selected || !question.trim()}>
+              <Button
+                type="submit"
+                disabled={!selected || !question.trim()}
+                className="font-eyebrow text-[0.68rem] uppercase tracking-[0.12em]"
+              >
                 Send
               </Button>
             </div>
