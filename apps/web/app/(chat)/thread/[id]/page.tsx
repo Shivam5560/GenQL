@@ -208,17 +208,32 @@ function ThreadView({ threadId }: { threadId: string }) {
   const turns = detail?.turns ?? [];
   const latest = turns[turns.length - 1];
   const awaitingClarification = Boolean(latest?.clarifying_question);
+  const suggestion = awaitingClarification ? latest?.suggested_answer?.trim() || null : null;
   const datasourceName = detail?.summary.datasource_name ?? handoff?.datasource ?? '';
   const running = pending !== null && pending.error === null;
 
+  /** Answer the pending clarifying question with exactly this text. */
+  function answer(text: string) {
+    setInput('');
+    askQuestion(text, datasourceName, text);
+  }
+
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!input.trim() || running) return;
-    const question = input.trim();
+    if (running) return;
+    const typed = input.trim();
+    // Enter on an empty composer accepts the suggestion, so the common case
+    // — "yes, the obvious reading" — costs one keystroke rather than a
+    // typed sentence. Without a suggestion to accept there is nothing to
+    // submit, and the button stays disabled.
+    if (!typed) {
+      if (awaitingClarification && suggestion) answer(suggestion);
+      return;
+    }
     // Cleared immediately: the question is already on screen as a bubble, and
     // a failure keeps it there with a Retry rather than losing it.
     setInput('');
-    askQuestion(question, datasourceName, awaitingClarification ? question : undefined);
+    askQuestion(typed, datasourceName, awaitingClarification ? typed : undefined);
   }
 
   return (
@@ -245,6 +260,11 @@ function ThreadView({ threadId }: { threadId: string }) {
                 onReveal={() => setRevealedIds((prev) => new Set(prev).add(turn.turn_id))}
                 accessToken={session.accessToken}
                 threadId={threadId}
+                // Only the turn actually waiting for an answer is answerable,
+                // and only while nothing else is in flight: chips on an older
+                // paused turn would resume a pause that has already been
+                // resumed.
+                onAnswer={turn === latest && awaitingClarification && !running ? answer : undefined}
               />
             ))}
             {pending && (
@@ -261,15 +281,17 @@ function ThreadView({ threadId }: { threadId: string }) {
                 placeholder={
                   running
                     ? 'Waiting for the current answer…'
-                    : awaitingClarification
-                      ? 'Answer the question above…'
-                      : `Ask a follow-up about ${datasourceName || 'your data'}…`
+                    : suggestion
+                      ? `Press enter for “${suggestion}”, or answer differently…`
+                      : awaitingClarification
+                        ? 'Answer the question above…'
+                        : `Ask a follow-up about ${datasourceName || 'your data'}…`
                 }
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 disabled={running}
               />
-              <Button type="submit" disabled={running || !input.trim()}>
+              <Button type="submit" disabled={running || (!input.trim() && !suggestion)}>
                 Send
               </Button>
             </div>

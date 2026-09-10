@@ -30,6 +30,8 @@ class ResumeTurnRequest(BaseModel):
 class TurnResponseDto(BaseModel):
     thread_id: str
     clarifying_question: str | None = None
+    suggested_answer: str | None = None
+    clarification_options: list[str] = []
     intent: str | None = None
     validated_sql: str | None = None
     narrowing_suggestion: str | None = None
@@ -38,6 +40,7 @@ class TurnResponseDto(BaseModel):
     row_count: int = 0
     truncated: bool = False
     applied_defaults: list[list[str]] = []
+    assumed: list[list[str]] = []
     rewrite_rules_applied: list[str] = []
     plan_text: str | None = None
     referenced_objects: list[str] = []
@@ -52,6 +55,8 @@ class TurnResponseDto(BaseModel):
         return cls(
             thread_id=response.thread_id,
             clarifying_question=response.clarifying_question,
+            suggested_answer=response.suggested_answer,
+            clarification_options=list(response.clarification_options),
             intent=response.intent,
             validated_sql=response.validated_sql,
             narrowing_suggestion=response.narrowing_suggestion,
@@ -60,6 +65,7 @@ class TurnResponseDto(BaseModel):
             row_count=result.row_count if result else 0,
             truncated=result.truncated if result else False,
             applied_defaults=[list(pair) for pair in response.applied_defaults],
+            assumed=[list(pair) for pair in response.assumed],
             rewrite_rules_applied=list(response.rewrite_rules_applied),
             plan_text=response.plan_text,
             referenced_objects=list(response.referenced_objects),

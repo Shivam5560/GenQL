@@ -20,10 +20,21 @@ class TurnResponse(BaseModel):
 
     thread_id: str
     clarifying_question: str | None = None
+    # What the gate would apply if the question were simply submitted blank,
+    # and a couple of alternatives worth one tap. Set only alongside a
+    # `clarifying_question`, and even then only best-effort: a provider that
+    # offers neither still produces a question worth asking.
+    suggested_answer: str | None = None
+    clarification_options: tuple[str, ...] = ()
     intent: str | None = None
     validated_sql: str | None = None
     result: ExecutionResult | None = None
     applied_defaults: tuple[tuple[str, str], ...] = ()
+    # (dimension, value) decisions applied without asking — this datasource's
+    # rule defaults, plus the gate's reading of anything the question budget
+    # stopped it asking about. Shown to the user so a wrong assumption is
+    # visible and correctable, rather than silently baked into the SQL.
+    assumed: tuple[tuple[str, str], ...] = ()
     # Set, alongside a None `result`, exactly when the turn ended because the
     # query stayed over budget. This is the fourth outcome the CLI renders,
     # beside paused, short-circuited, and finished.

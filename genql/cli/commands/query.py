@@ -26,19 +26,37 @@ from genql.domain.errors import GenqlError
 
 
 def _render_defaults(response: TurnResponse) -> None:
-    if not response.applied_defaults:
-        return
-    # "Resolved", not "applied": the rule's value is recorded here but is not
-    # yet threaded into PlanningService/CandidateGenerationService's prompts,
-    # so saying it was "applied" would overclaim what actually reached the SQL.
-    typer.echo("Resolved via rule (not yet applied to generation):")
-    for dimension, rule_name in response.applied_defaults:
-        typer.echo(f"  {dimension} -> {rule_name}")
-    typer.echo("")
+    """Which rules fired, and what was decided without asking.
+
+    These print as two blocks because they answer two different questions.
+    `applied_defaults` names the RULE, which is what someone who disagrees
+    needs in order to go edit it; `assumed` states the VALUE that actually
+    reached the plan, which is what someone checking the answer needs. The
+    two overlap but are not the same list: an assumption can come from the
+    question budget rather than from any rule.
+
+    "Applied", not "resolved", is now accurate: PlanningNode states these to
+    the planner as binding and the plan is what binds generation, so unlike
+    when this function was written the value genuinely does reach the SQL.
+    """
+    if response.applied_defaults:
+        typer.echo("Applied rules:")
+        for dimension, rule_name in response.applied_defaults:
+            typer.echo(f"  {dimension} -> {rule_name}")
+        typer.echo("")
+    if response.assumed:
+        typer.echo("Assumed without asking (say so in a follow-up to change one):")
+        for dimension, value in response.assumed:
+            typer.echo(f"  {dimension}: {value}")
+        typer.echo("")
 
 
 def _render_paused(response: TurnResponse) -> None:
     typer.echo(response.clarifying_question or "")
+    if response.suggested_answer:
+        typer.echo(f"  suggested: {response.suggested_answer}")
+    for option in response.clarification_options:
+        typer.echo(f"  or: {option}")
     typer.echo("")
     _render_defaults(response)
     typer.echo(f"thread: {response.thread_id}")

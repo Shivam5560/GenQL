@@ -15,4 +15,5 @@ class Planner(Protocol):
         question: str,
         links: tuple[SchemaLink, ...],
         answers: tuple[tuple[str, str], ...] = (),
+        assumed: tuple[tuple[str, str], ...] = (),
     ) -> QueryPlan: ...

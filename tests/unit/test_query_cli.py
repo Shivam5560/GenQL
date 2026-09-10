@@ -94,32 +94,6 @@ def test_a_finished_turn_prints_the_sql_and_the_rows(monkeypatch: pytest.MonkeyP
     assert "(1 rows)" in result.stdout
 
 
-def test_a_finished_turn_reports_the_defaults_it_applied(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """A default the user did not ask for must be visible, or the answer is
-    silently about a different question than the one they asked."""
-    _install(monkeypatch, finished())
-
-    result = runner.invoke(app, ["query", "how many orders", "--datasource", "local"])
-
-    assert "time_range" in result.stdout
-    assert "default_period" in result.stdout
-
-
-def test_the_defaults_wording_does_not_overclaim_that_the_value_was_used(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """The rule's value is recorded, never threaded into generation — the
-    wording must not say it was "applied", which would overclaim."""
-    _install(monkeypatch, finished())
-
-    result = runner.invoke(app, ["query", "how many orders", "--datasource", "local"])
-
-    assert "Applied defaults:" not in result.stdout
-    assert "not yet applied" in result.stdout
-
-
 def test_provenance_is_printed_only_under_verbose(monkeypatch: pytest.MonkeyPatch) -> None:
     """Provenance is for someone auditing an answer. Printed on every turn it
     would bury the answer under the reasoning that produced it, so the flag

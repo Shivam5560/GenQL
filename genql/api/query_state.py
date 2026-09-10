@@ -47,6 +47,13 @@ class QueryState(TypedDict):
     # paying a full model call just to reconfirm what a previous round
     # already established confidently.
     gate_scores: tuple[tuple[str, float], ...]
+    # (dimension, value) decisions the pipeline must apply that the user never
+    # stated: this datasource's rule defaults, plus the gate's own reading of
+    # any dimension the question budget stopped it from asking about. Separate
+    # from `clarifications` because the two are not interchangeable to the
+    # planner — one is what the user requires, the other is what was decided
+    # on their behalf and should be reported back as such.
+    assumptions: tuple[tuple[str, str], ...]
     links: tuple[SchemaLink, ...] | None
     plan: QueryPlan | None
     # Phase 5/6's single `candidate` becomes a tuple: the non-contested path
@@ -94,6 +101,7 @@ def initial_state(
         ambiguity=None,
         clarifications=(),
         gate_scores=(),
+        assumptions=(),
         links=None,
         plan=None,
         candidates=(),

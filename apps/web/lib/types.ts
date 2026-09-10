@@ -1,6 +1,11 @@
 export interface TurnResponse {
   thread_id: string;
   clarifying_question: string | null;
+  /** What the gate applies if the answer is submitted blank. Best-effort: a
+      question can arrive without one. */
+  suggested_answer: string | null;
+  /** A few one-tap alternatives for the question being asked. */
+  clarification_options: string[];
   intent: string | null;
   validated_sql: string | null;
   narrowing_suggestion: string | null;
@@ -9,6 +14,10 @@ export interface TurnResponse {
   row_count: number;
   truncated: boolean;
   applied_defaults: [string, string][];
+  /** (dimension, value) decisions applied without asking — rule defaults, and
+      the gate's own reading of whatever it ran out of budget to ask about.
+      Shown so a wrong one is visible and correctable in a follow-up. */
+  assumed: [string, string][];
   rewrite_rules_applied: string[];
   plan_text: string | null;
   referenced_objects: string[];
@@ -42,6 +51,12 @@ export interface TurnRecord {
   // such field), so it's only ever populated for a turn created fresh in this browser session —
   // turns reloaded from GET /v1/threads/{id} will not have it.
   referenced_objects?: string[];
+  // Optional for the same reason. A reloaded paused turn therefore shows its
+  // question with no chips, which is the pre-suggestion experience rather
+  // than a broken one.
+  suggested_answer?: string | null;
+  clarification_options?: string[];
+  assumed?: [string, string][];
 }
 
 export interface ThreadDetail {

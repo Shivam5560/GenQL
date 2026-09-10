@@ -131,6 +131,49 @@ def test_the_provider_receives_the_answers_the_caller_passed() -> None:
     assert "all time" in chat.prompts[0]
 
 
+def test_the_prompt_states_assumptions_as_binding_and_as_unasked() -> None:
+    """An assumption must reach the plan (a rule default that does not is
+    worse than no default, since it also suppressed the question) and must
+    be distinguishable from something the user actually said, so the plan
+    can name it as an assumption rather than as a requirement."""
+    prompt = build_planning_prompt(
+        "which customer has the most orders",
+        LINKS,
+        assumed=(("time_range", "the most recent complete calendar year"),),
+    )
+
+    assert "the most recent complete calendar year" in prompt
+    assert "binding" in prompt.lower()
+    assert "not asked" in prompt.lower()
+
+
+def test_answers_and_assumptions_are_stated_in_separate_sections() -> None:
+    prompt = build_planning_prompt(
+        "q",
+        LINKS,
+        answers=(("filter", "store channel only"),),
+        assumed=(("time_range", "last 12 months"),),
+    )
+
+    assert "store channel only" in prompt
+    assert "last 12 months" in prompt
+    assert prompt.index("store channel only") < prompt.index("last 12 months")
+
+
+def test_no_assumptions_omits_the_assumption_section() -> None:
+    prompt = build_planning_prompt("q", LINKS)
+
+    assert "assum" not in prompt.lower()
+
+
+def test_the_provider_receives_the_assumptions_the_caller_passed() -> None:
+    chat = FakeChatProvider({"plan_text": "p", "referenced_objects": []})
+
+    PlanningService(chat).plan("q", LINKS, assumed=(("time_range", "last 12 months"),))
+
+    assert "last 12 months" in chat.prompts[0]
+
+
 def test_a_validation_error_raised_by_the_provider_is_also_translated() -> None:
     class _Tiny(BaseModel):
         n: int

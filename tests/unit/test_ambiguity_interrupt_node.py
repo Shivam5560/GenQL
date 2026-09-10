@@ -18,11 +18,11 @@ from tests.unit.test_query_turn_nodes import CLEAR, VAGUE
 
 
 @pytest.fixture()
-def no_interrupt(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+def no_interrupt(monkeypatch: pytest.MonkeyPatch) -> list[object]:
     """Replaces langgraph's interrupt() with a recorder that returns an answer."""
-    asked: list[str] = []
+    asked: list[object] = []
 
-    def fake_interrupt(value: str) -> str:
+    def fake_interrupt(value: object) -> str:
         asked.append(value)
         return "last quarter"
 
@@ -31,18 +31,46 @@ def no_interrupt(monkeypatch: pytest.MonkeyPatch) -> list[str]:
 
 
 def test_an_ambiguous_gate_interrupts_with_the_clarifying_question(
-    no_interrupt: list[str],
+    no_interrupt: list[object],
 ) -> None:
     state = initial_state("q", "local", "t-1")
     state["ambiguity"] = VAGUE
 
     AmbiguityInterruptNode()(state)
 
-    assert no_interrupt == ["Over what time period?"]
+    assert no_interrupt == [
+        {"question": "Over what time period?", "suggested_answer": None, "options": ()}
+    ]
+
+
+def test_the_interrupt_carries_the_suggestion_and_options_for_the_ui(
+    no_interrupt: list[object],
+) -> None:
+    """The pause is the only channel to the client, so a suggestion that is
+    not in the interrupt payload cannot be offered as a one-tap answer."""
+    suggesting = AmbiguityAssessment(
+        is_ambiguous=True,
+        missing_dimension="time_range",
+        clarifying_question="Over what time period?",
+        suggested_answer="the most recent complete year",
+        options=("last 12 months", "all time"),
+    )
+    state = initial_state("q", "local", "t-1")
+    state["ambiguity"] = suggesting
+
+    AmbiguityInterruptNode()(state)
+
+    assert no_interrupt == [
+        {
+            "question": "Over what time period?",
+            "suggested_answer": "the most recent complete year",
+            "options": ("last 12 months", "all time"),
+        }
+    ]
 
 
 def test_the_answer_is_recorded_against_the_dimension_that_was_asked_about(
-    no_interrupt: list[str],
+    no_interrupt: list[object],
 ) -> None:
     state = initial_state("q", "local", "t-1")
     state["ambiguity"] = VAGUE
@@ -52,7 +80,7 @@ def test_the_answer_is_recorded_against_the_dimension_that_was_asked_about(
     assert update == {"clarifications": (("time_range", "last quarter"),)}
 
 
-def test_clarifications_accumulate_rather_than_replace(no_interrupt: list[str]) -> None:
+def test_clarifications_accumulate_rather_than_replace(no_interrupt: list[object]) -> None:
     state = initial_state("q", "local", "t-1")
     state["ambiguity"] = VAGUE
     state["clarifications"] = (("entity", "stores"),)
@@ -65,7 +93,7 @@ def test_clarifications_accumulate_rather_than_replace(no_interrupt: list[str]) 
     )
 
 
-def test_a_clear_assessment_never_interrupts(no_interrupt: list[str]) -> None:
+def test_a_clear_assessment_never_interrupts(no_interrupt: list[object]) -> None:
     state = initial_state("q", "local", "t-1")
     state["ambiguity"] = CLEAR
 
@@ -75,7 +103,7 @@ def test_a_clear_assessment_never_interrupts(no_interrupt: list[str]) -> None:
     assert no_interrupt == []
 
 
-def test_no_assessment_yet_never_interrupts(no_interrupt: list[str]) -> None:
+def test_no_assessment_yet_never_interrupts(no_interrupt: list[object]) -> None:
     """Defence in depth: unreachable via the real graph (route_after_gate only
     sends this node an ambiguous assessment), but a node that assumed one was
     present would crash rather than no-op on a state it was never meant to
@@ -99,7 +127,7 @@ def test_an_ambiguous_assessment_with_no_question_raises() -> None:
 
 
 def test_clarifications_restored_from_a_checkpoint_as_lists_still_work(
-    no_interrupt: list[str],
+    no_interrupt: list[object],
 ) -> None:
     """A checkpoint round-trip returns `[["entity", "stores"]]`, not
     `(("entity", "stores"),)` — langgraph serialises state through JSON. The

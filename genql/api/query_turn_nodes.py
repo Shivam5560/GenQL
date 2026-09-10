@@ -95,26 +95,41 @@ class AmbiguityGateNode:
             # exception the spec intended it to be.
             #
             # `contested_min_resolved` raises the bar: contested now requires
-            # at least this many DISTINCT dimensions to have needed resolving
-            # (answered or defaulted — each is a separate entry in `answers`
-            # or `applied_defaults`, one per dimension by construction, so
-            # counting entries already counts distinct dimensions). One
-            # narrow gap, cleanly closed by one clarifying answer, is not the
-            # same signal as a question that was unclear along several axes
-            # at once — the latter is what actually predicts that a single
-            # generated candidate might guess wrong on some OTHER dimension
-            # the gate never explicitly asked about, which is what critique
-            # and probing exist to catch. Defaults to 1 (every prior
-            # behaviour, unchanged) so no caller that does not pass this is
-            # affected; production wires a higher value via Settings.
-            resolved = len(answers) + len(assessment.applied_defaults)
-            contested = resolved >= self._contested_min_resolved
+            # at least this many DISTINCT dimensions to have needed an answer
+            # FROM THE USER (one entry per dimension in `answers` by
+            # construction, so counting entries already counts distinct
+            # dimensions). One narrow gap, cleanly closed by one clarifying
+            # answer, is not the same signal as a question that was unclear
+            # along several axes at once — the latter is what actually
+            # predicts that a single generated candidate might guess wrong on
+            # some OTHER dimension the gate never explicitly asked about,
+            # which is what critique and probing exist to catch. Defaults to 1
+            # (every prior behaviour, unchanged) so no caller that does not
+            # pass this is affected; production wires a higher value via
+            # Settings.
+            #
+            # `applied_defaults` is deliberately NOT counted, though it was
+            # until this comment was written. A rule default is a dimension
+            # somebody already answered once, in YAML, for every question
+            # against this datasource — the opposite of evidence that THIS
+            # question is unclear. Counting it made contested unavoidable
+            # rather than exceptional: `semantic/local.yaml` alone defaults
+            # time_range and comparison_baseline, so at a threshold of 2
+            # every turn against `local` was contested before the user typed
+            # anything, which is precisely the "contested is the common case"
+            # problem the threshold was raised to fix.
+            contested = len(answers) >= self._contested_min_resolved
             return {
                 "ambiguity": assessment,
                 "contested": contested,
                 "gate_scores": assessment.dimension_scores,
+                "assumptions": assessment.assumed,
             }
-        return {"ambiguity": assessment, "gate_scores": assessment.dimension_scores}
+        return {
+            "ambiguity": assessment,
+            "gate_scores": assessment.dimension_scores,
+            "assumptions": assessment.assumed,
+        }
 
 
 class AmbiguityInterruptNode:
@@ -138,7 +153,18 @@ class AmbiguityInterruptNode:
             raise AmbiguityGateError(
                 "the gate reported ambiguous with no dimension or no question to ask"
             )
-        answer = interrupt(question)
+        # A mapping, not the bare question string. The pause is the only
+        # channel from the gate to whoever is answering, so a suggestion that
+        # does not travel in this payload cannot be offered as a one-tap
+        # answer — the client would have nothing but prose to render. The
+        # resume value is unaffected: it is still the answer text.
+        answer = interrupt(
+            {
+                "question": question,
+                "suggested_answer": assessment.suggested_answer,
+                "options": assessment.options,
+            }
+        )
         return {"clarifications": _answers(state) + ((dimension, str(answer)),)}
 
 

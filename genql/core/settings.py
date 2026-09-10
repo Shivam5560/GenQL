@@ -63,9 +63,26 @@ class Settings(BaseSettings):
     # all rather than hoping the threshold catches it), re-run
     # `genql eval golden` after deploying both changes and adjust from there.
     ambiguity_threshold: float = 0.55
-    # How many distinct dimensions must need resolving (answered by the user
-    # or covered by a rule default) before a turn counts as "contested" and
-    # pays for multi-candidate generation, critique, and probing. Phase 6.5's
+    # How many clarifying questions ONE turn may ask before the gate stops
+    # asking and starts assuming. Past the cap, every still-under-threshold
+    # dimension is carried to the planner as an explicit assumption and
+    # reported back to the user, who corrects a visible decision after seeing
+    # an answer instead of answering an interview before seeing one.
+    #
+    # 1, because the observed complaint was three questions in a row on a
+    # single question ("what time period?", then "what income threshold?",
+    # then "what comparison baseline?") — each one a full round trip plus a
+    # human, on a turn that had not yet returned a row. The termination proof
+    # was never the problem: six dimensions resolved one per round always
+    # terminated, it just terminated in six rounds. None disables the budget
+    # and restores unlimited asking.
+    ambiguity_max_questions: int | None = 1
+    # How many distinct dimensions the USER must have answered before a turn
+    # counts as "contested" and pays for multi-candidate generation,
+    # critique, and probing. Rule defaults are deliberately not counted (see
+    # AmbiguityGateNode): a YAML default is a pre-answered dimension, and
+    # counting it made every turn against a datasource with any rules at all
+    # contested before the user typed a word. Phase 6.5's
     # original definition used 1 — any resolution at all — which live testing
     # showed made contested the common case rather than the exception:
     # almost every question against a sales-shaped schema needs one

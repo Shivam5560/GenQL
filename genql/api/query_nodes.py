@@ -32,6 +32,17 @@ from genql.services.query.static_validation_service import StaticValidationServi
 _log = structlog.get_logger(__name__)
 
 
+def _pairs(raw: tuple[tuple[str, str], ...]) -> tuple[tuple[str, str], ...]:
+    """Pairs-of-strings as tuples again, whatever the checkpointer gave back.
+
+    A checkpoint round-trip serialises a tuple-of-pairs to JSON arrays and
+    restores it as `[["time_range", "2020"]]`, so a resumed turn would hand
+    lists to a port typed `tuple[tuple[str, str], ...]`. The same
+    normalisation `query_turn_nodes._answers` performs, for the same reason.
+    """
+    return tuple((first, second) for first, second in raw)
+
+
 class SchemaLinkingNode:
     def __init__(self, linker: SchemaLinker) -> None:
         self._linker = linker
@@ -48,7 +59,16 @@ class PlanningNode:
     def __call__(self, state: QueryState) -> dict[str, Any]:
         return {
             "plan": self._planner.plan(
-                state["question"], state["links"] or (), state["clarifications"]
+                state["question"],
+                state["links"] or (),
+                # Both, and separately: what the user answered is a
+                # requirement, what the gate assumed is a decision made on
+                # their behalf. A rule default reaches the plan only through
+                # `assumptions` — before it did, the gate suppressed the
+                # clarifying question and the value went nowhere, leaving the
+                # generator to invent its own period.
+                _pairs(state["clarifications"]),
+                _pairs(state["assumptions"]),
             )
         }
 

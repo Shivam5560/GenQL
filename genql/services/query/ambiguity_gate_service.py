@@ -23,102 +23,33 @@ one does.
 
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, ValidationError
+from pydantic import ValidationError
 
 from genql.domain.entities.ambiguity_assessment import (
     AMBIGUITY_DIMENSIONS,
     AmbiguityAssessment,
 )
+from genql.domain.entities.rule import Rule
 from genql.domain.entities.schema_link import SchemaLink
 from genql.domain.errors import AmbiguityGateError, ChatProviderError
 from genql.domain.ports.chat_provider import ChatProvider
 from genql.domain.ports.rule_reader import RuleReader
-
-# Substrings that mark a column as date/time-shaped. SchemaLink carries no
-# type information (genql.domain.entities.schema_link), only names, so this is
-# a naming heuristic rather than a type check — good enough to tell "nothing
-# in scope could possibly answer a time_range question" from "maybe it could",
-# which is all this filter needs.
-_DATE_COLUMN_MARKERS = ("date", "_dt", "_yr", "year", "month", "quarter", "_dow")
-
-# Dimension-table bookkeeping columns — TPC-DS's `s_rec_start_date` /
-# `s_rec_end_date` (SCD2 row-validity tracking, present on every dimension
-# table that carries history) and `s_closed_date_sk` (a one-off lifecycle
-# event on the dimension row itself, not a transactional date) — match
-# `_DATE_COLUMN_MARKERS` but are not a business date a generic question is
-# asking about. Left unexcluded, a question with no real time dimension at
-# all ("top 5 states by number of stores" against `tpcds.store`, which
-# carries only these) still triggered the clarifying question this filter
-# exists to remove. A question specifically about store openings/closures
-# would still need to name that explicitly; this filter only decides whether
-# to preemptively ask "what time period?" for questions that never asked
-# about time at all.
-_SCD_BOOKKEEPING_MARKERS = ("rec_start", "rec_end", "closed_date")
-
-
-def _has_time_dimension(links: tuple[SchemaLink, ...]) -> bool:
-    return any(
-        marker in name.lower()
-        for link in links
-        for name in link.column_names
-        if not any(scd in name.lower() for scd in _SCD_BOOKKEEPING_MARKERS)
-        for marker in _DATE_COLUMN_MARKERS
-    )
-
-
-class DimensionScore(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
-    dimension: str
-    confidence: float
-
-
-class GateResponse(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
-    scores: tuple[DimensionScore, ...]
-    # Which dimension `clarifying_question` actually asks about. Returned
-    # rather than re-derived, because the two must agree: the caller records
-    # the user's answer against this dimension and removes it from the open
-    # set, so a question about `filter` filed under `time_range` both answers
-    # the wrong dimension and permanently closes one that was never asked.
-    clarifying_dimension: str
-    clarifying_question: str
-
-
-def build_gate_prompt(
-    question: str,
-    open_dimensions: tuple[str, ...],
-    answers: tuple[tuple[str, str], ...],
-) -> str:
-    context = "\n".join(f"- {dimension}: {answer}" for dimension, answer in answers) or (
-        "- (none yet)"
-    )
-    dimensions = "\n".join(f"- {dimension}" for dimension in open_dimensions)
-    return (
-        "You are judging how completely an analytical question specifies what "
-        "it wants, so a SQL generator does not have to guess.\n\n"
-        f"Question:\n{question}\n\n"
-        f"Already clarified by the user:\n{context}\n\n"
-        f"Dimensions still to judge:\n{dimensions}\n\n"
-        "Rules:\n"
-        "- For each dimension listed above, return a `confidence` between 0.0 "
-        "and 1.0 that the question (plus the clarifications) already specifies "
-        "it well enough to write SQL without guessing.\n"
-        "- Judge only the dimensions listed. Do not invent others.\n"
-        "- Return `clarifying_dimension`: the LOWEST-confidence dimension, "
-        "copied exactly from the list above.\n"
-        "- Return `clarifying_question`: a single, specific question about "
-        "`clarifying_dimension` and nothing else. Ask about one thing. Never "
-        "ask a compound question and never present a form."
-    )
+from genql.services.query.ambiguity_gate_prompt import GateResponse, build_gate_prompt
+from genql.services.query.schema_time_dimension import has_time_dimension
 
 
 class AmbiguityGateService:
-    def __init__(self, chat: ChatProvider, rules: RuleReader, threshold: float) -> None:
+    def __init__(
+        self,
+        chat: ChatProvider,
+        rules: RuleReader,
+        threshold: float,
+        max_questions: int | None = None,
+    ) -> None:
         self._chat = chat
         self._rules = rules
         self._threshold = threshold
+        self._max_questions = max_questions
 
     def assess(
         self,
@@ -130,7 +61,17 @@ class AmbiguityGateService:
     ) -> AmbiguityAssessment:
         defaults = self._defaults(datasource_name)
         applied = tuple(
-            (dimension, defaults[dimension])
+            (dimension, defaults[dimension].name)
+            for dimension in AMBIGUITY_DIMENSIONS
+            if dimension in defaults
+        )
+        # The rule VALUES, which is what the planner needs; `applied` above
+        # carries the rule NAMES, which is what the user needs in order to go
+        # change one. Assumptions the model supplies for dimensions the
+        # budget suppressed are appended to this further down, never in front
+        # of it: a human-authored rule outranks a guess about one question.
+        assumed = tuple(
+            (dimension, defaults[dimension].value)
             for dimension in AMBIGUITY_DIMENSIONS
             if dimension in defaults
         )
@@ -142,7 +83,7 @@ class AmbiguityGateService:
         # and hoping the threshold catches it is exactly the over-triggering
         # this replaces — asking "what time period?" about a row count that
         # has no date column at all.
-        schema_excluded = {"time_range"} if links and not _has_time_dimension(links) else set()
+        schema_excluded = {"time_range"} if links and not has_time_dimension(links) else set()
         open_dimensions = tuple(
             dimension
             for dimension in AMBIGUITY_DIMENSIONS
@@ -151,7 +92,9 @@ class AmbiguityGateService:
             and dimension not in schema_excluded
         )
         if not open_dimensions:
-            return AmbiguityAssessment(is_ambiguous=False, applied_defaults=applied)
+            return AmbiguityAssessment(
+                is_ambiguous=False, applied_defaults=applied, assumed=assumed
+            )
 
         known = dict(known_scores)
         # Re-score a dimension only if it has never been judged, or was judged
@@ -185,7 +128,47 @@ class AmbiguityGateService:
         )
         if not under:
             return AmbiguityAssessment(
-                is_ambiguous=False, applied_defaults=applied, dimension_scores=dimension_scores
+                is_ambiguous=False,
+                applied_defaults=applied,
+                assumed=assumed,
+                dimension_scores=dimension_scores,
+            )
+        # The question budget. Every answer in `answers` is one question this
+        # turn already asked, so a spent budget means stop asking and start
+        # assuming: each still-under-threshold dimension is carried on
+        # `assumed` with the model's own reading of it, which PlanningNode
+        # then states to the planner as binding.
+        #
+        # This is the fix for the interview problem. The termination proof was
+        # always sound — six dimensions, one resolved per round, so at most
+        # six rounds — but "terminates" is not "acceptable": a question
+        # against a sales-shaped schema really was asked about time_range,
+        # then filter, then comparison_baseline before it saw a row, and each
+        # round costs a full round trip plus a human. Assuming and showing
+        # the assumption lets the user correct one visible decision after
+        # seeing an answer, instead of answering an interview before seeing
+        # one. `None` disables the budget entirely, which is every caller
+        # written before it existed.
+        if self._max_questions is not None and len(answers) >= self._max_questions:
+            # `under` non-empty implies every one of its members was scored on
+            # this call (see the assert below for the full argument), so the
+            # assumptions are all present in `response`.
+            assert response is not None
+            assumptions = {
+                score.dimension: score.assumption.strip()
+                for score in response.scores
+                if score.assumption.strip()
+            }
+            guesses = tuple(
+                (dimension, assumptions[dimension])
+                for dimension in under
+                if dimension in assumptions
+            )
+            return AmbiguityAssessment(
+                is_ambiguous=False,
+                applied_defaults=applied,
+                assumed=assumed + guesses,
+                dimension_scores=dimension_scores,
             )
         # `under` non-empty implies `to_score` was non-empty (every dimension
         # in `under` was either newly scored or already-known-low-and-thus-
@@ -205,22 +188,32 @@ class AmbiguityGateService:
                 f"the gate found {missing!r} under-specified in {question!r} but "
                 "returned no clarifying question to ask"
             )
+        suggested = response.suggested_answer.strip()
         return AmbiguityAssessment(
             is_ambiguous=True,
             missing_dimension=missing,
             clarifying_question=clarifying_question,
+            # Blank rather than absent is the same thing to a caller deciding
+            # whether to render a chip, so it is normalised to None here
+            # instead of at every read site.
+            suggested_answer=suggested or None,
+            options=tuple(option.strip() for option in response.options if option.strip()),
             applied_defaults=applied,
+            assumed=assumed,
             dimension_scores=dimension_scores,
         )
 
-    def _defaults(self, datasource_name: str) -> dict[str, str]:
+    def _defaults(self, datasource_name: str) -> dict[str, Rule]:
         """First rule by name wins per dimension; the reader orders by name, so
         the winner is stable rather than dependent on row order. A rule naming
-        a dimension outside AMBIGUITY_DIMENSIONS is inert, per the spec's §11."""
-        defaults: dict[str, str] = {}
+        a dimension outside AMBIGUITY_DIMENSIONS is inert, per the spec's §11.
+
+        The whole Rule is kept, not just its name: callers need the name for
+        provenance and the value to actually apply."""
+        defaults: dict[str, Rule] = {}
         for rule in self._rules.read_rules(datasource_name):
             if rule.dimension in AMBIGUITY_DIMENSIONS and rule.dimension not in defaults:
-                defaults[rule.dimension] = rule.name
+                defaults[rule.dimension] = rule
         return defaults
 
     def _score(

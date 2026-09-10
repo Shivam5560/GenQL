@@ -90,7 +90,12 @@ def test_intent_classification_does_not_swallow_its_typed_failure() -> None:
 def test_an_unambiguous_gate_writes_the_assessment_and_asks_nothing() -> None:
     update = AmbiguityGateNode(FakeGate(CLEAR))(initial_state("q", "local", "t-1"))
 
-    assert update == {"ambiguity": CLEAR, "contested": True, "gate_scores": ()}
+    assert update == {
+        "ambiguity": CLEAR,
+        "contested": False,
+        "gate_scores": (),
+        "assumptions": (),
+    }
 
 
 def test_an_ambiguous_gate_never_interrupts_itself() -> None:
@@ -99,7 +104,7 @@ def test_an_ambiguous_gate_never_interrupts_itself() -> None:
     committed to state before any interrupt can happen."""
     update = AmbiguityGateNode(FakeGate(VAGUE))(initial_state("q", "local", "t-1"))
 
-    assert update == {"ambiguity": VAGUE, "gate_scores": ()}
+    assert update == {"ambiguity": VAGUE, "gate_scores": (), "assumptions": ()}
 
 
 def test_the_gate_is_given_the_answers_collected_so_far() -> None:
@@ -144,7 +149,12 @@ def test_a_clear_gate_with_no_prior_answers_and_no_defaults_is_not_contested() -
 
     update = AmbiguityGateNode(FakeGate(plain_clear))(initial_state("q", "local", "t-1"))
 
-    assert update == {"ambiguity": plain_clear, "contested": False, "gate_scores": ()}
+    assert update == {
+        "ambiguity": plain_clear,
+        "contested": False,
+        "gate_scores": (),
+        "assumptions": (),
+    }
 
 
 def test_a_clear_gate_after_a_resumed_answer_is_contested() -> None:
@@ -157,7 +167,10 @@ def test_a_clear_gate_after_a_resumed_answer_is_contested() -> None:
     assert update["contested"] is True
 
 
-def test_a_clear_gate_with_an_applied_default_is_contested() -> None:
+def test_a_clear_gate_with_only_an_applied_default_is_not_contested() -> None:
+    """Even at the permissive threshold of 1, a rule default alone does not
+    contest a turn: it is a dimension pre-answered in YAML for every
+    question against the datasource, not a gap this question left open."""
     update = AmbiguityGateNode(FakeGate(CLEAR))(initial_state("q", "local", "t-1"))
 
-    assert update["contested"] is True
+    assert update["contested"] is False

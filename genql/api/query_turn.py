@@ -44,13 +44,43 @@ def _applied_defaults(raw: dict[str, Any]) -> tuple[tuple[str, str], ...]:
     return tuple((dimension, rule) for dimension, rule in ambiguity.applied_defaults)
 
 
+def _assumed(raw: dict[str, Any]) -> tuple[tuple[str, str], ...]:
+    ambiguity = raw.get("ambiguity")
+    if ambiguity is None:
+        return ()
+    return tuple((dimension, value) for dimension, value in ambiguity.assumed)
+
+
+def _clarification(value: Any) -> tuple[str, str | None, tuple[str, ...]]:
+    """Unpack AmbiguityInterruptNode's interrupt payload.
+
+    A mapping since suggestions were added, and a bare string before that —
+    both are handled because a turn checkpointed by the older code can be
+    resumed by this one, and a dict rendered through `str()` would show the
+    user a Python repr instead of a question.
+    """
+    if isinstance(value, dict):
+        options = value.get("options") or ()
+        suggested = value.get("suggested_answer")
+        return (
+            str(value.get("question", "")),
+            str(suggested) if suggested else None,
+            tuple(str(option) for option in options),
+        )
+    return str(value), None, ()
+
+
 def to_response(thread_id: str, raw: dict[str, Any]) -> TurnResponse:
     interrupts = raw.get("__interrupt__") or ()
     if interrupts:
+        question, suggested, options = _clarification(interrupts[0].value)
         return TurnResponse(
             thread_id=thread_id,
-            clarifying_question=str(interrupts[0].value),
+            clarifying_question=question,
+            suggested_answer=suggested,
+            clarification_options=options,
             applied_defaults=_applied_defaults(raw),
+            assumed=_assumed(raw),
         )
     state = cast(QueryState, raw)
     optimization = state.get("optimization")
@@ -68,6 +98,7 @@ def to_response(thread_id: str, raw: dict[str, Any]) -> TurnResponse:
         validated_sql=state["validated_sql"],
         result=state["result"],
         applied_defaults=_applied_defaults(raw),
+        assumed=_assumed(raw),
         narrowing_suggestion=(
             optimization.narrowing_suggestion if optimization is not None and over_budget else None
         ),

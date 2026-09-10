@@ -1,4 +1,5 @@
 import type { TurnRecord } from '@/lib/types';
+import { Assumptions, Clarification } from './clarification';
 import { SqlCard } from './sql-card';
 
 export function MessageTurn({
@@ -7,12 +8,17 @@ export function MessageTurn({
   onReveal,
   accessToken,
   threadId,
+  onAnswer,
 }: {
   turn: TurnRecord;
   revealed: boolean;
   onReveal?: () => void;
   accessToken: string;
   threadId: string;
+  /** Answers this turn's clarifying question directly, from a tapped chip.
+      Omitted for a turn that is no longer the one being answered, which is
+      what makes the chips disappear once the thread has moved on. */
+  onAnswer?: (answer: string) => void;
 }) {
   return (
     <div className="flex flex-col gap-2.5">
@@ -21,10 +27,16 @@ export function MessageTurn({
       </div>
       <div className="flex w-full flex-col gap-3">
         {turn.clarifying_question ? (
-          <p className="max-w-[64ch] text-sm text-[var(--mute)]">{turn.clarifying_question}</p>
+          <Clarification
+            question={turn.clarifying_question}
+            suggestedAnswer={turn.suggested_answer}
+            options={turn.clarification_options}
+            onAnswer={onAnswer}
+          />
         ) : (
           <>
             {turn.recap && <p className="max-w-[64ch] text-sm text-[var(--mute)]">{turn.recap}</p>}
+            <Assumptions assumed={turn.assumed ?? []} />
             {/* Every unrevealed turn stays executable, not just the latest one:
                 `revealed` alone decides whether results are shown. */}
             <SqlCard

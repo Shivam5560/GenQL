@@ -53,6 +53,7 @@ class TurnContainer(QueryContainer):
         chat=QueryContainer.chat_provider,
         rules=QueryContainer.rule_reader,
         threshold=QueryContainer.settings.provided.ambiguity_threshold,
+        max_questions=QueryContainer.settings.provided.ambiguity_max_questions,
     )
     domain_scoping_service = providers.Singleton(
         DomainScopingService,

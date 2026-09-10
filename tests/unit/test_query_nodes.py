@@ -42,12 +42,17 @@ class FakeLinker:
 
 
 class FakePlanner:
+    def __init__(self) -> None:
+        self.calls: list[tuple[tuple[tuple[str, str], ...], tuple[tuple[str, str], ...]]] = []
+
     def plan(
         self,
         question: str,
         links: tuple[SchemaLink, ...],
         answers: tuple[tuple[str, str], ...] = (),
+        assumed: tuple[tuple[str, str], ...] = (),
     ) -> QueryPlan:
+        self.calls.append((answers, assumed))
         return PLAN
 
 
@@ -111,6 +116,40 @@ def test_planning_writes_the_plan_onto_the_state() -> None:
     state["links"] = (LINK,)
 
     assert PlanningNode(FakePlanner())(state) == {"plan": PLAN}
+
+
+def test_planning_passes_answers_and_assumptions_through_separately() -> None:
+    """A rule default reaches the SQL only by this route. Before it did, the
+    gate suppressed the clarifying question and dropped the value, so the
+    generator invented a period of its own."""
+    planner = FakePlanner()
+    state = initial_state("q", "local", "t-1")
+    state["links"] = (LINK,)
+    state["clarifications"] = (("filter", "store channel only"),)
+    state["assumptions"] = (("time_range", "the most recent complete calendar year"),)
+
+    PlanningNode(planner)(state)
+
+    assert planner.calls == [
+        (
+            (("filter", "store channel only"),),
+            (("time_range", "the most recent complete calendar year"),),
+        )
+    ]
+
+
+def test_planning_retuples_answers_and_assumptions_restored_as_lists() -> None:
+    """A checkpoint round-trip restores pairs as JSON arrays; the ports are
+    typed as tuples, so a resumed turn must not hand lists through."""
+    planner = FakePlanner()
+    state = initial_state("q", "local", "t-1")
+    state["links"] = (LINK,)
+    state["clarifications"] = [["filter", "store only"]]  # type: ignore[typeddict-item]
+    state["assumptions"] = [["time_range", "last year"]]  # type: ignore[typeddict-item]
+
+    PlanningNode(planner)(state)
+
+    assert planner.calls == [((("filter", "store only"),), (("time_range", "last year"),))]
 
 
 def test_candidate_generation_forwards_state_into_the_generator() -> None:

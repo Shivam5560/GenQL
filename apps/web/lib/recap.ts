@@ -5,7 +5,16 @@ export function buildRecap(response: TurnResponse): string | null {
   if (response.intent) return null; // a short-circuited, non-analytical turn — nothing to recap
   const parts: string[] = [];
   if (response.narrowing_suggestion) parts.push(response.narrowing_suggestion);
-  if (response.applied_defaults.length > 0) {
+  // The values, not the rule names: this line is read by someone checking
+  // whether the answer means what they wanted, and "time_range → the most
+  // recent complete year" tells them that where "time_range →
+  // default_period" does not. The rule names stay available on the turn for
+  // anyone who wants to go edit one.
+  const assumed = response.assumed ?? [];
+  if (assumed.length > 0) {
+    const stated = assumed.map(([dimension, value]) => `${dimension} → ${value}`).join(', ');
+    parts.push(`Assumed: ${stated}.`);
+  } else if (response.applied_defaults.length > 0) {
     const defaults = response.applied_defaults
       .map(([dimension, rule]) => `${dimension} → ${rule}`)
       .join(', ');
@@ -33,5 +42,9 @@ export function toLocalTurnRecord(
     created_at: new Date().toISOString(),
     // Only meaningful when non-empty — an empty array and a missing field both mean "nothing to show".
     referenced_objects: response.referenced_objects.length > 0 ? response.referenced_objects : undefined,
+    suggested_answer: response.suggested_answer,
+    clarification_options:
+      response.clarification_options.length > 0 ? response.clarification_options : undefined,
+    assumed: response.assumed.length > 0 ? response.assumed : undefined,
   };
 }

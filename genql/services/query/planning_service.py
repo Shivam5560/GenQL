@@ -56,10 +56,14 @@ def build_planning_prompt(
     question: str,
     links: tuple[SchemaLink, ...],
     answers: tuple[tuple[str, str], ...] = (),
+    assumed: tuple[tuple[str, str], ...] = (),
 ) -> str:
     catalog = "\n".join(_render_link(link) for link in links)
     context = (
         "\n".join(f"- {dimension}: {answer}" for dimension, answer in answers) if answers else ""
+    )
+    assumptions = (
+        "\n".join(f"- {dimension}: {value}" for dimension, value in assumed) if assumed else ""
     )
     sections = [
         "You are planning how to answer an analytical question against a data warehouse.\n"
@@ -74,6 +78,16 @@ def build_planning_prompt(
             'restriction ("all time", "every channel", "no filter"), the plan must say '
             "so explicitly and apply none — do not substitute a plausible-looking default "
             "in its place. Do not re-decide a dimension the user already answered."
+        )
+    if assumptions:
+        sections.append(
+            "The following were NOT asked. They are this datasource's standing "
+            "defaults and the best reading of the question where it was silent:\n"
+            f"{assumptions}\n\n"
+            "Apply them exactly as stated — they are binding in the same way an "
+            "answer is, and inventing a different value for one of these "
+            "dimensions is an error. State each one in the plan as an "
+            "assumption, so a reader can see what was decided on their behalf."
         )
     sections.append(f"Available objects:\n{catalog}")
     sections.append(
@@ -96,12 +110,13 @@ class PlanningService:
         question: str,
         links: tuple[SchemaLink, ...],
         answers: tuple[tuple[str, str], ...] = (),
+        assumed: tuple[tuple[str, str], ...] = (),
     ) -> QueryPlan:
         if not links:
             raise PlanningError(f"cannot plan {question!r} with no schema links")
         try:
             response = self._chat.complete(
-                build_planning_prompt(question, links, answers), PlanResponse
+                build_planning_prompt(question, links, answers, assumed), PlanResponse
             )
         except (ChatProviderError, ValidationError) as exc:
             raise PlanningError(f"failed to plan {question!r}: {exc}") from exc

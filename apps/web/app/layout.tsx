@@ -4,6 +4,7 @@ import { AuthProvider } from '@/lib/auth';
 import { ThemeProvider } from '@/lib/theme-provider';
 import { ThemeScript } from '@/components/theme-script';
 import { AppToaster } from '@/components/app-toaster';
+import { PreconnectApi } from '@/components/preconnect-api';
 import '@/styles/tokens.css';
 import './globals.css';
 import '@/styles/motion.css';
@@ -52,6 +53,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       className={`${plexSans.variable} ${jetbrainsMono.variable} ${spaceMono.variable} ${newsreader.variable}`}
     >
       <body className="font-sans">
+        <PreconnectApi />
         <ThemeScript />
         <AuthProvider>
           <ThemeProvider>
