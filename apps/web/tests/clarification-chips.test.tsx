@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MessageTurn } from '@/components/chat/message-turn';
+import { Clarification } from '@/components/chat/clarification';
 import type { TurnRecord } from '@/lib/types';
 
 /**
@@ -117,5 +118,23 @@ describe('assumptions on a finished turn', () => {
 
     expect(screen.getByText(/the most recent complete calendar year/)).toBeInTheDocument();
     expect(screen.getByText(/comparison_baseline/)).toBeInTheDocument();
+  });
+
+  it('does not offer the suggestion twice when an option differs only in case', () => {
+    // Exactly how the duplicate arrives from the gate: it suggests
+    // "all available history" and lists "All available history" as an option.
+    // An exact-match filter let both through, so two chips said the same
+    // thing and one of them wore the default badge.
+    render(
+      <Clarification
+        question="What time range should the sales totals cover?"
+        suggestedAnswer="all available history"
+        options={['All available history', 'This calendar year']}
+        onAnswer={() => {}}
+      />,
+    );
+
+    expect(screen.getAllByRole('button', { name: /all available history/i })).toHaveLength(1);
+    expect(screen.getByRole('button', { name: /this calendar year/i })).toBeInTheDocument();
   });
 });

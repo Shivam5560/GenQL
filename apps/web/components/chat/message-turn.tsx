@@ -2,6 +2,18 @@ import type { TurnRecord } from '@/lib/types';
 import { Assumptions, Clarification } from './clarification';
 import { SqlCard } from './sql-card';
 
+/**
+ * One question and what came back, set as an entry rather than a chat.
+ *
+ * The question used to sit in a dark bubble against the right margin, which
+ * is the shape of a messaging app and carries that app's promise: that what
+ * you sent is a message, and what comes back is a reply you skim. This is not
+ * that. What comes back is a statement someone has to read closely enough to
+ * defend, so the question is set as the heading of the section that answers
+ * it — in the serif, at the left margin, where a reader's eye already starts.
+ * The rule above each entry does the work the bubble's alignment used to do:
+ * it says where one question ends and the next begins.
+ */
 export function MessageTurn({
   turn,
   revealed,
@@ -9,6 +21,9 @@ export function MessageTurn({
   accessToken,
   threadId,
   onAnswer,
+  /** False for the opening turn, which needs no rule above it. */
+  divided = true,
+  resumes = false,
 }: {
   turn: TurnRecord;
   revealed: boolean;
@@ -19,36 +34,56 @@ export function MessageTurn({
       Omitted for a turn that is no longer the one being answered, which is
       what makes the chips disappear once the thread has moved on. */
   onAnswer?: (answer: string) => void;
+  divided?: boolean;
+  /** True when this turn's text answers the previous turn's clarifying
+      question rather than asking something new. */
+  resumes?: boolean;
 }) {
   return (
-    <div className="flex flex-col gap-2.5">
-      <div className="max-w-[70%] self-end rounded-lg rounded-br-sm bg-[var(--ink)] px-4 py-2.5 text-sm text-[var(--bg)]">
-        {turn.question}
-      </div>
-      <div className="flex w-full flex-col gap-3">
-        {turn.clarifying_question ? (
-          <Clarification
-            question={turn.clarifying_question}
-            suggestedAnswer={turn.suggested_answer}
-            options={turn.clarification_options}
-            onAnswer={onAnswer}
+    <article
+      className={`flex flex-col gap-4 ${
+        divided && !resumes ? 'border-t border-[var(--line)] pt-8' : ''
+      }`}
+    >
+      {/* A resumed turn's "question" is an answer — "the full available
+          history" — and setting that at headline weight asserts it as a
+          question the person asked, which it is not. It belongs to the entry
+          above it, so it keeps that entry's rule off and states what it is. */}
+      {resumes ? (
+        <p className="max-w-[62ch] text-[0.95rem]">
+          <span className="text-[var(--mute)]">Answered</span> {turn.question}
+        </p>
+      ) : (
+        <h2 className="max-w-[34ch] font-serif text-[1.55rem] font-normal leading-[1.25] tracking-[-0.01em]">
+          {turn.question}
+        </h2>
+      )}
+      {turn.clarifying_question ? (
+        <Clarification
+          question={turn.clarifying_question}
+          suggestedAnswer={turn.suggested_answer}
+          options={turn.clarification_options}
+          onAnswer={onAnswer}
+        />
+      ) : (
+        <>
+          {turn.recap && (
+            <p className="max-w-[62ch] text-[0.92rem] leading-relaxed text-[var(--mute)]">
+              {turn.recap}
+            </p>
+          )}
+          <Assumptions assumed={turn.assumed ?? []} />
+          {/* Every unrevealed turn stays executable, not just the latest one:
+              `revealed` alone decides whether results are shown. */}
+          <SqlCard
+            turn={turn}
+            revealed={revealed}
+            onReveal={onReveal}
+            accessToken={accessToken}
+            threadId={threadId}
           />
-        ) : (
-          <>
-            {turn.recap && <p className="max-w-[64ch] text-sm text-[var(--mute)]">{turn.recap}</p>}
-            <Assumptions assumed={turn.assumed ?? []} />
-            {/* Every unrevealed turn stays executable, not just the latest one:
-                `revealed` alone decides whether results are shown. */}
-            <SqlCard
-              turn={turn}
-              revealed={revealed}
-              onReveal={onReveal}
-              accessToken={accessToken}
-              threadId={threadId}
-            />
-          </>
-        )}
-      </div>
-    </div>
+        </>
+      )}
+    </article>
   );
 }

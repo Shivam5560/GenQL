@@ -19,7 +19,7 @@ const EXECUTED_TURN: TurnRecord = {
 };
 
 describe('MessageTurn', () => {
-  it('does not render a result table before Execute is clicked', () => {
+  it('does not render a result table before the query is run', () => {
     render(
       <MessageTurn
         turn={EXECUTED_TURN}
@@ -31,10 +31,10 @@ describe('MessageTurn', () => {
     );
 
     expect(screen.queryByText('NA')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /execute/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /run query/i })).toBeInTheDocument();
   });
 
-  it('reveals the result table and feedback controls only after Execute is clicked', async () => {
+  it('reveals the result table and feedback controls only after the query is run', async () => {
     const user = userEvent.setup();
     let revealed = false;
     const { rerender } = render(
@@ -49,7 +49,7 @@ describe('MessageTurn', () => {
       />,
     );
 
-    await user.click(screen.getByRole('button', { name: /execute/i }));
+    await user.click(screen.getByRole('button', { name: /run query/i }));
 
     await waitFor(() => expect(revealed).toBe(true));
     rerender(
@@ -63,7 +63,7 @@ describe('MessageTurn', () => {
     );
 
     expect(screen.getByText('NA')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /helpful/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^yes$/i })).toBeInTheDocument();
   });
 
   it('switching the dialect selector updates its displayed value', async () => {

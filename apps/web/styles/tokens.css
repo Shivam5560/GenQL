@@ -15,6 +15,14 @@
      "press this". */
   --bad: #b3261e;
   --bad-soft: #fbeae9;
+  /* Syntax highlighting, in two hues rather than the usual eight. A keyword
+     wears the accent — darkened from --brand, which is a 3:1 colour meant for
+     16px buttons and unreadable at the 12.8px the SQL block is set in — and
+     every literal wears the verified green. Names stay --ink and punctuation
+     stays --mute, so the eye sorts a statement into structure, values and
+     names without learning a legend. */
+  --code-key: #a8340c;
+  --code-lit: #1a6b43;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -30,6 +38,8 @@
     --ok-soft: rgba(89, 214, 146, 0.12);
     --bad: #ff8a7a;
     --bad-soft: rgba(255, 138, 122, 0.12);
+    --code-key: #ff9a6b;
+    --code-lit: #6fd3a1;
   }
 }
 
@@ -45,6 +55,8 @@
   --ok-soft: rgba(89, 214, 146, 0.12);
   --bad: #ff8a7a;
   --bad-soft: rgba(255, 138, 122, 0.12);
+  --code-key: #ff9a6b;
+  --code-lit: #6fd3a1;
 }
 
 body {

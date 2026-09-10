@@ -37,7 +37,7 @@ export function DatasourceSelect() {
 
   return (
     <div className="px-4.5 py-3">
-      <p className="font-eyebrow mb-1.5 text-[0.6rem] uppercase tracking-wide text-[var(--mute)]">
+      <p className="mb-1.5 text-[0.72rem] text-[var(--mute)]">
         Datasource
       </p>
       {datasources.length === 0 ? (

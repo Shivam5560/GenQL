@@ -29,26 +29,35 @@ export function Clarification({
   const suggestion = suggestedAnswer?.trim() || null;
   // An alternative identical to the suggestion is not an alternative; it
   // would render as the same words twice, one of them looking authoritative.
+  //
+  // Compared case-insensitively because that is exactly how the duplicate
+  // arrives: the gate suggests "all available history" and lists "All
+  // available history" among the options, and an exact match let both
+  // through — two chips, same answer, one wearing the default badge.
+  const seen = new Set<string>();
   const alternatives = (options ?? [])
     .map((option) => option.trim())
-    .filter((option) => option.length > 0 && option !== suggestion);
+    .filter((option) => {
+      const key = option.toLowerCase();
+      if (option.length === 0 || key === suggestion?.toLowerCase() || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
   const answerable = onAnswer !== undefined;
 
   return (
-    <div className="flex max-w-[64ch] flex-col gap-2.5">
-      <p className="text-sm text-[var(--mute)]">{question}</p>
+    <div className="flex max-w-[62ch] flex-col gap-3">
+      <p className="text-[0.95rem] leading-relaxed">{question}</p>
       {answerable && (suggestion || alternatives.length > 0) && (
         <div className="flex flex-wrap items-center gap-2">
           {suggestion && (
             <button
               type="button"
               onClick={() => onAnswer(suggestion)}
-              className="rounded-full border border-[var(--brand)] px-3 py-1 text-[0.78rem] text-[var(--ink)]"
+              className="rounded-full border border-[var(--brand)] px-3.5 py-1.5 text-[0.84rem] text-[var(--ink)]"
             >
               {suggestion}
-              <span className="font-eyebrow pl-1.5 text-[0.62rem] uppercase tracking-wide text-[var(--mute)]">
-                default
-              </span>
+              <span className="pl-1.5 text-[0.74rem] text-[var(--mute)]">default</span>
             </button>
           )}
           {alternatives.map((option) => (
@@ -56,7 +65,7 @@ export function Clarification({
               key={option}
               type="button"
               onClick={() => onAnswer(option)}
-              className="rounded-full border border-[var(--line)] px-3 py-1 text-[0.78rem] text-[var(--mute)]"
+              className="rounded-full border border-[var(--line)] px-3.5 py-1.5 text-[0.84rem] text-[var(--mute)]"
             >
               {option}
             </button>
@@ -80,13 +89,13 @@ export function Assumptions({ assumed }: { assumed: [string, string][] }) {
   if (assumed.length === 0) return null;
 
   return (
-    <div className="flex max-w-[64ch] flex-col gap-1 rounded-md border border-[var(--line)] px-3 py-2.5">
-      <p className="font-eyebrow text-[0.62rem] uppercase tracking-wide text-[var(--mute)]">
-        Assumed — say so in a follow-up to change one
+    <div className="flex max-w-[62ch] flex-col gap-1.5 border-l-2 border-[var(--brand)] pl-3.5">
+      <p className="text-[0.86rem] text-[var(--mute)]">
+        Decided without asking. Say so in a follow-up to change one.
       </p>
       {assumed.map(([dimension, value]) => (
-        <p key={dimension} className="text-[0.78rem] text-[var(--mute)]">
-          <span className="font-mono text-[var(--ink)]">{dimension}</span> {value}
+        <p key={dimension} className="text-[0.86rem] text-[var(--mute)]">
+          <span className="font-mono text-[0.82rem] text-[var(--ink)]">{dimension}</span> {value}
         </p>
       ))}
     </div>

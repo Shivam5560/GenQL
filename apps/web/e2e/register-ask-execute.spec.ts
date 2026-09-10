@@ -16,9 +16,9 @@ test('register, ask a question, execute, sign out', async ({ page }) => {
   await page.getByRole('button', { name: /send/i }).click();
 
   await expect(page).toHaveURL(/\/thread\//);
-  await expect(page.getByRole('button', { name: /execute/i })).toBeVisible({ timeout: 15_000 });
-  await page.getByRole('button', { name: /execute/i }).click();
-  await expect(page.getByRole('button', { name: /helpful/i })).toBeVisible();
+  await expect(page.getByRole('button', { name: /run query/i })).toBeVisible({ timeout: 15_000 });
+  await page.getByRole('button', { name: /run query/i }).click();
+  await expect(page.getByRole('button', { name: /^yes$/i })).toBeVisible();
 
   await page.goto('/settings');
   await page.getByRole('button', { name: /sign out/i }).click();

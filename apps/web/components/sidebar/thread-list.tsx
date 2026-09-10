@@ -40,7 +40,7 @@ export function ThreadList({ threads }: { threads: ThreadSummary[] }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col border-t border-[var(--line)]">
       <div className="flex items-center justify-between gap-2 px-4.5 pb-1 pt-2.5">
-        <p className="font-eyebrow text-[0.6rem] uppercase tracking-wide text-[var(--mute)]">
+        <p className="text-[0.72rem] text-[var(--mute)]">
           Threads
         </p>
         {threads.length > 0 && (
@@ -84,7 +84,7 @@ export function ThreadList({ threads }: { threads: ThreadSummary[] }) {
             type="button"
             onClick={() => setPage(Math.max(page - 1, 0))}
             disabled={page === 0}
-            className="font-eyebrow rounded border border-[var(--line)] px-1.5 py-0.5 text-[0.62rem] uppercase tracking-wide text-[var(--mute)] disabled:opacity-40"
+            className="rounded border border-[var(--line)] px-1.5 py-0.5 text-[0.7rem] text-[var(--mute)] disabled:opacity-40"
           >
             ‹ Prev
           </button>
@@ -95,7 +95,7 @@ export function ThreadList({ threads }: { threads: ThreadSummary[] }) {
             type="button"
             onClick={() => setPage(Math.min(page + 1, pageCount - 1))}
             disabled={page >= pageCount - 1}
-            className="font-eyebrow rounded border border-[var(--line)] px-1.5 py-0.5 text-[0.62rem] uppercase tracking-wide text-[var(--mute)] disabled:opacity-40"
+            className="rounded border border-[var(--line)] px-1.5 py-0.5 text-[0.7rem] text-[var(--mute)] disabled:opacity-40"
           >
             Next ›
           </button>

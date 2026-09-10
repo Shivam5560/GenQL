@@ -1,11 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { TurnRecord } from '@/lib/types';
+import { formatSql } from '@/lib/sql-format';
 import { DialectSelect } from './dialect-select';
 import { ExecuteButton } from './execute-button';
 import { ReferencedObjects } from './referenced-objects';
 import { ResultTable } from './result-table';
+import { SqlHighlight } from './sql-highlight';
 
 /**
  * Copy, and say so.
@@ -25,10 +27,8 @@ function CopyButton({ text }: { text: string }) {
   return (
     <button
       type="button"
-      className={`font-eyebrow rounded border px-2 py-1 text-[0.68rem] uppercase ${
-        copied
-          ? 'border-[var(--ok)] text-[var(--ok)]'
-          : 'border-[var(--line)] text-[var(--mute)]'
+      className={`rounded border px-2.5 py-1 text-[0.72rem] font-medium ${
+        copied ? 'border-[var(--ok)] text-[var(--ok)]' : 'border-[var(--line)] text-[var(--mute)]'
       }`}
       onClick={() => {
         void navigator.clipboard.writeText(text).then(() => setCopied(true));
@@ -53,20 +53,31 @@ export function SqlCard({
   threadId: string;
 }) {
   const [dialect, setDialect] = useState('Postgres');
+  const sql = turn.validated_sql;
+  // The pipeline emits one long line. Formatting only moves whitespace — see
+  // `lib/sql-format` — so what is displayed is still exactly what ran, and
+  // what Copy hands over is the readable version rather than the wire one.
+  const formatted = useMemo(() => (sql ? formatSql(sql) : ''), [sql]);
 
-  if (!turn.validated_sql) return null;
+  if (!sql) return null;
 
   return (
-    <div className="rounded-md border border-[var(--line)] bg-[var(--panel)]">
-      <div className="flex items-center justify-between gap-2.5 border-b border-[var(--line)] bg-[var(--panel-2)] px-3.5 py-2">
-        <span className="font-eyebrow text-[0.66rem] uppercase tracking-wide text-[var(--mute)]">SQL</span>
+    <div className="overflow-hidden rounded-lg border border-[var(--line)] bg-[var(--panel)]">
+      <div className="flex items-center justify-between gap-2.5 border-b border-[var(--line)] bg-[var(--panel-2)] px-4 py-2">
+        <div className="flex items-baseline gap-2">
+          <span className="text-[0.78rem] font-semibold">Generated SQL</span>
+          {/* The pipeline parsed and cost-checked this statement before it
+              reached the browser. Saying so here is the difference between
+              reading a suggestion and reading a query. */}
+          <span className="text-[0.72rem] text-[var(--ok)]">Validated</span>
+        </div>
         <div className="flex items-center gap-2">
           <DialectSelect value={dialect} onChange={setDialect} />
-          <CopyButton text={turn.validated_sql} />
+          <CopyButton text={formatted} />
         </div>
       </div>
-      <pre className="overflow-x-auto whitespace-pre-wrap px-4 py-3.5 font-mono text-[0.8rem] leading-relaxed">
-        {turn.validated_sql}
+      <pre className="overflow-x-auto px-4 py-3.5 text-[0.8rem] leading-[1.65]">
+        <SqlHighlight sql={formatted} />
       </pre>
       {turn.referenced_objects && turn.referenced_objects.length > 0 && (
         <ReferencedObjects objects={turn.referenced_objects} />
@@ -75,7 +86,10 @@ export function SqlCard({
         <ResultTable turn={turn} accessToken={accessToken} threadId={threadId} />
       ) : (
         onReveal && (
-          <div className="flex items-center justify-end border-t border-[var(--line)] px-3.5 py-2.5">
+          <div className="flex items-center justify-between gap-3 border-t border-[var(--line)] px-4 py-2.5">
+            <span className="text-[0.72rem] text-[var(--mute)]">
+              Nothing has run yet — this reads your warehouse when you run it.
+            </span>
             <ExecuteButton onReveal={onReveal} />
           </div>
         )

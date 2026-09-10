@@ -126,7 +126,7 @@ function ChatShell({ children }: { children: React.ReactNode }) {
         </div>
         {threadsLoading ? (
           <div className="min-h-0 flex-1 border-t border-[var(--line)] py-1.5">
-            <p className="font-eyebrow px-4.5 pb-1 pt-1 text-[0.6rem] uppercase tracking-wide text-[var(--mute)]">
+            <p className="px-4.5 pb-1 pt-1 text-[0.72rem] text-[var(--mute)]">
               Threads
             </p>
             <div className="flex flex-col gap-2 px-4.5 py-1">
@@ -146,12 +146,12 @@ function ChatShell({ children }: { children: React.ReactNode }) {
           />
           <SidebarLink href="/settings" label="Settings" active={pathname === '/settings'} />
         </nav>
-        <div className="font-eyebrow flex shrink-0 items-center justify-between gap-2 border-t border-[var(--line)] px-4.5 py-3 text-[0.64rem] text-[var(--mute)]">
+        <div className="flex shrink-0 items-center justify-between gap-2 border-t border-[var(--line)] px-4.5 py-3 text-[0.74rem] text-[var(--mute)]">
           <span className="truncate">{session.user.email}</span>
           <button
             type="button"
             onClick={onSignOut}
-            className="font-eyebrow shrink-0 rounded border border-[var(--line)] px-2 py-1 text-[0.64rem] uppercase tracking-wide text-[var(--mute)]"
+            className="shrink-0 rounded border border-[var(--line)] px-2 py-1 text-[0.72rem] text-[var(--mute)]"
           >
             Sign out
           </button>

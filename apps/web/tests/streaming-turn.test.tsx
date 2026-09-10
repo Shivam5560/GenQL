@@ -226,4 +226,37 @@ describe('streamTurn', () => {
       ),
     );
   });
+
+  it('keeps a serialized payload out of the rail', () => {
+    // The ambiguity gate reports its whole payload, which arrives as a Python
+    // dict repr and filled the 212px rail with quoted keys restating a
+    // question already on screen in full. The stage still lists; the blob
+    // does not.
+    const stages: StageEvent[] = [
+      {
+        stage: 'ambiguity_gate',
+        status: 'paused',
+        detail:
+          "{'question': 'What time range should the sales totals cover?', " +
+          "'suggested_answer': 'all available history'}",
+      },
+    ];
+
+    render(<StageRail stages={stages} running={false} startedAt={null} />);
+
+    expect(screen.getByText('Ambiguity gate')).toBeInTheDocument();
+    expect(screen.queryByText(/suggested_answer/)).not.toBeInTheDocument();
+  });
+
+  it('still shows a plain-prose detail', () => {
+    render(
+      <StageRail
+        stages={[{ stage: 'candidate_generation', status: 'completed', detail: '4 candidates' }]}
+        running={false}
+        startedAt={null}
+      />,
+    );
+
+    expect(screen.getByText('4 candidates')).toBeInTheDocument();
+  });
 });

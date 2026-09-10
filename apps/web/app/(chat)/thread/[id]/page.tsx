@@ -22,8 +22,8 @@ const GENERIC_ERROR = 'Something went wrong — try again.';
 
 function ThreadSkeleton() {
   return (
-    <div className="mx-auto flex w-full max-w-[900px] flex-1 flex-col gap-6 overflow-y-auto px-7 py-6">
-      <div className="ml-auto h-9 w-2/3 max-w-[420px] animate-pulse rounded-lg bg-[var(--panel-2)]" />
+    <div className="mx-auto flex w-full max-w-[820px] flex-1 flex-col gap-6 overflow-y-auto px-7 py-8">
+      <div className="h-9 w-2/3 max-w-[420px] animate-pulse rounded bg-[var(--panel-2)]" />
       <div className="h-28 w-full animate-pulse rounded-lg bg-[var(--panel-2)]" />
     </div>
   );
@@ -268,34 +268,34 @@ function ThreadView({ threadId }: { threadId: string }) {
         <h1 className="truncate text-sm font-semibold">
           {detail?.summary.title ?? pending?.question}
         </h1>
-        <div className="flex shrink-0 items-center gap-2.5">
-          {/* A thread is bound to the datasource its first question went to
-              and cannot be moved — so this states it rather than offering a
-              picker that would silently mean "ask this again somewhere else".
-              Switching warehouses is a new thread, and the sidebar has one. */}
-          {datasourceName && (
-            <span
-              title={`This thread asks ${datasourceName}`}
-              className="max-w-[14rem] truncate rounded-full border border-[var(--line)] px-2.5 py-0.5 font-mono text-[0.68rem] text-[var(--mute)]"
-            >
-              {datasourceName}
-            </span>
-          )}
-          <span className="font-eyebrow text-[0.68rem] text-[var(--mute)]">
-            THREAD {threadId.slice(0, 8)}
+        {/* A thread is bound to the datasource its first question went to and
+            cannot be moved — so this states it rather than offering a picker
+            that would silently mean "ask this again somewhere else".
+            Switching warehouses is a new thread, and the sidebar has one. */}
+        {datasourceName && (
+          <span className="max-w-[16rem] shrink-0 truncate font-mono text-[0.74rem] text-[var(--mute)]">
+            {datasourceName}
           </span>
-        </div>
+        )}
       </div>
       <div className="flex min-h-0 flex-1">
         <div className="flex min-w-0 flex-1 flex-col">
           <div
             ref={transcriptRef}
-            className="mx-auto flex w-full max-w-[900px] flex-1 flex-col gap-6 overflow-y-auto px-7 py-6"
+            className="flex flex-1 flex-col overflow-y-auto px-7 py-8"
           >
-            {turns.map((turn) => (
+            {/* One column, one measure. Every turn is set to the same left
+                margin, so a thread reads down a single edge rather than
+                alternating sides. */}
+            <div className="mx-auto flex w-full max-w-[820px] flex-col gap-8">
+            {turns.map((turn, index) => (
               <MessageTurn
                 key={turn.turn_id}
                 turn={turn}
+                divided={index > 0}
+                // A turn that follows a paused one carries the answer to that
+                // pause, not a new question.
+                resumes={Boolean(turns[index - 1]?.clarifying_question)}
                 revealed={revealedIds.has(turn.turn_id)}
                 onReveal={() => setRevealedIds((prev) => new Set(prev).add(turn.turn_id))}
                 accessToken={session.accessToken}
@@ -310,13 +310,16 @@ function ThreadView({ threadId }: { threadId: string }) {
             {pending && (
               <PendingTurn
                 turn={pending}
+                divided={turns.length > 0}
+                resumes={awaitingClarification}
                 onRetry={() => askQuestion(pending.question, datasourceName)}
                 onStop={running ? stop : undefined}
               />
             )}
+            </div>
           </div>
           <form onSubmit={onSubmit} className="border-t border-[var(--line)] px-7 py-4">
-            <div className="mx-auto flex max-w-[900px] items-center gap-2.5 rounded-lg border border-[var(--line)] bg-[var(--panel)] p-2.5 pl-4">
+            <div className="mx-auto flex max-w-[820px] items-center gap-2.5 rounded-lg border border-[var(--line)] bg-[var(--panel)] p-2.5 pl-4">
               <input
                 className="flex-1 border-none bg-transparent text-sm outline-none placeholder:text-[var(--mute)] disabled:opacity-60"
                 placeholder={

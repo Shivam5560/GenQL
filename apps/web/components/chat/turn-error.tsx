@@ -133,7 +133,7 @@ export function TurnError({ error, onRetry }: { error: StreamError; onRetry?: ()
       role="alert"
       className="flex max-w-[68ch] flex-col gap-2 rounded-md border border-[var(--bad)] bg-[var(--bad-soft)] px-4 py-3"
     >
-      <p className="font-eyebrow text-[0.66rem] uppercase tracking-wide text-[var(--bad)]">
+      <p className="text-[0.78rem] font-semibold text-[var(--bad)]">
         {/* `StaticValidationError` reads as shouting in caps; the spaced-out
             words are the same information without the volume. */}
         {error.error.replace(/([a-z])([A-Z])/g, '$1 $2')}
@@ -144,7 +144,7 @@ export function TurnError({ error, onRetry }: { error: StreamError; onRetry?: ()
       {guidance && <p className="text-sm leading-relaxed text-[var(--ink)]">{guidance}</p>}
       {fold ? (
         <details className="group">
-          <summary className="font-eyebrow cursor-pointer list-none text-[0.64rem] uppercase tracking-wide text-[var(--mute)] marker:content-['']">
+          <summary className="cursor-pointer list-none text-[0.74rem] text-[var(--mute)] marker:content-['']">
             <span className="group-open:hidden">Show technical detail ›</span>
             <span className="hidden group-open:inline">Hide technical detail ⌄</span>
           </summary>
@@ -160,7 +160,7 @@ export function TurnError({ error, onRetry }: { error: StreamError; onRetry?: ()
           <button
             type="button"
             onClick={onRetry}
-            className="font-eyebrow rounded border border-[var(--bad)] px-2.5 py-1 text-[0.68rem] uppercase tracking-wide text-[var(--bad)]"
+            className="rounded border border-[var(--bad)] px-2.5 py-1 text-[0.74rem] font-medium text-[var(--bad)]"
           >
             Retry
           </button>

@@ -24,17 +24,35 @@ export function PendingTurn({
   turn,
   onRetry,
   onStop,
+  divided = true,
+  resumes = false,
 }: {
   turn: PendingTurnState;
   onRetry: () => void;
   /** Abandon a turn that is taking too long. */
   onStop?: () => void;
+  /** False for the opening turn, which needs no rule above it. */
+  divided?: boolean;
+  /** True when this turn answers the previous turn's clarifying question. */
+  resumes?: boolean;
 }) {
   return (
-    <div className="flex flex-col gap-2.5">
-      <div className="max-w-[70%] self-end rounded-lg rounded-br-sm bg-[var(--ink)] px-4 py-2.5 text-sm text-[var(--bg)]">
-        {turn.question}
-      </div>
+    <article
+      className={`flex flex-col gap-4 ${
+        divided && !resumes ? 'border-t border-[var(--line)] pt-8' : ''
+      }`}
+    >
+      {/* Set exactly as the finished turn will be, so nothing moves when the
+          answer lands underneath. */}
+      {resumes ? (
+        <p className="max-w-[62ch] text-[0.95rem]">
+          <span className="text-[var(--mute)]">Answered</span> {turn.question}
+        </p>
+      ) : (
+        <h2 className="max-w-[34ch] font-serif text-[1.55rem] font-normal leading-[1.25] tracking-[-0.01em]">
+          {turn.question}
+        </h2>
+      )}
       {turn.error ? (
         <TurnError error={turn.error} onRetry={onRetry} />
       ) : (
@@ -43,7 +61,7 @@ export function PendingTurn({
           {/* A count, not a fraction: the pipeline branches — an unclear
               question pauses early, a decisive critique skips probing — so
               there is no honest denominator to put after it. */}
-          <p className="text-[0.82rem] text-[var(--mute)]">
+          <p className="text-[0.86rem] text-[var(--mute)]">
             {turn.stages.length === 0
               ? 'Working…'
               : `Working — ${turn.stages.length} ${
@@ -54,13 +72,13 @@ export function PendingTurn({
             <button
               type="button"
               onClick={onStop}
-              className="font-eyebrow rounded border border-[var(--line)] px-2 py-0.5 text-[0.62rem] uppercase tracking-wide text-[var(--mute)]"
+              className="rounded border border-[var(--line)] px-2.5 py-1 text-[0.72rem] font-medium text-[var(--mute)]"
             >
               Stop
             </button>
           )}
         </div>
       )}
-    </div>
+    </article>
   );
 }

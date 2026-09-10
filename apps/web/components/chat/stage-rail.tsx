@@ -40,6 +40,21 @@ function humanise(stage: string): string {
   return LABELS.get(stage) ?? stage.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase());
 }
 
+/**
+ * Keep serialized structures out of a reading surface.
+ *
+ * Most stages report a short phrase — "10 objects linked", "4 candidates".
+ * The ambiguity gate reports its whole payload, which reaches the browser as
+ * a Python dict repr: `{'question': '…', 'suggested_answer': '…', 'options':
+ * (…)}`. Six lines of quoted keys in a 212px rail, restating a question that
+ * is already on screen in full. The stage still lists — that it ran is the
+ * useful part — it just does so without the blob.
+ */
+function isProse(detail: string): boolean {
+  const trimmed = detail.trim();
+  return !/^[[{(]/.test(trimmed) && !/'\s*:\s*/.test(trimmed);
+}
+
 type RowState = 'done' | 'running' | 'waiting' | 'failed' | 'paused';
 
 interface Row {
@@ -67,13 +82,14 @@ export function buildRows(stages: StageEvent[], running: boolean): Row[] {
     const existing = rows.find((row) => row.key === event.stage);
     const state: RowState =
       event.status === 'failed' ? 'failed' : event.status === 'paused' ? 'paused' : 'done';
+    const detail = event.detail && isProse(event.detail) ? event.detail : null;
     if (existing) {
       existing.state = state;
-      existing.detail = event.detail;
+      existing.detail = detail;
       continue;
     }
     seen.add(event.stage);
-    rows.push({ key: event.stage, label: humanise(event.stage), state, detail: event.detail });
+    rows.push({ key: event.stage, label: humanise(event.stage), state, detail });
   }
 
   const pending = KNOWN_STAGES.filter((s) => !seen.has(s.stage));
@@ -144,25 +160,23 @@ export function StageRail({
   return (
     <aside
       aria-label="Pipeline stages for this turn"
-      className="hidden w-[196px] shrink-0 flex-col gap-2.5 border-l border-[var(--line)] bg-[var(--panel-2)] px-4 py-4 lg:flex"
+      className="hidden w-[212px] shrink-0 flex-col gap-3 border-l border-[var(--line)] bg-[var(--panel-2)] px-4 py-5 lg:flex"
     >
-      <p className="font-eyebrow text-[0.6rem] uppercase tracking-wide text-[var(--mute)]">
-        This turn
-      </p>
-      <ol className="flex flex-col gap-1.5 overflow-y-auto">
+      <p className="text-[0.78rem] font-semibold">How this was answered</p>
+      <ol className="flex flex-col gap-2 overflow-y-auto">
         {rows.map((row) => (
           <li key={row.key} className="flex gap-2">
             <Dot state={row.state} />
             <div className="min-w-0 flex-1">
               <p
-                className={`font-mono text-[0.68rem] leading-tight ${
+                className={`text-[0.76rem] leading-tight ${
                   row.state === 'waiting' ? 'text-[var(--mute)] opacity-55' : 'text-[var(--ink)]'
                 }`}
               >
                 {row.label}
               </p>
               {row.detail && (
-                <p className="mt-0.5 break-words font-mono text-[0.62rem] leading-tight text-[var(--mute)]">
+                <p className="mt-0.5 break-words font-mono text-[0.68rem] leading-tight text-[var(--mute)]">
                   {row.detail}
                 </p>
               )}
@@ -170,7 +184,7 @@ export function StageRail({
           </li>
         ))}
       </ol>
-      <p className="font-eyebrow mt-auto pt-2 text-[0.6rem] uppercase tracking-wide text-[var(--mute)]">
+      <p className="mt-auto pt-2 text-[0.72rem] text-[var(--mute)]">
         {failed
           ? 'Stopped'
           : running
