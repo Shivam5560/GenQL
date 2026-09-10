@@ -72,9 +72,9 @@ export function DirectionHero() {
             className="gq-rise mt-6 font-serif text-[clamp(2.75rem,6vw,5.5rem)] font-light leading-[0.95] tracking-[-0.03em]"
             style={{ '--gq-delay': '170ms' } as CSSProperties}
           >
-            Ask in English.
+            Ask in plain English.
             <br />
-            <span className="font-light italic text-[var(--mute)]">Ship SQL you can</span>
+            <span className="font-light italic text-[var(--mute)]">Get SQL you can</span>
             <br />
             defend in review.
           </h1>
@@ -83,9 +83,9 @@ export function DirectionHero() {
             className="gq-rise mt-7 max-w-[46ch] text-[1.05rem] leading-relaxed text-[var(--mute)]"
             style={{ '--gq-delay': '250ms' } as CSSProperties}
           >
-            Twelve stages run in the open — intent, schema linking, an ambiguity gate that asks
-            instead of assuming, four candidate drafts, dry-run validation, critique, a cost gate.
-            You get the query and the reasons.
+            AuraSQL reads your question, links it to real tables, and asks before it assumes.
+            It drafts a few candidate queries, checks them against your schema, and stops if the
+            cost looks wrong. You get the query, and the reasoning behind it.
           </p>
 
           <div
@@ -93,10 +93,10 @@ export function DirectionHero() {
             style={{ '--gq-delay': '330ms' } as CSSProperties}
           >
             <a
-              href="#trail"
+              href="#workspace"
               className={`${cta} bg-[var(--brand)] text-[var(--brand-ink)] hover:opacity-90`}
             >
-              Walk the trail
+              See it work
             </a>
             <a
               href="https://github.com/Shivam5560/GenQL"

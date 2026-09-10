@@ -8,7 +8,7 @@ import { updateTheme } from '@/lib/api-client';
 import type { ThemePreference } from '@/lib/types';
 
 const THEMES: ThemePreference[] = ['light', 'dark', 'system'];
-const GENERIC_ERROR = 'Something went wrong — try again.';
+const GENERIC_ERROR = 'Something went wrong. Try again.';
 
 export default function SettingsPage() {
   const { session } = useAuth();

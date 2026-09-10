@@ -21,7 +21,7 @@ export class ApiError extends Error {
     public status: number,
     public body: unknown,
   ) {
-    super(`GenQL API error ${status}`);
+    super(`AuraSQL API error ${status}`);
   }
 }
 
@@ -167,7 +167,7 @@ export async function streamTurn(
       detail:
         reason instanceof SseHttpError
           ? 'The server refused the request. Try again, or sign in if your session expired.'
-          : 'Lost the connection to GenQL before the answer arrived.',
+          : 'Lost the connection to AuraSQL before the answer arrived.',
     });
   }
 }

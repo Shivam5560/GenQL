@@ -34,7 +34,7 @@ function useDatasourceNotifications(accessToken: string | undefined, onChange: (
         onFailed: ({ datasource, error_step }) => {
           toast.error(
             error_step
-              ? `${datasource} could not be prepared — ${error_step.replace(/_/g, ' ')} failed.`
+              ? `${datasource} could not be prepared: ${error_step.replace(/_/g, ' ')} failed.`
               : `${datasource} could not be prepared.`,
           );
           onChange();
@@ -130,7 +130,7 @@ function ChatShell({ children }: { children: React.ReactNode }) {
       >
         <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[var(--line)] px-4.5 py-3.5">
           <Link href="/" className="font-eyebrow text-[0.9rem] font-medium uppercase tracking-[0.14em]">
-            Gen<span className="text-[var(--brand)]">QL</span>
+            Aura<span className="text-[var(--brand)]">SQL</span>
           </Link>
           <ThemeToggle />
         </div>
@@ -202,7 +202,7 @@ function ChatShell({ children }: { children: React.ReactNode }) {
             </span>
           </button>
           <span className="font-eyebrow text-[0.82rem] font-medium uppercase tracking-[0.14em]">
-            Gen<span className="text-[var(--brand)]">QL</span>
+            Aura<span className="text-[var(--brand)]">SQL</span>
           </span>
         </div>
         {children}

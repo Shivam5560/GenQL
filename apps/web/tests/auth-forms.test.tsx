@@ -31,7 +31,7 @@ describe('DirectionEntry', () => {
 
     await user.type(screen.getByLabelText(/^email$/i), 'shivam@example.com');
     await user.type(screen.getByLabelText(/^password$/i), 'wrong-password');
-    await user.click(screen.getByRole('button', { name: /enter genql/i }));
+    await user.click(screen.getByRole('button', { name: /enter aurasql/i }));
 
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent(/did not match an account/i),
@@ -64,7 +64,7 @@ describe('DirectionEntry', () => {
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     // The hero must be readable at rest — it is the first frame of the app.
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(/ask in english/i);
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(/ask in plain english/i);
 
     await user.click(screen.getByRole('button', { name: /^log in$/i }));
 

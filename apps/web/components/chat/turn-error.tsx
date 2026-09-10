@@ -18,17 +18,16 @@ const GUIDANCE: Record<string, string> = {
   SchemaLinkingError:
     'Nothing in this datasource matched the question. Try naming a table or column directly.',
   StaticValidationError:
-    'Every candidate GenQL wrote was rejected before it could run. Rephrasing usually helps.',
+    'Every candidate AuraSQL wrote was rejected before it could run. Rephrasing usually helps.',
   ExecutionError:
     'The warehouse ran the statement and refused it. The message above is its own.',
   CostEstimationError:
     'Postgres refused to plan the statement, so it was never run. The message above is its own.',
-  OptimizationError:
-    'The query was over budget. Narrow it — a shorter date range, fewer columns.',
+  OptimizationError: 'The query was over budget. Narrow it: a shorter date range, fewer columns.',
   AmbiguityGateError:
     'The question could not be disambiguated. Say which table or measure you mean.',
   ThreadLockError: 'Another question is still running on this thread. Wait for it to finish.',
-  ConnectionError: 'Check that the GenQL API is running, then try again.',
+  ConnectionError: 'Check that the AuraSQL API is running, then try again.',
   Stopped: '',
 };
 
@@ -79,14 +78,14 @@ const DRIVER_GUIDANCE: { match: RegExp; guidance: string }[] = [
   {
     match: /InsufficientPrivilege|permission denied/i,
     guidance:
-      'The read-only role GenQL connects as cannot read that object. Grant it SELECT, or ' +
+      'The read-only role AuraSQL connects as cannot read that object. Grant it SELECT, or ' +
       'exclude the schema from this datasource.',
   },
   {
     match: /QueryCanceled|statement timeout|canceling statement/i,
     guidance:
-      'The warehouse cut the query off at the statement timeout. Narrow it — a shorter date ' +
-      'range, fewer joins — and ask again.',
+      'The warehouse cut the query off at the statement timeout. Narrow it, a shorter date ' +
+      'range or fewer joins, and ask again.',
   },
   {
     match: /DivisionByZero|division by zero/i,
@@ -96,12 +95,12 @@ const DRIVER_GUIDANCE: { match: RegExp; guidance: string }[] = [
   {
     match: /OperationalError|could not connect|connection/i,
     guidance:
-      'GenQL could not reach the warehouse. Check the host, port and network on the ' +
+      'AuraSQL could not reach the warehouse. Check the host, port and network on the ' +
       'datasources page.',
   },
 ];
 
-/** The two types whose detail is a driver message rather than GenQL's own. */
+/** The two types whose detail is a driver message rather than AuraSQL's own. */
 const DRIVER_ERRORS = new Set(['ExecutionError', 'CostEstimationError']);
 
 function guidanceFor(error: StreamError): string | undefined {

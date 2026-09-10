@@ -37,7 +37,7 @@ const newsreader = Newsreader({
 });
 
 export const metadata: Metadata = {
-  title: 'GenQL',
+  title: 'AuraSQL',
   description: 'Ask your warehouse a question.',
 };
 

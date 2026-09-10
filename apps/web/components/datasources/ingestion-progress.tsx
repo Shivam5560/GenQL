@@ -101,7 +101,7 @@ export function IngestionProgress({
           {job.status === 'queued'
             ? 'Queued'
             : job.status === 'running'
-              ? `Preparing — ${done} of ${job.steps.length}`
+              ? `Preparing: ${done} of ${job.steps.length}`
               : job.status === 'succeeded'
                 ? 'Ready to query'
                 : 'Could not be prepared'}

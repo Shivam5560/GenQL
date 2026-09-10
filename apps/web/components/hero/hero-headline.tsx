@@ -22,7 +22,7 @@ export function HeroHeadline() {
         className="gq-rise mt-5 max-w-[52ch] text-[0.95rem] leading-relaxed text-[var(--mute)]"
         style={{ '--gq-delay': '170ms' } as CSSProperties}
       >
-        GenQL writes the SQL and shows it to you first. Nothing runs until you press Execute.
+        AuraSQL writes the SQL and shows it to you first. Nothing runs until you press Execute.
       </p>
     </div>
   );

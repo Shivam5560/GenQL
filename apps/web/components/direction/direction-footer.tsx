@@ -17,9 +17,9 @@ export function DirectionFooter() {
         </div>
         <div className="flex flex-col gap-1.5 font-eyebrow text-[9px] uppercase tracking-[0.16em] text-[var(--mute)]">
           <span>
-            Gen<span className="text-[var(--brand)]">QL</span>
+            Aura<span className="text-[var(--brand)]">SQL</span>
           </span>
-          <span>Obsidian &amp; copper · ink &amp; ivory</span>
+          <span>Natural language to SQL</span>
         </div>
       </div>
     </footer>

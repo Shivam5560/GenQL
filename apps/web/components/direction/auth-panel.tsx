@@ -91,12 +91,12 @@ export function AuthPanel({
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
-        aria-label={mode === 'login' ? 'Sign in to GenQL' : 'Create a GenQL account'}
+        aria-label={mode === 'login' ? 'Sign in to AuraSQL' : 'Create an AuraSQL account'}
         className="gq-rise max-h-full w-full max-w-[420px] overflow-y-auto border border-[var(--line)] bg-[var(--panel)] p-7 shadow-[0_40px_90px_-40px_rgba(0,0,0,0.7)]"
       >
         <div className="mb-6 flex items-start justify-between gap-4">
           <div>
-            <p className={label}>GenQL</p>
+            <p className={label}>AuraSQL</p>
             <h2 className="mt-2 font-serif text-[30px] font-light leading-[1.05] tracking-[-0.02em]">
               {mode === 'login' ? 'Sign in.' : 'Create an account.'}
             </h2>
@@ -175,7 +175,7 @@ export function AuthPanel({
                 ? 'Signing in…'
                 : 'Creating…'
               : mode === 'login'
-                ? 'Enter GenQL'
+                ? 'Enter AuraSQL'
                 : 'Create account'}
           </button>
         </form>

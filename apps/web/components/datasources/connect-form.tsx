@@ -11,7 +11,7 @@ import type { RegisterDatasourceArgs } from '@/lib/types';
  *
  * This form used to ask for the NAME of an environment variable already set on
  * the server — which meant nobody could connect their own warehouse without
- * shell access to the box GenQL runs on. It now asks for the five things a
+ * shell access to the box AuraSQL runs on. It now asks for the five things a
  * person actually has: host, port, database, user, password. The password is
  * encrypted before it is stored and is never sent back by any endpoint, so
  * this field is write-only in the literal sense — reopening the form on an
@@ -71,9 +71,9 @@ export function ConnectForm({
       <div>
         <h2 className="text-sm font-semibold">Connect a warehouse</h2>
         <p className="mt-1 max-w-[62ch] text-sm text-[var(--mute)]">
-          GenQL will survey the schemas you name, profile them, build a search index, and map
-          the join graph. That takes minutes — you can leave this page and we will tell you when
-          it is ready.
+          AuraSQL will survey the schemas you name, profile them, build a search index, and map
+          the join graph. That takes minutes, so feel free to leave this page. We will tell you
+          when it is ready.
         </p>
       </div>
 
@@ -142,7 +142,7 @@ export function ConnectForm({
             required
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            placeholder="genql_reader"
+            placeholder="aurasql_reader"
             autoComplete="off"
           />
         </div>

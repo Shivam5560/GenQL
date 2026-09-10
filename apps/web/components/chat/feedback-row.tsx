@@ -11,7 +11,7 @@ export function FeedbackRow({ accessToken, threadId }: { accessToken: string; th
     setPicked(rating);
     await submitFeedback(accessToken, threadId, { rating }).catch(() => {
       setPicked(null);
-      toast.error('Could not send feedback — try again.');
+      toast.error('Could not send feedback. Try again.');
     });
   }
 

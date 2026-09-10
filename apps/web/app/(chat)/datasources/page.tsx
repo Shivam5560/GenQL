@@ -16,7 +16,7 @@ import { IngestionProgress } from '@/components/datasources/ingestion-progress';
 import { Button } from '@/components/ui/button';
 import type { Datasource, IngestionJob, RegisterDatasourceArgs } from '@/lib/types';
 
-const GENERIC_ERROR = 'Something went wrong — try again.';
+const GENERIC_ERROR = 'Something went wrong. Try again.';
 
 function DatasourceRowSkeleton() {
   return (
@@ -150,7 +150,7 @@ export default function DatasourcesPage() {
         setJobs((prev) => ({ ...prev, [datasource.name]: job }));
         setConnecting(false);
         watch(datasource.name);
-        toast.success(`${datasource.name} queued — surveying now.`);
+        toast.success(`${datasource.name} queued. Surveying now.`);
       })
       .catch((reason: unknown) => setFormError(describe(reason)))
       .finally(() => setSubmitting(false));

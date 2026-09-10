@@ -2,17 +2,17 @@ const GATES = [
   {
     label: 'AMBIGUITY',
     heading: 'It asks instead of assuming',
-    body: '"Distinct" has two readings in your sentence. GenQL stops, names both, and waits — one question, not a wrong table.',
+    body: '"Distinct" has two readings in your sentence. AuraSQL stops, names both, and waits for one answer instead of picking a table for you.',
   },
   {
     label: 'COST',
     heading: 'Nothing expensive runs silently',
-    body: 'Estimated scan is shown before execution, and nothing runs until you press it. Reads only — no warehouse writes.',
+    body: 'The estimated scan is shown before anything executes, and nothing runs until you say so. Reads only, never writes to your warehouse.',
   },
   {
     label: 'CRITIQUE',
     heading: 'The draft is reviewed before you see it',
-    body: 'Four candidates, dry-run against the real schema, ranked and critiqued. You get the survivor and the reasons it survived.',
+    body: 'Four candidates, checked against the real schema, ranked and critiqued. You get the one that survived, and why it did.',
   },
 ];
 
@@ -21,10 +21,10 @@ export function DirectionGates() {
     <section className="border-t border-[var(--line)] px-6 py-16 md:px-10 md:py-24">
       <div className="mx-auto max-w-[1400px]">
         <span className="font-eyebrow text-[10px] uppercase tracking-[0.2em] text-[var(--mute)]">
-          03 — THE GATES
+          02 — THE GATES
         </span>
         <h2 className="mt-4 max-w-[22ch] font-serif text-[clamp(2rem,4vw,3.6rem)] font-light leading-tight tracking-[-0.02em]">
-          Three places GenQL{' '}
+          Three places AuraSQL{' '}
           <span className="font-extralight italic text-[var(--mute)]">refuses to guess.</span>
         </h2>
 
