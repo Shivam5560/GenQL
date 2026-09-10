@@ -15,6 +15,13 @@ was settled and how, not a transcript.
 `thread_id` is required rather than optional: every turn has one, including a
 turn that finishes without pausing, because a follow-up question needs
 something to attach to.
+
+`trace_parent` rides in the checkpoint for the same reason `clarifications`
+does: the interrupt/resume boundary is a new HTTP request, possibly on a
+different worker, so nothing in memory survives it — only what's in the
+checkpoint does. It carries the turn's root span's W3C traceparent so a
+resume can reopen the same trace instead of starting a new one; see
+`genql/infrastructure/tracing/qa_span.py`.
 """
 
 from __future__ import annotations
@@ -38,6 +45,7 @@ class QueryState(TypedDict):
     datasource_name: str
     thread_id: str
     domain_id: int | None
+    trace_parent: str | None
     intent: str | None
     ambiguity: AmbiguityAssessment | None
     clarifications: tuple[tuple[str, str], ...]
@@ -91,12 +99,14 @@ def initial_state(
     datasource_name: str,
     thread_id: str,
     domain_id: int | None = None,
+    trace_parent: str | None = None,
 ) -> QueryState:
     return QueryState(
         question=question,
         datasource_name=datasource_name,
         thread_id=thread_id,
         domain_id=domain_id,
+        trace_parent=trace_parent,
         intent=None,
         ambiguity=None,
         clarifications=(),

@@ -30,8 +30,9 @@ class Interrupt:
 
 
 class FakeSnapshot:
-    def __init__(self, interrupts: tuple[Any, ...]) -> None:
+    def __init__(self, interrupts: tuple[Any, ...], values: dict[str, Any] | None = None) -> None:
         self.interrupts = interrupts
+        self.values = values or {}
 
 
 class FakeGraph:

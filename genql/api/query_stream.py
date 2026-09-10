@@ -36,9 +36,9 @@ def stream_query(
     """
     # The span stays open for the generator's whole life, so the nodes that
     # run between two `next()` calls land inside the turn they belong to.
-    with qa_span(question, datasource_name, thread_id):
+    with qa_span(question, datasource_name, thread_id) as trace_parent:
         yield from graph.stream(
-            initial_state(question, datasource_name, thread_id, domain_id),
+            initial_state(question, datasource_name, thread_id, domain_id, trace_parent),
             _config(thread_id),
             stream_mode="updates",
         )
@@ -46,7 +46,11 @@ def stream_query(
 
 def stream_resume(graph: Any, answer: str, thread_id: str) -> Iterator[dict[str, Any]]:
     config = _config(thread_id)
-    if not graph.get_state(config).interrupts:
+    snapshot = graph.get_state(config)
+    if not snapshot.interrupts:
         raise UnknownThreadError(thread_id)
-    with qa_span(answer, None, thread_id):
+    # Same turn as the one that opened the trace, not a new question — see
+    # query_turn.py's resume_turn for why this must join that trace.
+    parent = snapshot.values.get("trace_parent") if snapshot.values else None
+    with qa_span(answer, None, thread_id, parent=parent):
         yield from graph.stream(Command(resume=answer), config, stream_mode="updates")

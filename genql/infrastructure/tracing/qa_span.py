@@ -9,6 +9,12 @@ out of the question ever would.
 It shares `llm_span`'s tracer provider rather than owning one, so tracing is
 armed or disarmed in a single place and a process with tracing off pays for
 nothing here either.
+
+A question that pauses for an ambiguity clarification and is later resumed is
+still one turn, not two — see `query_turn.py`'s `stored_trace_parent`. The
+`parent` argument lets a resume reopen the same trace instead of starting a
+new one; `qa_span` yields its own span's W3C traceparent so a caller can
+persist it for a resume of its own to find.
 """
 
 from __future__ import annotations
@@ -17,6 +23,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 
 from opentelemetry.trace import Status, StatusCode
+from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
 from genql.infrastructure.tracing.llm_span import llm_span
 
@@ -25,29 +32,43 @@ _SPAN_KIND = "openinference.span.kind"
 _INPUT = "input.value"
 _DATASOURCE = "genql.datasource"
 _THREAD = "genql.thread_id"
+_PROPAGATOR = TraceContextTextMapPropagator()
 
 
 @contextmanager
-def qa_span(question: str, datasource_name: str | None, thread_id: str) -> Iterator[None]:
+def qa_span(
+    question: str,
+    datasource_name: str | None,
+    thread_id: str,
+    parent: str | None = None,
+) -> Iterator[str | None]:
     """Opens the turn's root span, or nothing when tracing is off.
 
     `datasource_name` is optional because a resumed turn answers a
     clarification and names no datasource — the thread it belongs to already
     did, on the turn that opened it.
+
+    `parent`, when given, is an earlier turn's traceparent: this span becomes
+    its child, in its trace, rather than a new root — so the question and the
+    clarification that completes it land in one trace. Omitted (the default),
+    this opens a fresh trace, which is what a genuinely new question needs.
     """
     provider = llm_span.provider
     if provider is None:
-        yield
+        yield None
         return
     tracer = provider.get_tracer("genql.qa")
-    with tracer.start_as_current_span(_SPAN_NAME) as span:
+    context = _PROPAGATOR.extract(carrier={"traceparent": parent}) if parent else None
+    with tracer.start_as_current_span(_SPAN_NAME, context=context) as span:
         span.set_attribute(_SPAN_KIND, "CHAIN")
         span.set_attribute(_INPUT, question)
         span.set_attribute(_THREAD, thread_id)
         if datasource_name is not None:
             span.set_attribute(_DATASOURCE, datasource_name)
+        carrier: dict[str, str] = {}
+        _PROPAGATOR.inject(carrier)
         try:
-            yield
+            yield carrier.get("traceparent")
         except Exception as exc:
             span.set_status(Status(StatusCode.ERROR, str(exc)))
             raise

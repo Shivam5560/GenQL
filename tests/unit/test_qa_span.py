@@ -82,6 +82,36 @@ def test_two_questions_are_two_traces(spans: InMemorySpanExporter) -> None:
     assert len(traces) == 2
 
 
+def test_a_resumed_turn_continues_the_same_trace(spans: InMemorySpanExporter) -> None:
+    """An ambiguity clarification is the same query, not a new one — the
+    resume must join the trace the question opened, not root a new one."""
+    with qa_span("how many orders", "olist", "t-1") as trace_parent:
+        pass
+    with qa_span("last quarter", None, "t-1", parent=trace_parent):
+        pass
+
+    finished = spans.get_finished_spans()
+    started, resumed = finished[0], finished[1]
+    assert started.context.trace_id == resumed.context.trace_id
+    assert resumed.parent is not None
+    assert resumed.parent.span_id == started.context.span_id
+
+
+def test_a_fresh_question_after_a_resume_starts_its_own_trace(spans: InMemorySpanExporter) -> None:
+    """A resumed clarification shares a trace with its question, but the next,
+    unrelated question on that same thread must not inherit it."""
+    with qa_span("how many orders", "olist", "t-1") as trace_parent:
+        pass
+    with qa_span("last quarter", None, "t-1", parent=trace_parent):
+        pass
+    with qa_span("and total revenue", "olist", "t-1"):
+        pass
+
+    traces = [s.context.trace_id for s in spans.get_finished_spans()]
+    assert len(set(traces)) == 2
+    assert traces[2] not in traces[:2]
+
+
 def test_tracing_off_costs_nothing() -> None:
     llm_span.set_provider(None)
 

@@ -37,6 +37,16 @@ def new_thread_id() -> str:
     return f"t-{uuid.uuid4().hex}"
 
 
+def stored_trace_parent(graph: Any, thread_id: str) -> str | None:
+    """The traceparent a pending turn on this thread recorded when it started.
+
+    None for a thread with no checkpoint (or one predating this field) — the
+    caller then opens a fresh trace rather than a child of nothing.
+    """
+    values = graph.get_state({"configurable": {"thread_id": thread_id}}).values
+    return values.get("trace_parent") if values else None
+
+
 def _applied_defaults(raw: dict[str, Any]) -> tuple[tuple[str, str], ...]:
     ambiguity = raw.get("ambiguity")
     if ambiguity is None:
@@ -173,8 +183,8 @@ def start_turn(  # noqa: PLR0913, PLR0917 - mirrors the graph's own start parame
     resolved = thread_id or new_thread_id()
     # The trace's root, opened before the lock so a turn that waited on
     # another turn shows the wait as its own time rather than as nothing.
-    with qa_span(question, datasource_name, resolved), locks.for_thread(resolved):
-        raw = run_query(graph, question, datasource_name, resolved, domain_id)
+    with qa_span(question, datasource_name, resolved) as trace_parent, locks.for_thread(resolved):
+        raw = run_query(graph, question, datasource_name, resolved, domain_id, trace_parent)
     response = to_response(resolved, raw)
     if user_id is not None and threads is not None and turn_records is not None:
         record_turn(threads, turn_records, resolved, user_id, datasource_name, question, response)
@@ -191,7 +201,11 @@ def resume_turn(  # noqa: PLR0913, PLR0917 - mirrors the graph's own resume para
     threads: ThreadRepository | None = None,
     turn_records: TurnRecordRepository | None = None,
 ) -> TurnResponse:
-    with qa_span(answer, None, thread_id), locks.for_thread(thread_id):
+    # Fetched before the span opens: this completes the SAME turn that
+    # started the trace, not a new question, so the span must join that
+    # trace rather than root one of its own.
+    parent = stored_trace_parent(graph, thread_id)
+    with qa_span(answer, None, thread_id, parent=parent), locks.for_thread(thread_id):
         raw = resume_query(graph, answer, thread_id)
     response = to_response(thread_id, raw)
     if user_id is not None and threads is not None and turn_records is not None:

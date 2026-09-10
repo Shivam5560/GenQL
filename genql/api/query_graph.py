@@ -202,24 +202,26 @@ def _config(thread_id: str) -> dict[str, Any]:
     return {"configurable": {"thread_id": thread_id}}
 
 
-def run_query(
+def run_query(  # noqa: PLR0913, PLR0917 - one parameter per invoke argument
     graph: Any,
     question: str,
     datasource_name: str,
     thread_id: str,
     domain_id: int | None = None,
+    trace_parent: str | None = None,
 ) -> dict[str, Any]:
     """Start a turn.
 
     Returns the raw mapping rather than QueryState: an interrupted run carries
     langgraph's own `__interrupt__` key, which is not a QueryState field, and
     typing the return as QueryState would make reading it a lie. query_turn.py
-    narrows this into a TurnResponse.
+    narrows this into a TurnResponse. `trace_parent` rides into the checkpoint
+    as-is — see QueryState's docstring — for a resume to find.
     """
     return cast(
         dict[str, Any],
         graph.invoke(
-            initial_state(question, datasource_name, thread_id, domain_id),
+            initial_state(question, datasource_name, thread_id, domain_id, trace_parent),
             _config(thread_id),
         ),
     )
