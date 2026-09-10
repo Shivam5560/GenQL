@@ -31,19 +31,22 @@ function humanise(stage: string): string {
 /**
  * Keep serialized structures out of a reading surface.
  *
- * Most stages report a short phrase — "10 objects linked", "4 candidates".
- * The ambiguity gate reports its whole payload, which reaches the browser as
- * a Python dict repr: `{'question': '…', 'suggested_answer': '…', 'options':
- * (…)}`. Six lines of quoted keys in a 240px rail, restating a question that
- * is already on screen in full. The stage still lists — that it ran is the
- * useful part — it just does so without the blob.
+ * The ambiguity gate used to report its whole payload, which reached the
+ * browser as a Python dict repr: `{'question': '…', 'suggested_answer': '…',
+ * 'options': (…)}`. Six lines of quoted keys in a 240px rail, restating a
+ * question already on screen in full.
+ *
+ * The backend now reads that mapping by key and sends prose plus facts, so
+ * nothing new arrives in this shape. This stays as a guard over history: rows
+ * written before that fix are still in the store and still say `{'question':
+ * …}`, and they should read as a stage that listed rather than as a blob.
  */
 function isProse(detail: string): boolean {
   const trimmed = detail.trim();
   return !/^[[{(]/.test(trimmed) && !/'\s*:\s*/.test(trimmed);
 }
 
-export type RowState = 'done' | 'running' | 'waiting' | 'failed' | 'paused';
+export type RowState = 'done' | 'running' | 'waiting' | 'failed' | 'paused' | 'skipped';
 
 export interface Row {
   key: string;
@@ -68,8 +71,18 @@ export function buildRows(stages: StageEvent[], running: boolean): Row[] {
     // A stage can report twice — the gate runs once per clarification round.
     // The later report wins its original position rather than adding a row.
     const existing = rows.find((row) => row.key === event.stage);
+    // `skipped` is mapped rather than folded into `done`: a stage that
+    // short-circuited did not do the work, and marking it complete is the
+    // reason three stages that had genuinely run used to sort below stages
+    // that had not.
     const state: RowState =
-      event.status === 'failed' ? 'failed' : event.status === 'paused' ? 'paused' : 'done';
+      event.status === 'failed'
+        ? 'failed'
+        : event.status === 'paused'
+          ? 'paused'
+          : event.status === 'skipped'
+            ? 'skipped'
+            : 'done';
     const detail = event.detail && isProse(event.detail) ? event.detail : null;
     if (existing) {
       existing.state = state;

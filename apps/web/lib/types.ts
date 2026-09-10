@@ -86,11 +86,25 @@ export interface Profile {
   theme_preference: ThemePreference;
 }
 
-/** One completed pipeline node, as `GET /v1/queries/stream` reports it. */
+/** One pipeline node's outcome, as `GET /v1/queries/stream` reports it and as
+    a stored trail reads back. */
 export interface StageEvent {
   stage: string;
-  status: 'completed' | 'paused' | 'failed';
+  /** `skipped` is a stage the pipeline chose not to run — critique and probing
+      short-circuit on an uncontested turn, domain scoping when the caller named
+      a domain. Distinct from `completed` with no detail, which is a stage that
+      ran and had nothing to report. */
+  status: 'completed' | 'paused' | 'failed' | 'skipped';
   detail: string | null;
+  /** The stage's decision as (label, value) pairs — "cleared", "3 of 4". Absent
+      on a turn recorded before the backend emitted them. */
+  facts?: [string, string][];
+  /** Measured by the stream draining the graph, not by the node. Absent for the
+      same reason. */
+  duration_ms?: number | null;
+  /** Which pass this was. Candidate generation and static validation both run
+      twice when the one escalated regeneration is spent. */
+  attempt?: number;
 }
 
 /**

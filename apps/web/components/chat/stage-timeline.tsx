@@ -22,6 +22,9 @@ function nodeColour(state: RowState): string {
   if (state === 'done') return 'bg-[var(--ok)]';
   if (state === 'failed') return 'bg-[var(--bad)]';
   if (state === 'running' || state === 'paused') return 'bg-[var(--brand)]';
+  // A skipped stage wears the same neutral as a waiting one — it did not run —
+  // but keeps full opacity below, because unlike a waiting stage it is a
+  // settled fact about this turn rather than something still to come.
   return 'bg-[var(--line)]';
 }
 
@@ -46,6 +49,7 @@ function stateLabel(state: RowState): string | null {
   if (state === 'running') return 'in progress';
   if (state === 'failed') return 'stopped here';
   if (state === 'paused') return 'asked you a question';
+  if (state === 'skipped') return 'skipped';
   return null;
 }
 
@@ -91,7 +95,11 @@ export function StageTimeline({ rows, trailKey }: { rows: Row[]; trailKey: strin
             ) : (
               <p
                 className={`text-[0.76rem] leading-tight ${
-                  row.state === 'waiting' ? 'text-[var(--mute)] opacity-55' : 'text-[var(--ink)]'
+                  row.state === 'waiting'
+                    ? 'text-[var(--mute)] opacity-55'
+                    : row.state === 'skipped'
+                      ? 'text-[var(--mute)]'
+                      : 'text-[var(--ink)]'
                 }`}
               >
                 {row.label}

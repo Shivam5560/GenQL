@@ -55,6 +55,10 @@ export function StageRail({
   const elapsed = useElapsed(running ? startedAt : null);
   const rows = buildRows(stages, running);
   const finished = !running && stages.length > 0;
+  // Reported, not completed. Some of those stages short-circuited, and calling
+  // twelve reports "twelve stages completed" claims work the pipeline
+  // deliberately did not do.
+  const ran = stages.filter((stage) => stage.status !== 'skipped').length;
 
   return (
     <aside
@@ -85,7 +89,7 @@ export function StageRail({
           : running
             ? `Elapsed ${(elapsed / 1000).toFixed(1)}s`
             : finished
-              ? `${stages.length} stages completed`
+              ? `${ran} of ${stages.length} stages ran`
               : 'Idle'}
       </p>
     </aside>

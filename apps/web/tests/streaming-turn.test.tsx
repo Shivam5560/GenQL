@@ -191,6 +191,22 @@ describe('StageRail', () => {
 
     expect(rows.filter((row) => row.state === 'running')).toHaveLength(1);
   });
+
+  it('keeps a stage the pipeline skipped apart from one that finished', () => {
+    // Critique and probing short-circuit on an uncontested turn. Folding
+    // `skipped` into `done` puts a green tick beside work that never ran —
+    // and it is the same conflation that used to sort three stages which had
+    // genuinely run below stages that had not.
+    const stages: StageEvent[] = [
+      { stage: 'schema_linking', status: 'completed', detail: '9 objects linked' },
+      { stage: 'critique', status: 'skipped', detail: 'not contested' },
+    ];
+
+    const rows = buildRows(stages, false);
+
+    expect(rows.find((row) => row.key === 'schema_linking')?.state).toBe('done');
+    expect(rows.find((row) => row.key === 'critique')?.state).toBe('skipped');
+  });
 });
 
 describe('streamTurn', () => {

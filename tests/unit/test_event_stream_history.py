@@ -104,7 +104,10 @@ def test_the_recorded_turn_keeps_the_trail_the_user_watched() -> None:
     events = run(FakeGraph(FINISHED), threads, turns)
 
     streamed = [json.loads(e["data"]) for e in events if e["event"] == "stage"]
-    assert [s.model_dump() for s in turns.appended[0].stages] == streamed
+    # JSON mode on both sides, because that is the claim: what the rail
+    # streamed and what the repository stores are the same bytes, not merely
+    # the same values rendered by two different serialisers.
+    assert [s.model_dump(mode="json") for s in turns.appended[0].stages] == streamed
     assert [s.stage for s in turns.appended[0].stages] == ["schema_linking", "guarded_execution"]
 
 
@@ -131,6 +134,32 @@ def test_the_stream_ends_at_its_terminal_event_even_when_history_fails() -> None
     # itself succeeded and the client must still receive its result.
     assert names == ["stage", "stage", "warning", "result"]
     assert "this turn was not saved" in json.loads(events[-2]["data"])["detail"]
+
+
+def test_every_stage_is_timed_by_the_stream_that_drained_it() -> None:
+    """A node cannot time itself — it does not know when the one before it
+    finished. The generator draining the graph does, so it measures."""
+    threads, turns = FakeThreads(), FakeTurnRecords()
+
+    run(FakeGraph(FINISHED), threads, turns)
+
+    assert all(stage.duration_ms is not None for stage in turns.appended[0].stages)
+    assert all(stage.duration_ms >= 0 for stage in turns.appended[0].stages)  # type: ignore[operator]
+
+
+def test_a_node_that_runs_twice_is_reported_as_a_second_pass() -> None:
+    """Candidate generation and static validation both run again on the one
+    escalated regeneration. Listing the stage twice without saying which pass
+    is which reads as a bug in the rail rather than as a retry in the graph."""
+    twice: list[dict[str, Any]] = [
+        {"candidate_generation": {"candidates": (), "retry_count": 0}},
+        {"candidate_generation": {"candidates": (), "retry_count": 1}},
+    ]
+    threads, turns = FakeThreads(), FakeTurnRecords()
+
+    run(FakeGraph(twice), threads, turns)
+
+    assert [stage.attempt for stage in turns.appended[0].stages] == [1, 2]
 
 
 def test_a_stream_without_a_user_records_nothing_and_still_answers() -> None:

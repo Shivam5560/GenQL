@@ -1,85 +1,78 @@
-"""One completed node becomes one short line.
+"""One completed node becomes one event.
 
-The summarisers are a lookup keyed by node name, and a node with no entry
-still produces an event — so a stage added by a later phase streams without
-anyone editing this file, which is the same open/closed property the
-registries give the rest of the system.
+The reading of each node's delta lives in `stage_summaries`; this file is the
+dispatch around it — which node, which status, and the two things a summariser
+cannot know because they are properties of the stream rather than of the
+delta: how long the stage took, and how many times it has run this turn.
 
-Every detail is capped. A plan can be a thousand tokens and a candidate set can
-be several statements; the stream exists to say *what is happening*, and the
-full state is available from the terminal event.
+The interrupt is handled here rather than in the lookup because it is not a
+node. LangGraph reports a pause as the `__interrupt__` pseudo-key, and its
+payload is the mapping `AmbiguityInterruptNode` passed to `interrupt()` — so
+the question is read out of that mapping by key. It used to be stringified
+whole, which put a Python dict repr on the wire (`{'question': '…',
+'suggested_answer': '…', 'options': (…)}`) and left the browser to detect the
+blob and drop it. The suggestion and the options travel as facts instead,
+where a client can render them without parsing anything.
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from typing import Any
 
+from genql.api.sse.stage_summaries import SUMMARISERS
+from genql.api.sse.stage_summary import MAX_DETAIL, StageSummary, reported, trim
 from genql.domain.entities.stage_event import StageEvent
 
-_MAX_DETAIL = 200
 _INTERRUPT = "__interrupt__"
+# The pause belongs to the gate, not to the node that raised it: a reader
+# looking for "why was I asked this" looks at the gate.
+_INTERRUPT_STAGE = "ambiguity_gate"
 
 
-def _links(delta: dict[str, Any]) -> str:
-    return f"{len(delta.get('links') or ())} objects linked"
+def _interrupt_summary(delta: Any) -> StageSummary:
+    """The gate's question, plus what it would have accepted for an answer."""
+    payload = delta[0].value if delta else None
+    if not isinstance(payload, dict):
+        # A port that passes the bare question string rather than the mapping.
+        # Still perfectly usable; there is simply nothing to offer beside it.
+        return reported(trim(str(payload or ""), MAX_DETAIL))
+    options = payload.get("options") or ()
+    return reported(
+        str(payload.get("question") or ""),
+        ("question", str(payload.get("question") or "")),
+        ("suggested answer", str(payload.get("suggested_answer") or "")),
+        ("options", ", ".join(str(option) for option in options)),
+    )
 
 
-def _plan(delta: dict[str, Any]) -> str:
-    plan = delta.get("plan")
-    return plan.plan_text if plan is not None else "planned"
-
-
-def _candidates(delta: dict[str, Any]) -> str:
-    return f"{len(delta.get('candidates') or ())} candidates generated"
-
-
-def _validated(delta: dict[str, Any]) -> str:
-    return f"{len(delta.get('validated_sqls') or ())} candidates cleared validation"
-
-
-def _probes(delta: dict[str, Any]) -> str:
-    return f"{len(delta.get('probe_results') or ())} probes executed"
-
-
-def _selection(delta: dict[str, Any]) -> str:
-    selection = delta.get("selection")
-    return f"selected by {selection.method}" if selection is not None else "selected"
-
-
-def _optimization(delta: dict[str, Any]) -> str:
-    optimization = delta.get("optimization")
-    if optimization is None:
-        return "cost gate cleared"
-    rules = ", ".join(optimization.rules_applied) or "no rewrites"
-    verdict = "within budget" if optimization.within_budget else "over budget"
-    return f"{rules}; estimated cost {optimization.estimated_cost:.0f} ({verdict})"
-
-
-def _execution(delta: dict[str, Any]) -> str:
-    result = delta.get("result")
-    return f"{result.row_count} rows" if result is not None else "executed"
-
-
-_SUMMARISERS: dict[str, Callable[[dict[str, Any]], str]] = {
-    "schema_linking": _links,
-    "planning": _plan,
-    "candidate_generation": _candidates,
-    "static_validation": _validated,
-    "ambiguity_probing": _probes,
-    "candidate_selection": _selection,
-    "rewrite_and_cost_gate": _optimization,
-    "guarded_execution": _execution,
-}
-
-
-def to_stage_event(node: str, delta: Any) -> StageEvent:
+def to_stage_event(
+    node: str,
+    delta: Any,
+    duration_ms: int | None = None,
+    attempt: int = 1,
+) -> StageEvent:
     if node == _INTERRUPT:
-        question = str(delta[0].value) if delta else ""
-        return StageEvent(stage="ambiguity_gate", status="paused", detail=question[:_MAX_DETAIL])
+        summary = _interrupt_summary(delta)
+        return StageEvent(
+            stage=_INTERRUPT_STAGE,
+            status="paused",
+            detail=summary.detail,
+            facts=summary.facts,
+            duration_ms=duration_ms,
+            attempt=attempt,
+        )
 
-    summarise = _SUMMARISERS.get(node)
-    detail = summarise(delta) if summarise and isinstance(delta, dict) else None
+    summarise = SUMMARISERS.get(node)
+    summary = (
+        summarise(delta)
+        if summarise is not None and isinstance(delta, dict)
+        else StageSummary(detail=None)
+    )
     return StageEvent(
-        stage=node, status="completed", detail=detail[:_MAX_DETAIL] if detail else None
+        stage=node,
+        status="completed" if summary.did_run else "skipped",
+        detail=summary.detail,
+        facts=summary.facts,
+        duration_ms=duration_ms,
+        attempt=attempt,
     )

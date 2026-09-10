@@ -23,11 +23,18 @@ and find it.
 The stage events are collected as they are yielded and recorded with the turn,
 for the same reason: the trail the user watched is the explanation of the SQL,
 and it is worth nothing if it only exists until the tab is refreshed.
+
+Two properties of a stage are measured here rather than by the stage itself,
+because only the thing draining the graph can see them: how long the node took
+(a node does not know when the previous one finished) and which pass this is
+(a node re-run after an escalated regeneration has no memory of the first).
 """
 
 from __future__ import annotations
 
 import json
+import time
+from collections import Counter
 from collections.abc import Iterator
 from typing import Any
 
@@ -74,6 +81,10 @@ def stage_event_stream(  # noqa: PLR0913, PLR0917 - mirrors the graph's start pa
     # stage events exist, and a trail rebuilt later from checkpoint state would
     # be a different reading of the turn than the one the user watched.
     collected: list[StageEvent] = []
+    # Counted per node rather than per stage name: the interrupt arrives under
+    # its own pseudo-key, and a gate that asked three questions is three passes
+    # of the gate, not one pass reported three times.
+    attempts: Counter[str] = Counter()
     try:
         with locks.for_thread(resolved):
             chunks = (
@@ -81,15 +92,31 @@ def stage_event_stream(  # noqa: PLR0913, PLR0917 - mirrors the graph's start pa
                 if answer is not None
                 else stream_query(graph, question, datasource_name, resolved, domain_id)
             )
+            # Started here, not at the top of the function: `stream_query`
+            # returns a generator, so nothing has run yet and the clock would
+            # otherwise include acquiring the thread lock.
+            since = time.monotonic()
             for chunk in chunks:
                 for node, delta in chunk.items():
                     if isinstance(delta, dict):
                         merged.update(delta)
                     else:
                         merged["__interrupt__"] = delta
-                    stage = to_stage_event(node, delta)
+                    now = time.monotonic()
+                    attempts[node] += 1
+                    stage = to_stage_event(node, delta, int((now - since) * 1000), attempts[node])
+                    # Reset per node, not per chunk: `stream_mode="updates"`
+                    # yields one node at a time for this linear graph, and if a
+                    # future branch ever batches two into one chunk the elapsed
+                    # time belongs to the first rather than to both.
+                    since = now
                     collected.append(stage)
-                    yield _event("stage", stage.model_dump())
+                    # `mode="json"` rather than the default: `facts` is a tuple
+                    # of pairs, and only JSON mode renders those as the arrays
+                    # the repository writes. Without it the trail a client
+                    # streams and the trail it reads back a week later are the
+                    # same data serialised two ways.
+                    yield _event("stage", stage.model_dump(mode="json"))
     except GenqlError as exc:
         yield _event("error", {"error": type(exc).__name__, "detail": str(exc)})
         return
