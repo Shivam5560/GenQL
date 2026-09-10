@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import typer
 
 from genql.cli.commands import datasource as datasource_commands
@@ -15,6 +17,10 @@ from genql.cli.commands import serve as serve_commands
 from genql.composition_root import Container
 from genql.discovery.registry import DISCOVERY_STEPS
 from genql.domain.errors import GenqlError
+from genql.infrastructure.tracing.tracer import configure_tracing
+
+if TYPE_CHECKING:
+    from opentelemetry.sdk.trace import TracerProvider
 
 app = typer.Typer(help="GenQL — enterprise NL2SQL with semantic enrichment")
 app.add_typer(datasource_commands.app, name="datasource")
@@ -47,6 +53,10 @@ def discover(
 ) -> None:
     """Run the offline discovery pipeline over the resolved scope."""
     container = Container()
+    # Discovery profiles objects with an LLM, so it is traced like a query
+    # turn is. Built here rather than in a Typer callback: a callback would
+    # construct the container for `genql --help` too, which needs no settings.
+    tracer = _trace(container)
     # Both calls are inside the guard: an unresolvable scope and an unknown
     # --start-from are both the caller's mistake, and neither deserves a
     # traceback. Per-schema failures never land here — run_scope reports those
@@ -70,7 +80,18 @@ def discover(
             typer.echo(f"  {marker} {result.step_name}: {result.message}")
         failed = failed or not outcome.succeeded
 
+    if tracer is not None:
+        tracer.shutdown()
     raise typer.Exit(code=1 if failed else 0)
+
+
+def _trace(container: Container) -> TracerProvider | None:
+    settings = container.settings()
+    return configure_tracing(
+        enabled=settings.tracing_enabled,
+        endpoint=settings.tracing_endpoint,
+        project=settings.tracing_project,
+    )
 
 
 if __name__ == "__main__":

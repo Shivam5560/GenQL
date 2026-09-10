@@ -16,12 +16,18 @@ import os
 
 import typer
 
+from genql.cli.commands import datasource_edit
 from genql.composition_root import Container
 from genql.domain.errors import GenqlError
 from genql.domain.value_objects.datasource_connection import DatasourceConnection
 from genql.registries.errors import RegistryError
 
 app = typer.Typer(help="Register and inspect datasources")
+
+# Attached rather than defined here: editing a registered datasource is its own
+# command with its own option semantics, and this file is already the long one.
+app.command("update")(datasource_edit.update)
+app.command("dialects")(datasource_edit.dialects)
 
 _PASSWORD_ENV = "GENQL_WAREHOUSE_PASSWORD"
 

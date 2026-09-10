@@ -16,10 +16,12 @@ registering a third strategy cannot silently change the non-contested path.
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import cast
 
 import genql.repositories.query  # noqa: F401 - registration side effect
 from genql.domain.ports.candidate_strategy import CandidateGenerationStrategy
 from genql.domain.ports.chat_provider import ChatProvider
+from genql.infrastructure.tracing.thread_context import ContextCarryingStrategy
 from genql.repositories.query.registry import CANDIDATE_STRATEGIES
 
 _DEFAULT_STRATEGY = "decomposition"
@@ -27,10 +29,24 @@ _DEFAULT_STRATEGY = "decomposition"
 
 class CandidateStrategyFactoryImpl:
     def default(self, chat: ChatProvider) -> CandidateGenerationStrategy:
-        return CANDIDATE_STRATEGIES.create(_DEFAULT_STRATEGY, chat=chat)
+        return _carried(CANDIDATE_STRATEGIES.create(_DEFAULT_STRATEGY, chat=chat))
 
     def all(self, chat: ChatProvider) -> Sequence[CandidateGenerationStrategy]:
+        # Wrapped here, not in the service: this runs on the thread that owns
+        # the turn's trace, and the service runs each strategy on another one.
         return [
-            CANDIDATE_STRATEGIES.create(key, chat=chat)
+            _carried(CANDIDATE_STRATEGIES.create(key, chat=chat))
             for key in CANDIDATE_STRATEGIES.keys()  # noqa: SIM118 - Registry, not a dict
         ]
+
+
+def _carried(strategy: CandidateGenerationStrategy) -> CandidateGenerationStrategy:
+    """The cast is the type system's limit, not a loosened contract.
+
+    ContextCarryingStrategy is a transparent proxy: it forwards
+    `generate_variants` and reads `variant_count` off the strategy it wraps.
+    The port declares `variant_count` as a ClassVar, which a per-instance
+    forward cannot satisfy structurally even though every call site is
+    satisfied at runtime.
+    """
+    return cast(CandidateGenerationStrategy, ContextCarryingStrategy(strategy))

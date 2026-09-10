@@ -1,0 +1,204 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Space+Mono:wght@400;700&display=swap">
+  <style>
+    body { margin: 0; background: #0c0b0a; }
+    a { color: #ff7a45; } a:hover { color: #ffa07a; }
+
+    /* Three sizes, and only three. A 300px rail has no room for a ramp, so
+       hierarchy comes from weight, colour, family and case instead — nine
+       sizes inside four pixels is not a hierarchy, it is a wobble. */
+    .lead { font-size: 14.5px; line-height: 1.35; }
+    .body { font-size: 11.5px; line-height: 1.45; }
+    .micro { font-size: 9px; line-height: 1.5; }
+
+    .sans { font-family: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif; }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, 'SF Mono', monospace; font-variant-numeric: tabular-nums; }
+    .eb { font-family: 'Space Mono', ui-monospace, monospace; text-transform: uppercase; letter-spacing: 0.15em; }
+    .row:hover { background: #1b1a17; }
+  </style>
+</helmet>
+
+<div class="sans" style="width: 300px; min-height: 1100px; box-sizing: border-box; background: #1b1a17; border-left: 1px solid rgba(255,255,255,0.14); color: #f2efe8; display: flex; flex-direction: column;">
+
+  <!-- ── Header: the verdict, before any trail ─────────────────── -->
+  <div style="display: flex; flex-direction: column; gap: 9px; padding: 20px 16px 15px 16px; border-bottom: 1px solid rgba(255,255,255,0.14);">
+    <div class="eb micro" style="color: #a39b8c;">How this was answered</div>
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <span style="width: 6px; height: 6px; border-radius: 999px; background: #59d692; flex-shrink: 0;"></span>
+      <span class="lead" style="font-weight: 500; color: #f2efe8;">Validated, then run</span>
+      <span class="mono micro" style="color: #a39b8c; margin-left: auto;">100 rows</span>
+    </div>
+    <div class="body" style="color: #a39b8c; font-style: italic; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">Finds customers who bought through the Store channel with a good credit rating</div>
+  </div>
+
+  <!-- ── Tier 1: the three things a reviewer would actually dispute ── -->
+  <div style="display: flex; flex-direction: column; padding: 15px 0 4px 0;">
+    <div class="eb micro" style="color: #6f685c; padding: 0 16px 10px 16px;">What decided this answer</div>
+
+    <!-- Card 1 — the answered question. The one place the lead size earns a
+         second use: it is the single value the whole statement turns on. -->
+    <div style="margin: 0 16px 9px 16px; border-left: 2px solid #ff7a45; background: #151412; padding: 11px 13px;">
+      <div style="display: flex; align-items: center; gap: 6px;">
+        <div class="eb micro" style="color: #ff7a45;">You answered</div>
+        <div class="mono micro" style="color: #6f685c; margin-left: auto;">metric</div>
+      </div>
+      <div class="lead" style="margin-top: 7px; color: #f2efe8;">Credit status classified as good</div>
+      <div class="mono body" style="margin-top: 8px; color: #6fd3a1; word-break: break-all;">cd_credit_rating = 'Good'</div>
+    </div>
+
+    <!-- Card 2 — what was decided FOR them -->
+    <div style="margin: 0 16px 9px 16px; border-left: 2px solid #a39b8c; background: #151412; padding: 11px 13px;">
+      <div style="display: flex; align-items: center; gap: 6px;">
+        <div class="eb micro" style="color: #a39b8c;">Assumed for you</div>
+        <div class="mono micro" style="color: #6f685c; margin-left: auto;">3</div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 9px;">
+        <div style="display: flex; gap: 9px; align-items: baseline;">
+          <span class="mono micro" style="color: #6f685c; width: 68px; flex-shrink: 0;">time_range</span>
+          <span class="body" style="color: #f2efe8;">All available history</span>
+        </div>
+        <div style="display: flex; gap: 9px; align-items: baseline;">
+          <span class="mono micro" style="color: #6f685c; width: 68px; flex-shrink: 0;">grain</span>
+          <span class="body" style="color: #f2efe8;">One row per customer</span>
+        </div>
+        <div style="display: flex; gap: 9px; align-items: baseline;">
+          <span class="mono micro" style="color: #6f685c; width: 68px; flex-shrink: 0;">channel</span>
+          <span class="body" style="color: #f2efe8;">Store only<span style="color: #6f685c;"> · rule <span class="mono micro">default_channel</span></span></span>
+        </div>
+      </div>
+      <div class="body" style="margin-top: 10px; color: #6f685c;">Wrong? Say so in a follow-up and the gate re-asks.</div>
+    </div>
+
+    <!-- Card 3 — why THIS statement, of the four drafted -->
+    <div style="margin: 0 16px 4px 16px; border-left: 2px solid #a39b8c; background: #151412; padding: 11px 13px;">
+      <div style="display: flex; align-items: center; gap: 6px;">
+        <div class="eb micro" style="color: #a39b8c;">Why this SQL won</div>
+        <div class="mono micro" style="color: #6f685c; margin-left: auto;">4 &rarr; 1</div>
+      </div>
+      <div class="body" style="margin-top: 8px; color: #f2efe8;">A probe query settled it: only candidate 2 predicted the real count of Store-channel customers.</div>
+      <div style="display: flex; flex-direction: column; gap: 5px; margin-top: 10px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="width: 5px; height: 5px; border-radius: 999px; background: #59d692; flex-shrink: 0;"></span>
+          <span class="mono micro" style="color: #f2efe8;">#2</span>
+          <span class="body" style="color: #a39b8c;">joined on ss_cdemo_sk</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="width: 5px; height: 5px; border-radius: 999px; background: #4a453d; flex-shrink: 0;"></span>
+          <span class="mono micro" style="color: #6f685c;">#1</span>
+          <span class="body" style="color: #6f685c;">predicted 0 &mdash; wrong join key</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="width: 5px; height: 5px; border-radius: 999px; background: #4a453d; flex-shrink: 0;"></span>
+          <span class="mono micro" style="color: #6f685c;">#3</span>
+          <span class="body" style="color: #6f685c;">double-counted returns</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="width: 5px; height: 5px; border-radius: 999px; background: #4a453d; flex-shrink: 0;"></span>
+          <span class="mono micro" style="color: #6f685c;">#4</span>
+          <span class="body" style="color: #6f685c;">dropped at validation</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Tier 2: the full trail, one line per stage, in pipeline order ── -->
+  <div style="border-top: 1px solid rgba(255,255,255,0.14); margin-top: 13px; padding-top: 14px;">
+    <div style="display: flex; align-items: baseline; padding: 0 16px 4px 16px;">
+      <div class="eb micro" style="color: #6f685c;">Full trail</div>
+      <div class="mono micro" style="color: #6f685c; margin-left: auto;">17.4s</div>
+    </div>
+
+    <!-- Phase: read -->
+    <div class="eb micro" style="color: #4a453d; padding: 10px 16px 3px 16px;">Read the question &middot; 1.9s</div>
+    <div class="row" style="display: flex; align-items: center; gap: 9px; padding: 5px 16px;">
+      <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style="flex-shrink: 0;"><path d="M1.4 5.2 3.9 7.7 8.6 2.5" stroke="#59d692" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span class="body" style="color: #f2efe8;">Intent</span>
+      <span class="mono micro" style="color: #a39b8c; margin-left: auto;">analytical_sql</span>
+    </div>
+    <div class="row" style="display: flex; align-items: center; gap: 9px; padding: 5px 16px;">
+      <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style="flex-shrink: 0;"><path d="M2 5h6" stroke="#4a453d" stroke-width="1.5" stroke-linecap="round"/></svg>
+      <span class="body" style="color: #6f685c;">Domain scoping</span>
+      <span class="mono micro" style="color: #4a453d; margin-left: auto;">skipped &mdash; no domains</span>
+    </div>
+    <div class="row" style="display: flex; align-items: center; gap: 9px; padding: 5px 16px;">
+      <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style="flex-shrink: 0;"><path d="M1.4 5.2 3.9 7.7 8.6 2.5" stroke="#59d692" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span class="body" style="color: #f2efe8;">Schema linking</span>
+      <span class="mono micro" style="color: #a39b8c; margin-left: auto;">9 objects &middot; 3 joins</span>
+    </div>
+
+    <!-- Phase: settle -->
+    <div class="eb micro" style="color: #4a453d; padding: 10px 16px 3px 16px;">Settle the ambiguity &middot; 2.1s</div>
+    <div class="row" style="display: flex; align-items: center; gap: 9px; padding: 5px 16px; border-left: 2px solid #ff7a45; margin-left: -2px;">
+      <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style="flex-shrink: 0;"><path d="M1.4 5.2 3.9 7.7 8.6 2.5" stroke="#59d692" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span class="body" style="color: #f2efe8;">Ambiguity gate</span>
+      <span class="mono micro" style="color: #a39b8c; margin-left: auto;">1 asked &middot; 3 assumed</span>
+    </div>
+
+    <!-- Phase: draft -->
+    <div class="eb micro" style="color: #4a453d; padding: 10px 16px 3px 16px;">Draft the SQL &middot; 8.2s</div>
+    <div class="row" style="display: flex; align-items: center; gap: 9px; padding: 5px 16px;">
+      <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style="flex-shrink: 0;"><path d="M1.4 5.2 3.9 7.7 8.6 2.5" stroke="#59d692" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span class="body" style="color: #f2efe8;">Planning</span>
+      <span class="mono micro" style="color: #a39b8c; margin-left: auto;">3 objects grounded</span>
+    </div>
+    <div class="row" style="display: flex; align-items: center; gap: 9px; padding: 5px 16px;">
+      <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style="flex-shrink: 0;"><path d="M1.4 5.2 3.9 7.7 8.6 2.5" stroke="#59d692" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span class="body" style="color: #f2efe8;">Candidates</span>
+      <span class="mono micro" style="color: #a39b8c; margin-left: auto;">4 drafted</span>
+    </div>
+
+    <!-- Phase: prove -->
+    <div class="eb micro" style="color: #4a453d; padding: 10px 16px 3px 16px;">Prove it &middot; 4.9s</div>
+    <div class="row" style="display: flex; align-items: center; gap: 9px; padding: 5px 16px; border-left: 2px solid #ff7a45; margin-left: -2px;">
+      <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style="flex-shrink: 0;"><path d="M1.4 5.2 3.9 7.7 8.6 2.5" stroke="#59d692" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span class="body" style="color: #f2efe8;">Validation</span>
+      <span class="mono micro" style="color: #a39b8c; margin-left: auto;">3 of 4 &middot; 1 repaired</span>
+    </div>
+    <div class="row" style="display: flex; align-items: center; gap: 9px; padding: 5px 16px;">
+      <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style="flex-shrink: 0;"><path d="M1.4 5.2 3.9 7.7 8.6 2.5" stroke="#59d692" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span class="body" style="color: #f2efe8;">Critique</span>
+      <span class="mono micro" style="color: #a39b8c; margin-left: auto;">top score 0.92</span>
+    </div>
+    <div class="row" style="display: flex; align-items: center; gap: 9px; padding: 5px 16px; border-left: 2px solid #ff7a45; margin-left: -2px;">
+      <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style="flex-shrink: 0;"><path d="M1.4 5.2 3.9 7.7 8.6 2.5" stroke="#59d692" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span class="body" style="color: #f2efe8;">Probing</span>
+      <span class="mono micro" style="color: #a39b8c; margin-left: auto;">2 probes &middot; resolved</span>
+    </div>
+    <div class="row" style="display: flex; align-items: center; gap: 9px; padding: 5px 16px; border-left: 2px solid #ff7a45; margin-left: -2px;">
+      <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style="flex-shrink: 0;"><path d="M1.4 5.2 3.9 7.7 8.6 2.5" stroke="#59d692" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span class="body" style="color: #f2efe8;">Selection</span>
+      <span class="mono micro" style="color: #a39b8c; margin-left: auto;">probe_resolved</span>
+    </div>
+    <div class="row" style="display: flex; align-items: center; gap: 9px; padding: 5px 16px;">
+      <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style="flex-shrink: 0;"><path d="M1.4 5.2 3.9 7.7 8.6 2.5" stroke="#59d692" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span class="body" style="color: #f2efe8;">Cost gate</span>
+      <span class="mono micro" style="color: #a39b8c; margin-left: auto;">4.2k &middot; in budget</span>
+    </div>
+
+    <!-- Phase: run -->
+    <div class="eb micro" style="color: #4a453d; padding: 10px 16px 3px 16px;">Run it &middot; 0.3s</div>
+    <div class="row" style="display: flex; align-items: center; gap: 9px; padding: 5px 16px 7px 16px;">
+      <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style="flex-shrink: 0;"><path d="M1.4 5.2 3.9 7.7 8.6 2.5" stroke="#59d692" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span class="body" style="color: #f2efe8;">Execution</span>
+      <span class="mono micro" style="color: #a39b8c; margin-left: auto;">100 rows &middot; 340ms</span>
+    </div>
+  </div>
+
+  <!-- ── Footer: the receipt ─────────────────────────────────── -->
+  <div style="margin-top: auto; border-top: 1px solid rgba(255,255,255,0.14); padding: 12px 16px 15px 16px; display: flex; flex-direction: column; gap: 4px;">
+    <div class="mono micro" style="color: #6f685c;">5 model calls &middot; 18.2k tokens &middot; $0.031</div>
+    <div class="mono micro" style="color: #4a453d;">trail 9f3c1ab &middot; gpt-5.1 &middot; prompts v7</div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

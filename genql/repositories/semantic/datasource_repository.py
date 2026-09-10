@@ -45,6 +45,22 @@ _SELECT_ALL = text(f"""
     ORDER BY name
 """)
 
+_UPDATE = text("""
+    UPDATE genql.genql_datasource SET
+        dialect = :dialect,
+        dsn_env_var = :dsn_env_var,
+        host = :host,
+        port = :port,
+        database = :database,
+        username = :username,
+        password_ciphertext = :password_ciphertext,
+        options = :options,
+        description = :description,
+        enabled = :enabled
+    WHERE name = :name
+    RETURNING name
+""")
+
 _SELECT_NAMES = text("SELECT name FROM genql.genql_datasource ORDER BY name")
 
 _DELETE = text("DELETE FROM genql.genql_datasource WHERE name = :name RETURNING name")
@@ -66,6 +82,18 @@ class PostgresDatasourceRepository:
             if row is None:
                 raise UnknownDatasourceError(name, self._names(conn))
         return Datasource.model_validate(row._mapping)  # noqa: SLF001 - Row mapping is public API
+
+    def update(self, datasource: Datasource) -> None:
+        """Writes every column, because the caller already merged the edit.
+
+        `name` is the key rather than a value here: renaming a datasource
+        would orphan every catalog row, profile and job that references it by
+        name, so an edit moves the connection, never the identity.
+        """
+        with self._engine.begin() as conn:
+            updated = conn.execute(_UPDATE, datasource.model_dump(mode="json")).scalar()
+            if updated is None:
+                raise UnknownDatasourceError(datasource.name, self._names(conn))
 
     def list_all(self, enabled_only: bool = False) -> Sequence[Datasource]:
         with self._engine.connect() as conn:

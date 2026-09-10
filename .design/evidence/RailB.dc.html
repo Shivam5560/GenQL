@@ -1,0 +1,80 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Newsreader:opsz,wght@6..72,300;6..72,400&family=Space+Mono:wght@400;700&display=swap">
+  <style>
+    body { margin: 0; background: #0c0b0a; }
+    a { color: #ff7a45; } a:hover { color: #ffa07a; }
+    .sans { font-family: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif; }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, 'SF Mono', monospace; font-variant-numeric: tabular-nums; }
+    .serif { font-family: 'Newsreader', Georgia, 'Times New Roman', serif; }
+    .eb { font-family: 'Space Mono', ui-monospace, monospace; text-transform: uppercase; }
+    .n { font-family: 'JetBrains Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; font-size: 11px; color: #f2efe8; background: rgba(255,122,69,0.10); padding: 0 3px; }
+  </style>
+</helmet>
+
+<div class="sans" style="width: 300px; min-height: 1020px; box-sizing: border-box; background: #1b1a17; border-left: 1px solid rgba(255,255,255,0.14); color: #f2efe8; display: flex; flex-direction: column;">
+
+  <div style="padding: 20px 16px 13px 16px; border-bottom: 1px solid rgba(255,255,255,0.14); display: flex; flex-direction: column; gap: 7px;">
+    <div class="eb" style="font-size: 10px; letter-spacing: 0.14em; color: #a39b8c;">Working notes</div>
+    <div class="serif" style="font-size: 17px; font-weight: 300; line-height: 1.25; letter-spacing: -0.01em; color: #f2efe8;">What I did, and why.</div>
+  </div>
+
+  <div style="padding: 16px 16px 4px 16px; display: flex; flex-direction: column; gap: 15px;">
+
+    <!-- Beat 1 -->
+    <div style="display: flex; flex-direction: column; gap: 5px;">
+      <div class="eb" style="font-size: 8.5px; letter-spacing: 0.16em; color: #6f685c;">I read it as</div>
+      <p style="margin: 0; font-size: 12.5px; line-height: 1.6; color: #f2efe8;">A lookup, not an aggregate. I searched the warehouse and found <span class="n">9</span> objects worth reading, linked by <span class="n">3</span> mined join paths. No business domain is configured on this datasource, so I searched all <span class="n">612</span>.</p>
+    </div>
+
+    <!-- Beat 2 — contested, gets the accent -->
+    <div style="display: flex; flex-direction: column; gap: 5px; border-left: 2px solid #ff7a45; padding-left: 11px; margin-left: -13px;">
+      <div class="eb" style="font-size: 8.5px; letter-spacing: 0.16em; color: #ff7a45;">I had to ask</div>
+      <p style="margin: 0; font-size: 12.5px; line-height: 1.6; color: #f2efe8;">&ldquo;Good credit&rdquo; had no single reading. You said <em style="font-style: normal; color: #6fd3a1;">credit status classified as good</em>, which I applied as <span class="mono" style="font-size: 10.5px; color: #6fd3a1;">cd_credit_rating = 'Good'</span>.</p>
+      <p style="margin: 4px 0 0 0; font-size: 12.5px; line-height: 1.6; color: #a39b8c;">I settled <span class="n">3</span> more without asking &mdash; time range, grain and channel &mdash; because the question budget allows one question per turn.</p>
+    </div>
+
+    <!-- Beat 3 -->
+    <div style="display: flex; flex-direction: column; gap: 5px;">
+      <div class="eb" style="font-size: 8.5px; letter-spacing: 0.16em; color: #6f685c;">I drafted</div>
+      <p style="margin: 0; font-size: 12.5px; line-height: 1.6; color: #f2efe8;">A plan naming <span class="n">3</span> objects, then <span class="n">4</span> statements against it. <span class="n">1</span> broke a guardrail and was repaired; <span class="n">1</span> could not be and was dropped.</p>
+    </div>
+
+    <!-- Beat 4 -->
+    <div style="display: flex; flex-direction: column; gap: 5px; border-left: 2px solid #ff7a45; padding-left: 11px; margin-left: -13px;">
+      <div class="eb" style="font-size: 8.5px; letter-spacing: 0.16em; color: #ff7a45;">I chose</div>
+      <p style="margin: 0; font-size: 12.5px; line-height: 1.6; color: #f2efe8;">Critique scored the survivors <span class="mono" style="font-size: 10.5px;">0.92 / 0.71 / 0.68</span>, close enough to be worth testing. Two probe queries ran against your warehouse; only candidate <span class="n">2</span> predicted the real answer, so it won on evidence rather than on score.</p>
+    </div>
+
+    <!-- Beat 5 -->
+    <div style="display: flex; flex-direction: column; gap: 5px;">
+      <div class="eb" style="font-size: 8.5px; letter-spacing: 0.16em; color: #6f685c;">I ran it</div>
+      <p style="margin: 0; font-size: 12.5px; line-height: 1.6; color: #f2efe8;">Estimated cost <span class="n">4.2k</span> against a budget of <span class="n">50k</span>. Read-only, capped at <span class="n">1000</span> rows, 10-second statement timeout. Came back with <span class="n">100</span> rows in <span class="n">340ms</span>.</p>
+    </div>
+
+  </div>
+
+  <!-- Collapsed machine trail — present, not prominent -->
+  <div style="margin-top: 16px; border-top: 1px solid rgba(255,255,255,0.14);">
+    <div style="display: flex; align-items: center; gap: 8px; padding: 11px 16px;">
+      <svg width="9" height="9" viewBox="0 0 10 10" fill="none" style="flex-shrink: 0;"><path d="M3.2 1.6 6.8 5 3.2 8.4" stroke="#6f685c" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span class="eb" style="font-size: 9px; letter-spacing: 0.16em; color: #6f685c;">12 stages, timings</span>
+      <span class="mono" style="font-size: 9.5px; color: #6f685c; margin-left: auto;">17.4s</span>
+    </div>
+  </div>
+
+  <div style="margin-top: auto; border-top: 1px solid rgba(255,255,255,0.14); padding: 11px 16px 14px 16px;">
+    <div class="mono" style="font-size: 9.5px; color: #4a453d; line-height: 1.5;">trail 9f3c1ab &middot; 18.2k tokens &middot; $0.031</div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

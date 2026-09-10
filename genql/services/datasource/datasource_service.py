@@ -30,7 +30,9 @@ from genql.domain.ports.datasource_repository import DatasourceRepository
 from genql.domain.ports.engine_invalidator import EngineInvalidator
 from genql.domain.ports.secret_cipher import SecretCipher
 from genql.domain.value_objects.datasource_connection import DatasourceConnection
+from genql.domain.value_objects.datasource_update import DatasourceUpdate
 from genql.registries.errors import UnknownRegistryKeyError
+from genql.services.datasource.datasource_merge import merge
 
 
 class DatasourceService:
@@ -79,12 +81,40 @@ class DatasourceService:
         self._datasources.add(datasource)
         return datasource
 
+    def update(self, name: str, patch: DatasourceUpdate) -> Datasource:
+        """Applies an edit to one registered datasource.
+
+        Read, merge, write: the patch names only the fields it changes, so an
+        edit to the host cannot silently blank the description someone else
+        just set. Everything that can be refused is refused before the write,
+        which is also why the pooled engine is only invalidated afterwards —
+        a rejected edit must leave live connections working.
+        """
+        current = self._datasources.get(name)
+        if patch.dialect is not None:
+            self._require_known_dialect(patch.dialect)
+            self._scheme_for(patch.dialect)
+        if patch.dsn_env_var and not patch.touches_endpoint():
+            self._require_readable_env(name, patch.dsn_env_var)
+        merged = merge(current, patch, self._cipher)
+        self._datasources.update(merged)
+        self._engines.invalidate(name)
+        return merged
+
+    def dialects(self) -> Sequence[str]:
+        """Every registered dialect, for a client that has to offer a choice.
+
+        The connect form used to hard-code one. This is the registry's own
+        answer, so registering a Snowflake reader is the only edit adding
+        Snowflake to that form takes.
+        """
+        return list(self._dialects)
+
     def register_from_env(
         self, name: str, dialect: str, dsn_env_var: str, description: str | None
     ) -> Datasource:
         self._require_known_dialect(dialect)
-        if not self._env.get(dsn_env_var, "").strip():
-            raise MissingDatasourceSecretError(name, dsn_env_var)
+        self._require_readable_env(name, dsn_env_var)
         datasource = Datasource(
             name=name, dialect=dialect, dsn_env_var=dsn_env_var, description=description
         )
@@ -99,6 +129,10 @@ class DatasourceService:
         # Only after the delete succeeds: a removal that was refused (unknown
         # name) must leave a live datasource's pooled engine alone.
         self._engines.invalidate(name)
+
+    def _require_readable_env(self, name: str, dsn_env_var: str) -> None:
+        if not self._env.get(dsn_env_var, "").strip():
+            raise MissingDatasourceSecretError(name, dsn_env_var)
 
     def _require_known_dialect(self, dialect: str) -> None:
         if dialect not in self._dialects:

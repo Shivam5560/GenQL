@@ -1,0 +1,208 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Newsreader:opsz,wght@6..72,300;6..72,400&family=Space+Mono:wght@400;700&display=swap">
+  <style>
+    body { margin: 0; background: #0c0b0a; }
+    a { color: #ff7a45; } a:hover { color: #ffa07a; }
+    .sans { font-family: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif; }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, 'SF Mono', monospace; font-variant-numeric: tabular-nums; }
+    .serif { font-family: 'Newsreader', Georgia, 'Times New Roman', serif; }
+    .eb { font-family: 'Space Mono', ui-monospace, monospace; text-transform: uppercase; }
+    .panel { background: #151412; border: 1px solid rgba(255,255,255,0.14); padding: 18px 20px 20px 20px; display: flex; flex-direction: column; gap: 14px; }
+    .ptitle { font-family: 'Space Mono', ui-monospace, monospace; text-transform: uppercase; font-size: 9.5px; letter-spacing: 0.15em; color: #a39b8c; }
+    .cap { font-size: 11.5px; line-height: 1.55; color: #6f685c; margin: 0; }
+  </style>
+</helmet>
+
+<div class="sans" style="width: 1180px; box-sizing: border-box; background: #0c0b0a; color: #f2efe8; padding: 44px 46px 50px 46px;">
+
+  <div style="padding-bottom: 24px; border-bottom: 1px solid rgba(255,255,255,0.14);">
+    <div class="eb" style="font-size: 10px; letter-spacing: 0.16em; color: #a39b8c;">Stage inspector &mdash; patterns</div>
+    <h1 class="serif" style="margin: 12px 0 0 0; font-size: 36px; font-weight: 300; line-height: 1.12; letter-spacing: -0.02em; max-width: 26ch;">Four stages, drawn from the fields on the facing sheet.</h1>
+    <p style="margin: 12px 0 0 0; max-width: 80ch; font-size: 13px; line-height: 1.65; color: #a39b8c;">Each of these is one stage&rsquo;s expanded panel inside the drawer. None of them invents a number: every value shown is either already in <span class="mono" style="font-size: 11.5px; color: #f2efe8;">QueryState</span> today or is one of the additions proposed opposite.</p>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; margin-top: 30px;">
+
+    <!-- 1. Schema linking -->
+    <div class="panel">
+      <div style="display: flex; align-items: baseline; gap: 10px;">
+        <span class="ptitle">Schema linking</span>
+        <span class="mono" style="font-size: 10px; color: #6f685c;">1.20s</span>
+        <span class="mono" style="font-size: 10px; color: #6f685c; margin-left: auto;">9 of 612</span>
+      </div>
+      <p class="cap">Ranked by retrieval score. Three were linked and used; the rest were in scope but never referenced by the plan.</p>
+      <div style="display: flex; flex-direction: column; gap: 0;">
+        <div style="display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid rgba(255,255,255,0.07);">
+          <span style="width: 5px; height: 5px; border-radius: 999px; background: #59d692; flex-shrink: 0;"></span>
+          <span class="mono" style="font-size: 11px; color: #f2efe8;">tpcds.store_sales</span>
+          <span style="font-size: 11px; color: #6f685c;">2 cols &middot; 2 joins</span>
+          <span class="mono" style="font-size: 10.5px; color: #59d692; margin-left: auto;">0.94</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid rgba(255,255,255,0.07);">
+          <span style="width: 5px; height: 5px; border-radius: 999px; background: #59d692; flex-shrink: 0;"></span>
+          <span class="mono" style="font-size: 11px; color: #f2efe8;">tpcds.customer_demographics</span>
+          <span style="font-size: 11px; color: #6f685c;">2 cols</span>
+          <span class="mono" style="font-size: 10.5px; color: #59d692; margin-left: auto;">0.91</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid rgba(255,255,255,0.07);">
+          <span style="width: 5px; height: 5px; border-radius: 999px; background: #59d692; flex-shrink: 0;"></span>
+          <span class="mono" style="font-size: 11px; color: #f2efe8;">tpcds.customer</span>
+          <span style="font-size: 11px; color: #6f685c;">2 cols &middot; 1 join</span>
+          <span class="mono" style="font-size: 10.5px; color: #59d692; margin-left: auto;">0.88</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid rgba(255,255,255,0.07);">
+          <span style="width: 5px; height: 5px; border-radius: 999px; background: #4a453d; flex-shrink: 0;"></span>
+          <span class="mono" style="font-size: 11px; color: #6f685c;">tpcds.household_demographics</span>
+          <span style="font-size: 11px; color: #4a453d;">linked, unused</span>
+          <span class="mono" style="font-size: 10.5px; color: #6f685c; margin-left: auto;">0.61</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px; padding: 7px 0;">
+          <span style="width: 5px; height: 5px; border-radius: 999px; background: #4a453d; flex-shrink: 0;"></span>
+          <span class="mono" style="font-size: 11px; color: #6f685c;">tpcds.web_sales</span>
+          <span style="font-size: 11px; color: #4a453d;">rejected &mdash; wrong channel</span>
+          <span class="mono" style="font-size: 10.5px; color: #6f685c; margin-left: auto;">0.58</span>
+        </div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 7px; padding-top: 2px;">
+        <span class="eb" style="font-size: 9px; letter-spacing: 0.13em; color: #6f685c;">Show all 9</span>
+        <svg width="9" height="9" viewBox="0 0 10 10" fill="none"><path d="M3.2 1.6 6.8 5 3.2 8.4" stroke="#6f685c" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+    </div>
+
+    <!-- 2. Static validation -->
+    <div class="panel">
+      <div style="display: flex; align-items: baseline; gap: 10px;">
+        <span class="ptitle">Static validation</span>
+        <span class="mono" style="font-size: 10px; color: #6f685c;">0.28s</span>
+        <span class="mono" style="font-size: 10px; color: #6f685c; margin-left: auto;">4 in &rarr; 3 out</span>
+      </div>
+      <p class="cap">Every guardrail that fired, on which candidate, and whether the rule declared it repairable.</p>
+      <div style="display: flex; flex-direction: column; gap: 9px;">
+        <div style="display: flex; gap: 11px; align-items: flex-start; padding: 9px 11px; background: #1b1a17; border-left: 2px solid #59d692;">
+          <span class="mono" style="font-size: 10.5px; color: #a39b8c; flex-shrink: 0;">#1 #2</span>
+          <span style="font-size: 11.5px; line-height: 1.5; color: #f2efe8;">Passed every rule on the first attempt.</span>
+        </div>
+        <div style="display: flex; gap: 11px; align-items: flex-start; padding: 9px 11px; background: #1b1a17; border-left: 2px solid #ff7a45;">
+          <span class="mono" style="font-size: 10.5px; color: #a39b8c; flex-shrink: 0;">#3</span>
+          <div style="min-width: 0;">
+            <div style="font-size: 11.5px; line-height: 1.5; color: #f2efe8;">Repaired on attempt 2.</div>
+            <div class="mono" style="font-size: 10px; line-height: 1.6; color: #6f685c; margin-top: 4px;">missing_row_limit &mdash; repairable<br>&rarr; appended LIMIT 1000</div>
+          </div>
+        </div>
+        <div style="display: flex; gap: 11px; align-items: flex-start; padding: 9px 11px; background: #1b1a17; border-left: 2px solid #ff8a7a;">
+          <span class="mono" style="font-size: 10.5px; color: #a39b8c; flex-shrink: 0;">#4</span>
+          <div style="min-width: 0;">
+            <div style="font-size: 11.5px; line-height: 1.5; color: #f2efe8;">Dropped.</div>
+            <div class="mono" style="font-size: 10px; line-height: 1.6; color: #6f685c; margin-top: 4px;">unknown_identifier &mdash; not repairable<br>&rarr; cd.cd_credit_score does not exist</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. Critique + probing -->
+    <div class="panel">
+      <div style="display: flex; align-items: baseline; gap: 10px;">
+        <span class="ptitle">Critique, then probing</span>
+        <span class="mono" style="font-size: 10px; color: #6f685c;">4.5s</span>
+        <span class="mono" style="font-size: 10px; color: #6f685c; margin-left: auto;">3 &rarr; 1</span>
+      </div>
+      <p class="cap">Scores were close, so the pipeline stopped arguing and asked the warehouse. Prediction beside reality is the point.</p>
+      <div style="display: flex; flex-direction: column; gap: 0;">
+        <div style="display: flex; align-items: center; gap: 10px; padding: 0 0 7px 0; border-bottom: 1px solid rgba(255,255,255,0.14);">
+          <span class="eb" style="font-size: 8.5px; letter-spacing: 0.13em; color: #4a453d; width: 34px;">Cand</span>
+          <span class="eb" style="font-size: 8.5px; letter-spacing: 0.13em; color: #4a453d; width: 44px;">Score</span>
+          <span class="eb" style="font-size: 8.5px; letter-spacing: 0.13em; color: #4a453d; flex: 1;">Defects</span>
+          <span class="eb" style="font-size: 8.5px; letter-spacing: 0.13em; color: #4a453d;">Probe said</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid rgba(255,255,255,0.07); background: rgba(89,214,146,0.05);">
+          <span class="mono" style="font-size: 10.5px; color: #f2efe8; width: 34px;">#2</span>
+          <span class="mono" style="font-size: 10.5px; color: #59d692; width: 44px;">0.92</span>
+          <span style="font-size: 11px; color: #6f685c; flex: 1;">none</span>
+          <span class="mono" style="font-size: 10.5px; color: #59d692;">12,847 &check;</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid rgba(255,255,255,0.07);">
+          <span class="mono" style="font-size: 10.5px; color: #a39b8c; width: 34px;">#1</span>
+          <span class="mono" style="font-size: 10.5px; color: #a39b8c; width: 44px;">0.71</span>
+          <span style="font-size: 11px; color: #a39b8c; flex: 1;">1 minor &mdash; unqualified column</span>
+          <span class="mono" style="font-size: 10.5px; color: #6f685c;">0</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px; padding: 9px 0;">
+          <span class="mono" style="font-size: 10.5px; color: #a39b8c; width: 34px;">#3</span>
+          <span class="mono" style="font-size: 10.5px; color: #a39b8c; width: 44px;">0.68</span>
+          <span style="font-size: 11px; color: #a39b8c; flex: 1;">1 major &mdash; may double-count</span>
+          <span class="mono" style="font-size: 10.5px; color: #6f685c;">19,204</span>
+        </div>
+      </div>
+      <div style="padding: 10px 12px; background: #1b1a17; border-left: 2px solid #ff7a45;">
+        <div class="mono" style="font-size: 10px; line-height: 1.6; color: #6f685c;">probe &middot; distinct customers in store_sales with cd_credit_rating = 'Good'</div>
+        <div style="font-size: 11.5px; line-height: 1.55; color: #f2efe8; margin-top: 6px;">Warehouse returned <span class="mono" style="font-size: 11px; color: #6fd3a1;">12,847</span>. Only candidate 2 predicted it, so selection was <span class="mono" style="font-size: 11px;">probe_resolved</span> rather than <span class="mono" style="font-size: 11px;">critique_ranked</span>.</div>
+      </div>
+    </div>
+
+    <!-- 4. Execution guarantees -->
+    <div class="panel">
+      <div style="display: flex; align-items: baseline; gap: 10px;">
+        <span class="ptitle">Cost gate, then execution</span>
+        <span class="mono" style="font-size: 10px; color: #6f685c;">0.49s</span>
+        <span class="mono" style="font-size: 10px; color: #6f685c; margin-left: auto;">100 rows</span>
+      </div>
+      <p class="cap">What the statement was allowed to do to the warehouse, stated rather than implied.</p>
+
+      <div>
+        <div style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 6px;">
+          <span style="font-size: 11.5px; color: #a39b8c;">Estimated cost against budget</span>
+          <span class="mono" style="font-size: 10.5px; color: #59d692;">4,200 / 50,000</span>
+        </div>
+        <div style="height: 4px; background: #1b1a17; position: relative; overflow: hidden;">
+          <div style="position: absolute; inset: 0 91.6% 0 0; background: #59d692;"></div>
+        </div>
+        <div class="mono" style="font-size: 9.5px; color: #4a453d; margin-top: 5px;">estimate_source: explain</div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 7px;">
+        <div style="display: flex; align-items: center; gap: 9px;">
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style="flex-shrink: 0;"><path d="M1.4 5.2 3.9 7.7 8.6 2.5" stroke="#59d692" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span style="font-size: 11.5px; color: #f2efe8;">Read-only statement kind</span>
+          <span class="mono" style="font-size: 10px; color: #6f685c; margin-left: auto;">statement_kind</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 9px;">
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style="flex-shrink: 0;"><path d="M1.4 5.2 3.9 7.7 8.6 2.5" stroke="#59d692" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span style="font-size: 11.5px; color: #f2efe8;">Capped at 1,000 rows</span>
+          <span class="mono" style="font-size: 10px; color: #6f685c; margin-left: auto;">row_cap</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 9px;">
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style="flex-shrink: 0;"><path d="M1.4 5.2 3.9 7.7 8.6 2.5" stroke="#59d692" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span style="font-size: 11.5px; color: #f2efe8;">10-second statement timeout</span>
+          <span class="mono" style="font-size: 10px; color: #6f685c; margin-left: auto;">statement_timeout</span>
+        </div>
+      </div>
+
+      <div style="border-top: 1px solid rgba(255,255,255,0.07); padding-top: 12px; display: flex; gap: 26px;">
+        <div>
+          <div class="mono" style="font-size: 17px; color: #f2efe8;">340<span style="font-size: 11px; color: #6f685c;">ms</span></div>
+          <div class="eb" style="font-size: 8.5px; letter-spacing: 0.13em; color: #4a453d; margin-top: 3px;">Warehouse time</div>
+        </div>
+        <div>
+          <div class="mono" style="font-size: 17px; color: #f2efe8;">100</div>
+          <div class="eb" style="font-size: 8.5px; letter-spacing: 0.13em; color: #4a453d; margin-top: 3px;">Rows, not truncated</div>
+        </div>
+        <div>
+          <div class="mono" style="font-size: 17px; color: #f2efe8;">2</div>
+          <div class="eb" style="font-size: 8.5px; letter-spacing: 0.13em; color: #4a453d; margin-top: 3px;">Probe reads before it</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

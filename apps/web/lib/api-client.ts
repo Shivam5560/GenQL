@@ -6,6 +6,7 @@ import type {
   IngestionStep,
   Profile,
   RegisterDatasourceArgs,
+  UpdateDatasourceArgs,
   StageEvent,
   StreamError,
   ThemePreference,
@@ -210,6 +211,25 @@ export function retryOnboarding(
     accessToken,
     { method: 'POST', body: JSON.stringify({ start_from: startFrom ?? null }) },
   );
+}
+
+/** Registered SQL dialects, so a form can offer what the server implements. */
+export function listDialects(accessToken: string): Promise<string[]> {
+  return request<{ dialects: string[] }>('/v1/datasources/dialects', accessToken).then(
+    (body) => body.dialects,
+  );
+}
+
+/** Sends only the fields being changed; the server leaves the rest alone. */
+export function updateDatasource(
+  accessToken: string,
+  name: string,
+  args: UpdateDatasourceArgs,
+): Promise<Datasource> {
+  return request<Datasource>(`/v1/datasources/${encodeURIComponent(name)}`, accessToken, {
+    method: 'PATCH',
+    body: JSON.stringify(args),
+  });
 }
 
 export function removeDatasource(accessToken: string, name: string): Promise<void> {

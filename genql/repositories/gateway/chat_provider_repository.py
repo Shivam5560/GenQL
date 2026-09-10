@@ -13,6 +13,7 @@ from pydantic import BaseModel, ValidationError
 
 from genql.domain.errors import ChatProviderError
 from genql.infrastructure.gateway.openrouter_client import OpenRouterClient, OpenRouterError
+from genql.infrastructure.tracing.llm_span import llm_span
 from genql.repositories.gateway.registry import CHAT_PROVIDERS
 
 T = TypeVar("T", bound=BaseModel)
@@ -36,17 +37,23 @@ class OpenRouterChatProvider:
                 },
             },
         }
-        try:
-            body = self._client.post_json("/chat/completions", payload)
-            content = body["choices"][0]["message"]["content"]
-        except (OpenRouterError, KeyError, IndexError) as exc:
-            raise ChatProviderError(f"OpenRouter chat completion failed: {exc}") from exc
-        try:
-            return response_schema.model_validate_json(content)
-        except ValidationError as exc:
-            raise ChatProviderError(
-                f"OpenRouter response did not match {response_schema.__name__}: {exc}"
-            ) from exc
+        # The span wraps the whole call, parse included: a response that
+        # arrived and then failed validation still cost tokens, and a trace
+        # that omitted it would undercount the turn.
+        with llm_span(self._model, prompt) as recorded:
+            try:
+                body = self._client.post_json("/chat/completions", payload)
+                content = body["choices"][0]["message"]["content"]
+            except (OpenRouterError, KeyError, IndexError) as exc:
+                raise ChatProviderError(f"OpenRouter chat completion failed: {exc}") from exc
+            recorded.usage(body.get("usage"))
+            recorded.output(content)
+            try:
+                return response_schema.model_validate_json(content)
+            except ValidationError as exc:
+                raise ChatProviderError(
+                    f"OpenRouter response did not match {response_schema.__name__}: {exc}"
+                ) from exc
 
 
 @CHAT_PROVIDERS.register("openai")

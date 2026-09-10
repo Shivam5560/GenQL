@@ -1,6 +1,9 @@
+# 3.12 rather than :latest deliberately — uv.lock is resolved for it and
+# .python-version pins it, so a newer interpreter would build against a lock
+# that was never solved for it. Every *service* container runs :latest.
 FROM python:3.12-slim AS base
 
-COPY --from=ghcr.io/astral-sh/uv:0.9 /uv /uvx /bin/
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 WORKDIR /app
 

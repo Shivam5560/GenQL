@@ -28,6 +28,7 @@ from genql.domain.entities.turn_response import TurnResponse
 from genql.domain.ports.thread_lock import ThreadLockFactory
 from genql.domain.ports.thread_repository import ThreadRepository
 from genql.domain.ports.turn_record_repository import TurnRecordRepository
+from genql.infrastructure.tracing.qa_span import qa_span
 
 _TITLE_MAX_LEN = 80
 
@@ -170,7 +171,9 @@ def start_turn(  # noqa: PLR0913, PLR0917 - mirrors the graph's own start parame
     turn_records: TurnRecordRepository | None = None,
 ) -> TurnResponse:
     resolved = thread_id or new_thread_id()
-    with locks.for_thread(resolved):
+    # The trace's root, opened before the lock so a turn that waited on
+    # another turn shows the wait as its own time rather than as nothing.
+    with qa_span(question, datasource_name, resolved), locks.for_thread(resolved):
         raw = run_query(graph, question, datasource_name, resolved, domain_id)
     response = to_response(resolved, raw)
     if user_id is not None and threads is not None and turn_records is not None:
@@ -188,7 +191,7 @@ def resume_turn(  # noqa: PLR0913, PLR0917 - mirrors the graph's own resume para
     threads: ThreadRepository | None = None,
     turn_records: TurnRecordRepository | None = None,
 ) -> TurnResponse:
-    with locks.for_thread(thread_id):
+    with qa_span(answer, None, thread_id), locks.for_thread(thread_id):
         raw = resume_query(graph, answer, thread_id)
     response = to_response(thread_id, raw)
     if user_id is not None and threads is not None and turn_records is not None:

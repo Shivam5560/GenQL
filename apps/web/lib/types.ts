@@ -159,6 +159,22 @@ export interface DatasourceAccepted {
   stream_url: string;
 }
 
+/** A partial edit for `PATCH /v1/datasources/{name}`. An absent field is left
+    alone; `""` clears a text field. The name is not editable — everything
+    discovered from a datasource references it by name. */
+export interface UpdateDatasourceArgs {
+  dialect?: string;
+  host?: string;
+  port?: number;
+  database?: string;
+  username?: string;
+  /** Write-only, like on registration. `""` forgets the stored one. */
+  password?: string;
+  options?: string | null;
+  description?: string | null;
+  enabled?: boolean;
+}
+
 export interface RegisterDatasourceArgs {
   name: string;
   dialect: string;

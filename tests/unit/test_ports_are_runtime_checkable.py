@@ -41,6 +41,8 @@ class FakeDatasourceRepository:
     def get(self, name: str) -> Datasource:
         return Datasource(name=name, dialect="postgres", dsn_env_var="X")
 
+    def update(self, datasource: Datasource) -> None: ...
+
     def list_all(self, enabled_only: bool = False) -> Sequence[Datasource]:
         return []
 

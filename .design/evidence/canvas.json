@@ -1,0 +1,55 @@
+{
+  "pages": [
+    { "id": "page-1", "name": "Evidence rail" },
+    { "id": "page-2", "name": "Stage data" },
+    { "id": "page-3", "name": "Auth & threads" }
+  ],
+  "artboards": [
+    { "file": "Main.dc.html", "title": "Rail A — Two-tier ledger", "page": "page-1", "x": 0, "y": 0, "w": 300, "h": 1180 },
+    { "file": "RailB.dc.html", "title": "Rail B — Working notes", "page": "page-1", "x": 420, "y": 0, "w": 300, "h": 1040 },
+    { "file": "RailC.dc.html", "title": "Rail C — Spine + drawer", "page": "page-1", "x": 840, "y": 0, "w": 900, "h": 740 },
+
+    { "file": "StageContract.dc.html", "title": "Stage event — data contract", "page": "page-2", "x": 0, "y": 0, "w": 1360, "h": 1750 },
+    { "file": "StageInspector.dc.html", "title": "Stage inspector patterns", "page": "page-2", "x": 1480, "y": 0, "w": 1180, "h": 1350 },
+
+    { "file": "SignOut.dc.html", "title": "Sign out — confirm + busy", "page": "page-3", "x": 0, "y": 0, "w": 900, "h": 600, "is_interactive": true },
+    { "file": "Threads.dc.html", "title": "Thread titles", "page": "page-3", "x": 1020, "y": 0, "w": 700, "h": 900 },
+    { "file": "Discussion.dc.html", "title": "The discussion", "page": "page-3", "x": 1840, "y": 0, "w": 860, "h": 1550 },
+    { "file": "Loaders.dc.html", "title": "Waiting states", "page": "page-3", "x": 0, "y": 1060, "w": 1180, "h": 1250 }
+  ],
+  "annotations": [
+    {
+      "id": "rail-brief",
+      "page": "page-1",
+      "x": 0,
+      "y": -190,
+      "w": 720,
+      "text": "Three directions for the right rail, each on a different axis.\n\nA — Two-tier ledger. Promotes the 3 things a reviewer disputes above a compact 12-stage trail. Widest scan, most information per pixel. Tradeoff: densest, and needs 300px rather than 240.\n\nB — Working notes. The same trail written as five prose beats. Best for someone reading the answer once, cold. Tradeoff: you cannot scan it, and it does not survive a turn that failed halfway."
+    },
+    {
+      "id": "rail-c-note",
+      "page": "page-1",
+      "x": 840,
+      "y": -190,
+      "w": 640,
+      "text": "C — Spine + drawer. Admits that 240px cannot hold evidence at all: the rail becomes a 44px status spine, and the real inspector opens as a 620px drawer over the transcript.\n\nStructurally the strongest — tables, plans and candidate diffs finally have room — but it costs a click, and the trail stops being ambient.\n\nA and C compose: ship A in the rail, open C from 'How this was answered'."
+    },
+    {
+      "id": "data-note",
+      "page": "page-2",
+      "x": 0,
+      "y": -230,
+      "w": 700,
+      "text": "Answering the second question directly: yes, what is stored is useful — but it is roughly 5% of what the pipeline already computes.\n\nStageEvent is {stage, status, detail<=200 chars}. Four of the twelve stages emit nothing at all, and the one with the richest payload (ambiguity_gate) emits a Python dict repr that the browser detects and deliberately throws away.\n\nLeft sheet: the audit + the proposed contract. Right sheet: four stage panels drawn only from fields that are either already in QueryState or on the proposed list."
+    },
+    {
+      "id": "auth-note",
+      "page": "page-3",
+      "x": 0,
+      "y": -190,
+      "w": 700,
+      "text": "Sign out is interactive — click Sign out in the sidebar, or the dialog's buttons, to run the confirm → busy → dismissed sequence.\n\nThe other three are static. Loaders is the rule set the sign-out dialog and the login panel both draw from; Thread titles and The discussion each carry their reasoning at the foot of the artboard."
+    }
+  ],
+  "launch": { "view": "canvas", "page": "page-1" }
+}

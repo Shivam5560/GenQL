@@ -17,6 +17,7 @@ from pydantic import BaseModel, Field
 from genql.domain.entities.datasource import Datasource
 from genql.domain.entities.ingestion_job import IngestionJob, IngestionStep
 from genql.domain.value_objects.datasource_connection import DatasourceConnection
+from genql.domain.value_objects.datasource_update import DatasourceUpdate
 
 
 class DatasourceDto(BaseModel):
@@ -66,6 +67,36 @@ class RegisterDatasourceRequest(BaseModel):
             password=self.password,
             options=(self.options or "").strip() or None,
         )
+
+
+class UpdateDatasourceRequest(BaseModel):
+    """A partial edit. Absent means "leave alone"; `""` clears a text field.
+
+    The name is not here: it is the identity every catalog row, profile and
+    ingestion job references, so an edit moves where a datasource points, not
+    what it is called.
+    """
+
+    dialect: str | None = None
+    dsn_env_var: str | None = None
+    host: str | None = None
+    port: int | None = Field(default=None, gt=0, le=65535)
+    database: str | None = None
+    username: str | None = None
+    #: Write-only, like on registration. Sending "" forgets the stored one.
+    password: str | None = None
+    options: str | None = None
+    description: str | None = None
+    enabled: bool | None = None
+
+    def to_patch(self) -> DatasourceUpdate:
+        return DatasourceUpdate(**self.model_dump(exclude_unset=True))
+
+
+class DialectsDto(BaseModel):
+    """What a client may offer in a dialect picker, per the reader registry."""
+
+    dialects: list[str]
 
 
 class RetryIngestionRequest(BaseModel):

@@ -1,0 +1,138 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Newsreader:opsz,wght@6..72,300;6..72,400&family=Space+Mono:wght@400;700&display=swap">
+  <style>
+    body { margin: 0; background: #0c0b0a; }
+    a { color: #ff7a45; } a:hover { color: #ffa07a; }
+    .sans { font-family: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif; }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, 'SF Mono', monospace; font-variant-numeric: tabular-nums; }
+    .serif { font-family: 'Newsreader', Georgia, 'Times New Roman', serif; }
+    .eb { font-family: 'Space Mono', ui-monospace, monospace; text-transform: uppercase; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes breathe { 0%, 100% { opacity: 0.35; } 50% { opacity: 0.9; } }
+    @keyframes sweep { 0% { transform: translateX(-100%); } 100% { transform: translateX(280%); } }
+    .spin { animation: spin 0.7s linear infinite; }
+    .breathe { animation: breathe 1.6s ease-in-out infinite; }
+    .cell { background: #151412; border: 1px solid rgba(255,255,255,0.14); padding: 18px 20px 20px 20px; display: flex; flex-direction: column; gap: 13px; }
+    .ct { font-family: 'Space Mono', ui-monospace, monospace; text-transform: uppercase; font-size: 9.5px; letter-spacing: 0.15em; color: #a39b8c; }
+    .cn { font-size: 11.5px; line-height: 1.55; color: #6f685c; margin: 0; }
+    .btn { border: 0; font-family: 'Space Mono', ui-monospace, monospace; text-transform: uppercase; }
+  </style>
+</helmet>
+
+<div class="sans" style="width: 1180px; box-sizing: border-box; background: #0c0b0a; color: #f2efe8; padding: 44px 46px 50px 46px;">
+
+  <div style="padding-bottom: 24px; border-bottom: 1px solid rgba(255,255,255,0.14);">
+    <div class="eb" style="font-size: 10px; letter-spacing: 0.16em; color: #a39b8c;">Waiting states</div>
+    <h1 class="serif" style="margin: 12px 0 0 0; font-size: 36px; font-weight: 300; line-height: 1.12; letter-spacing: -0.02em; max-width: 26ch;">One spinner, three placements, one rule.</h1>
+    <p style="margin: 12px 0 0 0; max-width: 84ch; font-size: 13px; line-height: 1.65; color: #a39b8c;">The rule: <span style="color: #f2efe8;">a control that started work keeps its own progress.</span> Never move the feedback somewhere else on the screen, never swap a button&rsquo;s label without also holding its width, and never show a spinner for something that has not started.</p>
+  </div>
+
+  <!-- The primitive -->
+  <div style="margin-top: 30px; display: flex; gap: 46px; align-items: flex-start;">
+    <div style="flex-shrink: 0;">
+      <div class="eb" style="font-size: 9px; letter-spacing: 0.16em; color: #ff7a45; margin-bottom: 14px;">The primitive</div>
+      <div style="display: flex; align-items: flex-end; gap: 26px;">
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+          <svg class="spin" width="11" height="11" viewBox="0 0 16 16" fill="none" style="color: #a39b8c;"><circle cx="8" cy="8" r="6.2" stroke="currentColor" stroke-opacity="0.28" stroke-width="2"/><path d="M8 1.8a6.2 6.2 0 0 1 6.2 6.2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          <span class="mono" style="font-size: 9.5px; color: #4a453d;">11px</span>
+        </div>
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+          <svg class="spin" width="14" height="14" viewBox="0 0 16 16" fill="none" style="color: #f2efe8;"><circle cx="8" cy="8" r="6.2" stroke="currentColor" stroke-opacity="0.28" stroke-width="1.8"/><path d="M8 1.8a6.2 6.2 0 0 1 6.2 6.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          <span class="mono" style="font-size: 9.5px; color: #4a453d;">14px</span>
+        </div>
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+          <svg class="spin" width="22" height="22" viewBox="0 0 16 16" fill="none" style="color: #ff7a45;"><circle cx="8" cy="8" r="6.2" stroke="currentColor" stroke-opacity="0.24" stroke-width="1.5"/><path d="M8 1.8a6.2 6.2 0 0 1 6.2 6.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          <span class="mono" style="font-size: 9.5px; color: #4a453d;">22px</span>
+        </div>
+      </div>
+    </div>
+    <div style="flex: 1; border-left: 1px solid rgba(255,255,255,0.14); padding-left: 46px;">
+      <p style="margin: 0; max-width: 74ch; font-size: 12.5px; line-height: 1.7; color: #a39b8c;">A 270&deg; arc on a 30% track, 0.7s linear, <span class="mono" style="font-size: 11px; color: #f2efe8;">currentColor</span> so it inherits from whatever it sits in &mdash; muted in a ghost button, white on brand, brand on the empty ground. It is the only motion in the set; everything else here is a pulsing surface, which reads as &ldquo;content is coming&rdquo; rather than &ldquo;something is spinning&rdquo;.</p>
+      <p style="margin: 12px 0 0 0; max-width: 74ch; font-size: 12.5px; line-height: 1.7; color: #6f685c;">Honour <span class="mono" style="font-size: 11px;">prefers-reduced-motion</span>: swap rotation for the breathing opacity used by the skeletons.</p>
+    </div>
+  </div>
+
+  <!-- The placements -->
+  <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px; margin-top: 36px;">
+
+    <!-- 1. Sign in -->
+    <div class="cell">
+      <span class="ct">1 &middot; Sign in</span>
+      <p class="cn">The submit button already swaps its label. Add the spinner, freeze the width, and disable the fields &mdash; a form that still accepts typing while it is posting invites a second submit.</p>
+      <div style="display: flex; flex-direction: column; gap: 9px; margin-top: 2px;">
+        <button class="btn" style="background: #ff7a45; padding: 13px 22px; font-size: 11px; letter-spacing: 0.16em; color: #ffffff; display: flex; align-items: center; justify-content: center; gap: 9px;">Enter AuraSQL</button>
+        <button class="btn" style="background: #ff7a45; padding: 13px 22px; font-size: 11px; letter-spacing: 0.16em; color: #ffffff; opacity: 0.6; display: flex; align-items: center; justify-content: center; gap: 9px;">
+          <svg class="spin" width="13" height="13" viewBox="0 0 16 16" fill="none" style="color: #ffffff;"><circle cx="8" cy="8" r="6.2" stroke="currentColor" stroke-opacity="0.3" stroke-width="1.8"/><path d="M8 1.8a6.2 6.2 0 0 1 6.2 6.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          Signing in
+        </button>
+        <button class="btn" style="border: 1px solid rgba(255,255,255,0.14); background: transparent; padding: 12px 20px; font-size: 11px; letter-spacing: 0.14em; color: #6f685c; display: flex; align-items: center; justify-content: center; gap: 9px;">
+          <svg class="spin" width="12" height="12" viewBox="0 0 16 16" fill="none" style="color: #6f685c;"><circle cx="8" cy="8" r="6.2" stroke="currentColor" stroke-opacity="0.28" stroke-width="2"/><path d="M8 1.8a6.2 6.2 0 0 1 6.2 6.2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          Redirecting to Google
+        </button>
+      </div>
+      <p class="cn" style="color: #4a453d;">The OAuth buttons navigate away, so they need one too &mdash; otherwise the gap between click and redirect reads as a dead button.</p>
+    </div>
+
+    <!-- 2. Sign out -->
+    <div class="cell">
+      <span class="ct">2 &middot; Sign out</span>
+      <p class="cn">The confirm dialog&rsquo;s primary button holds the progress. The sidebar row behind it dims but does not change &mdash; there is nothing useful to say there.</p>
+      <div style="display: flex; gap: 9px; margin-top: 2px;">
+        <button class="btn" style="flex: 1; border: 1px solid rgba(255,255,255,0.14); background: transparent; padding: 12px 10px; font-size: 10.5px; letter-spacing: 0.14em; color: #4a453d;">Stay signed in</button>
+        <button class="btn" style="flex: 1; background: #ff7a45; padding: 12px 10px; font-size: 10.5px; letter-spacing: 0.14em; color: #ffffff; opacity: 0.6; display: flex; align-items: center; justify-content: center; gap: 7px;">
+          <svg class="spin" width="12" height="12" viewBox="0 0 16 16" fill="none" style="color: #ffffff;"><circle cx="8" cy="8" r="6.2" stroke="currentColor" stroke-opacity="0.3" stroke-width="2"/><path d="M8 1.8a6.2 6.2 0 0 1 6.2 6.2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          Signing out
+        </button>
+      </div>
+      <p class="cn" style="color: #4a453d;">Sign-out must not hang on a failed network call. If <span class="mono" style="font-size: 10.5px;">/logout</span> errors, clear the local session anyway and say so on the login screen &mdash; a user who asked to leave should always leave.</p>
+    </div>
+
+    <!-- 3. Boot -->
+    <div class="cell">
+      <span class="ct">3 &middot; Session boot</span>
+      <p class="cn">Today this is the bare word &ldquo;Loading&hellip;&rdquo; centred on an empty page while the refresh token round-trips. Draw the shell instead &mdash; it is a known layout, so there is no reason to show nothing.</p>
+      <div style="border: 1px solid rgba(255,255,255,0.14); background: #0c0b0a; height: 148px; display: flex; margin-top: 2px;">
+        <div style="width: 74px; border-right: 1px solid rgba(255,255,255,0.14); padding: 10px 9px; display: flex; flex-direction: column; gap: 7px;">
+          <div class="breathe" style="height: 7px; width: 80%; background: #1b1a17;"></div>
+          <div style="height: 1px; background: rgba(255,255,255,0.14); margin: 3px 0;"></div>
+          <div class="breathe" style="height: 6px; width: 92%; background: #1b1a17;"></div>
+          <div class="breathe" style="height: 6px; width: 64%; background: #1b1a17;"></div>
+          <div class="breathe" style="height: 6px; width: 78%; background: #1b1a17;"></div>
+        </div>
+        <div style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 10px;">
+          <svg class="spin" width="14" height="14" viewBox="0 0 16 16" fill="none" style="color: #ff7a45;"><circle cx="8" cy="8" r="6.2" stroke="currentColor" stroke-opacity="0.26" stroke-width="1.8"/><path d="M8 1.8a6.2 6.2 0 0 1 6.2 6.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          <span class="eb" style="font-size: 9.5px; letter-spacing: 0.15em; color: #6f685c;">Restoring session</span>
+        </div>
+      </div>
+      <p class="cn" style="color: #4a453d;">Hold it for 250ms before painting. A warm refresh usually resolves faster than that, and a flash of skeleton is worse than no skeleton.</p>
+    </div>
+  </div>
+
+  <!-- The don'ts -->
+  <div style="margin-top: 34px; padding-top: 24px; border-top: 1px solid rgba(255,255,255,0.14); display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 36px;">
+    <div>
+      <div class="eb" style="font-size: 9px; letter-spacing: 0.16em; color: #ff8a7a; margin-bottom: 9px;">Not a toast</div>
+      <p style="margin: 0; font-size: 12.5px; line-height: 1.65; color: #a39b8c;">Progress for something the user just clicked belongs on the thing they clicked. The corner of the screen is for events they did not cause &mdash; an ingestion finishing minutes later.</p>
+    </div>
+    <div>
+      <div class="eb" style="font-size: 9px; letter-spacing: 0.16em; color: #ff8a7a; margin-bottom: 9px;">Not a full-screen overlay</div>
+      <p style="margin: 0; font-size: 12.5px; line-height: 1.65; color: #a39b8c;">Signing in and signing out are sub-second. Blanking the page for them makes a fast action feel slow and steals the reader&rsquo;s place.</p>
+    </div>
+    <div>
+      <div class="eb" style="font-size: 9px; letter-spacing: 0.16em; color: #ff8a7a; margin-bottom: 9px;">Not a jumping button</div>
+      <p style="margin: 0; font-size: 12.5px; line-height: 1.65; color: #a39b8c;">&ldquo;Enter AuraSQL&rdquo; and &ldquo;Signing in&rdquo; are different widths. Set <span class="mono" style="font-size: 11px; color: #f2efe8;">min-width</span> from the idle label so the control holds still while it works.</p>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

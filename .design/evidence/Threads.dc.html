@@ -1,0 +1,172 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Newsreader:opsz,wght@6..72,300;6..72,400&family=Space+Mono:wght@400;700&display=swap">
+  <style>
+    body { margin: 0; background: #0c0b0a; }
+    a { color: #ff7a45; } a:hover { color: #ffa07a; }
+    .sans { font-family: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif; }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, 'SF Mono', monospace; font-variant-numeric: tabular-nums; }
+    .serif { font-family: 'Newsreader', Georgia, 'Times New Roman', serif; }
+    .eb { font-family: 'Space Mono', ui-monospace, monospace; text-transform: uppercase; }
+    .grp { font-family: 'Space Mono', ui-monospace, monospace; text-transform: uppercase; font-size: 8.5px; letter-spacing: 0.16em; color: #4a453d; padding: 12px 18px 5px 18px; }
+    .t1 { font-size: 12.6px; line-height: 1.35; color: #f2efe8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .t2 { font-size: 10.2px; line-height: 1.35; color: #6f685c; margin-top: 3px; display: flex; align-items: center; gap: 6px; }
+    .old { font-size: 13.1px; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  </style>
+</helmet>
+
+<div class="sans" style="width: 700px; box-sizing: border-box; background: #0c0b0a; color: #f2efe8; padding: 40px 34px 44px 34px;">
+
+  <div style="padding-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.14);">
+    <div class="eb" style="font-size: 10px; letter-spacing: 0.16em; color: #a39b8c;">Thread list</div>
+    <h1 class="serif" style="margin: 11px 0 0 0; font-size: 30px; font-weight: 300; line-height: 1.12; letter-spacing: -0.02em; max-width: 24ch;">Eight threads that all begin with the same five words.</h1>
+  </div>
+
+  <div style="display: flex; gap: 32px; margin-top: 26px; align-items: flex-start;">
+
+    <!-- BEFORE -->
+    <div style="width: 264px; flex-shrink: 0;">
+      <div class="eb" style="font-size: 9px; letter-spacing: 0.16em; color: #6f685c; margin-bottom: 11px;">Today</div>
+      <div style="border: 1px solid rgba(255,255,255,0.14); background: #0c0b0a;">
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 18px 4px 18px;">
+          <span class="eb" style="font-size: 8.8px; letter-spacing: 0.14em; color: #6f685c;">Threads</span>
+          <span class="mono" style="font-size: 8px; color: #6f685c;">1&ndash;8 of 8</span>
+        </div>
+        <div style="padding: 4px 0 8px 0;">
+          <div class="old" style="border-left: 2px solid #ff7a45; background: #1b1a17; font-weight: 600; padding: 6px 18px; color: #f2efe8;">Top 5 states with number of distinc&hellip;</div>
+          <div class="old" style="border-left: 2px solid transparent; padding: 6px 18px; color: #a39b8c;">Top stores in terms of sales list dow&hellip;</div>
+          <div class="old" style="border-left: 2px solid transparent; padding: 6px 18px; color: #a39b8c;">Top 5 states with number of distinct &hellip;</div>
+          <div class="old" style="border-left: 2px solid transparent; padding: 6px 18px; color: #a39b8c;">Top 5 states with number of distinct &hellip;</div>
+          <div class="old" style="border-left: 2px solid transparent; padding: 6px 18px; color: #a39b8c;">Top 5 states with number of distinct &hellip;</div>
+          <div class="old" style="border-left: 2px solid transparent; padding: 6px 18px; color: #a39b8c;">Top 5 states wirh number of store fr&hellip;</div>
+          <div class="old" style="border-left: 2px solid transparent; padding: 6px 18px; color: #a39b8c;">Customer who has most orders ?</div>
+          <div class="old" style="border-left: 2px solid transparent; padding: 6px 18px; color: #a39b8c;">Churn Prediction ?</div>
+        </div>
+      </div>
+      <p style="margin: 13px 0 0 0; font-size: 12px; line-height: 1.6; color: #6f685c;">The title is the raw first question, clipped at the width of the rail. Everything that would tell two threads apart lives in the part that was cut off &mdash; and the tooltip only helps if you already know to hover.</p>
+    </div>
+
+    <!-- AFTER -->
+    <div style="width: 264px; flex-shrink: 0;">
+      <div class="eb" style="font-size: 9px; letter-spacing: 0.16em; color: #ff7a45; margin-bottom: 11px;">Proposed</div>
+      <div style="border: 1px solid rgba(255,255,255,0.14); background: #0c0b0a;">
+
+        <!-- Filter, replacing Prev/Next -->
+        <div style="display: flex; align-items: center; gap: 7px; padding: 9px 18px; border-bottom: 1px solid rgba(255,255,255,0.14);">
+          <svg width="11" height="11" viewBox="0 0 12 12" fill="none" style="flex-shrink: 0;"><circle cx="5" cy="5" r="3.4" stroke="#4a453d" stroke-width="1.2"/><path d="M7.6 7.6 10.4 10.4" stroke="#4a453d" stroke-width="1.2" stroke-linecap="round"/></svg>
+          <span style="font-size: 11.5px; color: #4a453d;">Filter 8 threads</span>
+        </div>
+
+        <div class="grp">Today</div>
+
+        <div style="border-left: 2px solid #ff7a45; background: #1b1a17; padding: 7px 18px;">
+          <div class="t1" style="font-weight: 600;">Distinct stores per state</div>
+          <div class="t2">
+            <span class="mono" style="font-size: 9.5px; color: #a39b8c;">local</span>
+            <span style="color: #4a453d;">&middot;</span>
+            <span>4 turns</span>
+            <span style="color: #4a453d;">&middot;</span>
+            <span>2020 &rarr; today</span>
+          </div>
+        </div>
+
+        <div style="border-left: 2px solid transparent; padding: 7px 18px;">
+          <div class="t1">Stores ranked by sales</div>
+          <div class="t2">
+            <span class="mono" style="font-size: 9.5px;">local</span>
+            <span style="color: #4a453d;">&middot;</span>
+            <span>1 turn</span>
+            <span style="color: #4a453d;">&middot;</span>
+            <span>14:20</span>
+          </div>
+        </div>
+
+        <div style="border-left: 2px solid transparent; padding: 7px 18px;">
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span style="width: 5px; height: 5px; border-radius: 999px; background: #ff7a45; flex-shrink: 0;"></span>
+            <div class="t1">Distinct stores, West region</div>
+          </div>
+          <div class="t2" style="margin-left: 11px;">
+            <span style="color: #ff7a45;">Waiting on your answer</span>
+          </div>
+        </div>
+
+        <div class="grp">Yesterday</div>
+
+        <div style="border-left: 2px solid transparent; padding: 7px 18px;">
+          <div class="t1">Store count by state, Q4 only</div>
+          <div class="t2">
+            <span class="mono" style="font-size: 9.5px;">warehouse</span>
+            <span style="color: #4a453d;">&middot;</span>
+            <span>2 turns</span>
+          </div>
+        </div>
+
+        <div style="border-left: 2px solid transparent; padding: 7px 18px;">
+          <div class="t1">Store footprint growth by state</div>
+          <div class="t2">
+            <span class="mono" style="font-size: 9.5px;">local</span>
+            <span style="color: #4a453d;">&middot;</span>
+            <span>1 turn</span>
+          </div>
+        </div>
+
+        <div class="grp">Earlier</div>
+
+        <div style="border-left: 2px solid transparent; padding: 7px 18px;">
+          <div class="t1">Customers with the most orders</div>
+          <div class="t2">
+            <span class="mono" style="font-size: 9.5px;">local</span>
+            <span style="color: #4a453d;">&middot;</span>
+            <span>3 turns</span>
+            <span style="color: #4a453d;">&middot;</span>
+            <span>2 Sep</span>
+          </div>
+        </div>
+
+        <div style="border-left: 2px solid transparent; padding: 7px 18px 10px 18px;">
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span style="width: 5px; height: 5px; border-radius: 999px; background: #ff8a7a; flex-shrink: 0;"></span>
+            <div class="t1">Churn prediction</div>
+          </div>
+          <div class="t2" style="margin-left: 11px;">
+            <span>Stopped at cost gate</span>
+          </div>
+        </div>
+
+      </div>
+      <p style="margin: 13px 0 0 0; font-size: 12px; line-height: 1.6; color: #6f685c;">A short generated noun phrase, not the raw question &mdash; the raw question stays as the tooltip and as the thread&rsquo;s first heading.</p>
+    </div>
+
+    <!-- Notes -->
+    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 18px; padding-top: 30px;">
+      <div>
+        <div class="eb" style="font-size: 9px; letter-spacing: 0.16em; color: #ff7a45; margin-bottom: 7px;">Title the thread, don&rsquo;t quote it</div>
+        <p style="margin: 0; font-size: 12.5px; line-height: 1.65; color: #a39b8c;">Ask the model for a &le;40-character noun phrase once, on the first turn, and store it as <span class="mono" style="font-size: 11px; color: #f2efe8;">ThreadSummary.title</span>. It already exists as a field &mdash; it is just being filled with the question. One extra call per thread, never per turn.</p>
+      </div>
+      <div>
+        <div class="eb" style="font-size: 9px; letter-spacing: 0.16em; color: #ff7a45; margin-bottom: 7px;">Group by day, drop the pager</div>
+        <p style="margin: 0; font-size: 12.5px; line-height: 1.65; color: #a39b8c;"><span class="mono" style="font-size: 11px; color: #f2efe8;">last_active_at</span> is already on the wire. Day headings give the list a shape that eight identical rows never had, and they cost nothing. Prev/Next then has no job: a filter field is the control people reach for at this size.</p>
+      </div>
+      <div>
+        <div class="eb" style="font-size: 9px; letter-spacing: 0.16em; color: #ff7a45; margin-bottom: 7px;">Mark only what is actionable</div>
+        <p style="margin: 0; font-size: 12.5px; line-height: 1.65; color: #a39b8c;">Two dots, no more: brand for a thread whose gate is still holding a question, red for one that stopped. A finished thread gets no dot &mdash; that is the normal case and does not need marking.</p>
+      </div>
+      <div>
+        <div class="eb" style="font-size: 9px; letter-spacing: 0.16em; color: #ff7a45; margin-bottom: 7px;">Show the datasource</div>
+        <p style="margin: 0; font-size: 12.5px; line-height: 1.65; color: #a39b8c;"><span class="mono" style="font-size: 11px; color: #f2efe8;">datasource_name</span> is in <span class="mono" style="font-size: 11px; color: #f2efe8;">ThreadSummary</span> and never rendered. With more than one warehouse connected, &ldquo;which database was this against&rdquo; is the first thing you need and currently the one thing the row will not tell you.</p>
+      </div>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

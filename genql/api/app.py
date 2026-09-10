@@ -42,6 +42,7 @@ from genql.domain.errors import (
     UnknownIngestionJobError,
     UnknownThreadError,
 )
+from genql.infrastructure.tracing.tracer import configure_tracing
 
 _NOT_FOUND = (
     UnknownDatasourceError,
@@ -68,10 +69,21 @@ def create_app(container: Any) -> FastAPI:
         """
         worker = container.ingestion_worker()
         worker.start()
+        # Started here rather than at import time for the same reason, and
+        # shut down explicitly so the last batch of spans is flushed instead
+        # of dying with the process.
+        settings = container.settings()
+        tracer = configure_tracing(
+            enabled=settings.tracing_enabled,
+            endpoint=settings.tracing_endpoint,
+            project=settings.tracing_project,
+        )
         try:
             yield
         finally:
             worker.stop()
+            if tracer is not None:
+                tracer.shutdown()
 
     app = FastAPI(title="GenQL", version="0.1.0", lifespan=lifespan)
     app.state.container = container

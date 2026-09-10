@@ -65,6 +65,29 @@ services:
     volumes:
       - neo4j-data:/data
 
+  phoenix:
+    # Arize Phoenix, self-hosted: the trace UI for "how many model calls did
+    # that turn make, and what did they cost". Chosen over LangSmith because
+    # prompts stay on this box — see genql/infrastructure/tracing/tracer.py.
+    image: arizephoenix/phoenix:latest
+    depends_on:
+      paradedb:
+        condition: service_healthy
+    environment:
+      # Its own store is the ParadeDB container everything else uses, in its
+      # own schema, so traces survive a container replacement and no second
+      # database has to be operated. Note the plain postgresql:// scheme —
+      # Phoenix is not SQLAlchemy-with-psycopg like GenQL's own DSNs.
+      PHOENIX_SQL_DATABASE_URL: postgresql://genql:genql@paradedb:5432/genql
+      PHOENIX_SQL_DATABASE_SCHEMA: phoenix
+      PHOENIX_WORKING_DIR: /mnt/data
+    # 6006 is the UI and the OTLP/HTTP collector; 4317 is OTLP/gRPC, which
+    # nothing here uses but which is what other collectors default to.
+    ports: ["6006:6006", "4317:4317"]
+    volumes:
+      - phoenix-data:/mnt/data
+
 volumes:
   paradedb-data:
   neo4j-data:
+  phoenix-data:

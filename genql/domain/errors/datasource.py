@@ -22,6 +22,24 @@ class DuplicateDatasourceError(DatasourceError):
         self.name = name
 
 
+class IncompleteDatasourceConnectionError(DatasourceError):
+    """An edit would leave a datasource pointing nowhere it can connect.
+
+    Stored credentials are all-or-nothing: host, database and username
+    together render a DSN, and any one of them missing renders nothing. An
+    update that supplies only some of them is refused here rather than at
+    connect time, where the same mistake reads as an unreachable warehouse.
+    """
+
+    def __init__(self, name: str, missing: list[str]) -> None:
+        super().__init__(
+            f"datasource {name!r} would be left without {', '.join(missing)}. "
+            "Supply the whole endpoint, or point it at an environment variable instead."
+        )
+        self.name = name
+        self.missing = list(missing)
+
+
 class MissingDatasourceSecretError(DatasourceError):
     """A datasource carries neither a stored credential nor a readable one.
 

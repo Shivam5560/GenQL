@@ -63,3 +63,20 @@ def test_remove_deletes_the_row(repo: PostgresDatasourceRepository) -> None:
 def test_remove_unknown_raises(repo: PostgresDatasourceRepository) -> None:
     with pytest.raises(UnknownDatasourceError):
         repo.remove("never_existed")
+
+
+def test_update_writes_the_edited_row(repo: PostgresDatasourceRepository) -> None:
+    repo.add(WH2)
+
+    repo.update(WH2.model_copy(update={"description": "edited", "enabled": False}))
+
+    stored = repo.get("repo_wh2")
+    assert stored.description == "edited"
+    assert stored.enabled is False
+
+
+def test_update_of_an_unknown_datasource_raises(repo: PostgresDatasourceRepository) -> None:
+    repo.add(WH2)
+
+    with pytest.raises(UnknownDatasourceError, match="repo_wh2"):
+        repo.update(WH2.model_copy(update={"name": "ghost"}))

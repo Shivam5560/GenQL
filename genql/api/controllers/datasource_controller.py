@@ -23,9 +23,11 @@ from genql.api.deps import get_container, get_current_user
 from genql.api.dtos.datasource_dtos import (
     DatasourceAcceptedDto,
     DatasourceDto,
+    DialectsDto,
     IngestionJobDto,
     RegisterDatasourceRequest,
     RetryIngestionRequest,
+    UpdateDatasourceRequest,
 )
 from genql.api.sse.ingestion_events import datasource_event_stream, ingestion_event_stream
 from genql.domain.value_objects.authenticated_user import AuthenticatedUser
@@ -40,6 +42,12 @@ CurrentUser = Annotated[AuthenticatedUser, Depends(get_current_user)]
 def list_datasources(container: Container, user: CurrentUser) -> list[DatasourceDto]:
     datasources = container.datasource_repository().list_all()
     return [DatasourceDto.from_domain(datasource) for datasource in datasources]
+
+
+@router.get("/datasources/dialects", response_model=DialectsDto)
+def list_dialects(container: Container, user: CurrentUser) -> DialectsDto:
+    """Declared before `/datasources/{name}` so `dialects` is not read as a name."""
+    return DialectsDto(dialects=list(container.datasource_service().dialects()))
 
 
 @router.post(
@@ -64,6 +72,21 @@ def register_datasource(
         job=IngestionJobDto.from_domain(job),
         stream_url=f"/v1/datasources/{datasource.name}/onboarding/stream",
     )
+
+
+@router.patch("/datasources/{name}", response_model=DatasourceDto)
+def update_datasource(
+    name: str, request: UpdateDatasourceRequest, container: Container, user: CurrentUser
+) -> DatasourceDto:
+    """Edit where a datasource points, or turn it off.
+
+    200, not 202: no ingestion is queued. What was already discovered stays
+    discovered — an edited password does not invalidate a catalog — so the
+    caller decides whether the edit is one that warrants a re-survey and
+    retries onboarding itself if it is.
+    """
+    datasource = container.datasource_service().update(name, request.to_patch())
+    return DatasourceDto.from_domain(datasource)
 
 
 @router.get("/datasources/{name}/onboarding", response_model=IngestionJobDto)

@@ -16,12 +16,15 @@ services:
     build:
       context: ..
       dockerfile: docker/api.Dockerfile
+    image: genql-api:latest
     container_name: genql-api
     restart: unless-stopped
     depends_on:
       paradedb:
         condition: service_healthy
       gotrue:
+        condition: service_started
+      phoenix:
         condition: service_started
     env_file:
       - ../.env
@@ -39,4 +42,10 @@ services:
       # GENQL_WAREHOUSE_DSN directly in .env and remove this override line.
       GENQL_WAREHOUSE_DSN: postgresql+psycopg://genql:genql@paradedb:5432/genql
       GENQL_SEMANTIC_DSN: postgresql+psycopg://genql:genql@paradedb:5432/genql
+      # Same reason: the collector is a service name in here, not localhost.
+      GENQL_TRACING_ENDPOINT: http://phoenix:6006/v1/traces
+      # On for this deployment: the whole point of running Phoenix beside it
+      # is that a deployed turn reports its own call count and token cost.
+      GENQL_TRACING_ENABLED: "true"
+      GENQL_TRACING_PROJECT: genql
     ports: ["8000:8000"]

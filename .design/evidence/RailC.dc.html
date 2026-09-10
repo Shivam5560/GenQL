@@ -1,0 +1,137 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Newsreader:opsz,wght@6..72,300;6..72,400&family=Space+Mono:wght@400;700&display=swap">
+  <style>
+    body { margin: 0; background: #0c0b0a; }
+    a { color: #ff7a45; } a:hover { color: #ffa07a; }
+    .sans { font-family: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif; }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, 'SF Mono', monospace; font-variant-numeric: tabular-nums; }
+    .serif { font-family: 'Newsreader', Georgia, 'Times New Roman', serif; }
+    .eb { font-family: 'Space Mono', ui-monospace, monospace; text-transform: uppercase; }
+    th { text-align: left; font-weight: 400; }
+  </style>
+</helmet>
+
+<div class="sans" style="width: 900px; height: 720px; box-sizing: border-box; background: #0c0b0a; color: #f2efe8; display: flex; overflow: hidden; position: relative;">
+
+  <!-- Transcript underneath, pushed back -->
+  <div style="flex: 1; min-width: 0; padding: 26px 30px; opacity: 0.34;">
+    <h2 class="serif" style="margin: 0; font-size: 25px; font-weight: 400; line-height: 1.25; letter-spacing: -0.01em; max-width: 34ch;">Finds customers who bought products through the Store channel but have a credit as good</h2>
+    <div style="margin-top: 20px; border: 1px solid rgba(255,255,255,0.14); background: #151412;">
+      <div style="display: flex; align-items: center; gap: 10px; padding: 9px 13px; border-bottom: 1px solid rgba(255,255,255,0.14);">
+        <span class="eb" style="font-size: 9.5px; letter-spacing: 0.14em; color: #a39b8c;">Generated SQL</span>
+        <span style="width: 5px; height: 5px; border-radius: 999px; background: #59d692;"></span>
+        <span class="eb" style="font-size: 9.5px; letter-spacing: 0.14em; color: #59d692;">Validated</span>
+      </div>
+      <div class="mono" style="padding: 13px; font-size: 11.5px; line-height: 1.65; color: #a39b8c;">
+        <div><span style="color:#ff9a6b;">SELECT DISTINCT</span></div>
+        <div>&nbsp;&nbsp;c.c_customer_sk,</div>
+        <div>&nbsp;&nbsp;c.c_customer_id</div>
+        <div><span style="color:#ff9a6b;">FROM</span> tpcds.store_sales <span style="color:#ff9a6b;">AS</span> ss</div>
+        <div><span style="color:#ff9a6b;">JOIN</span> tpcds.customer_demographics <span style="color:#ff9a6b;">AS</span> cd</div>
+        <div>&nbsp;&nbsp;<span style="color:#ff9a6b;">ON</span> cd.cd_credit_rating = <span style="color:#6fd3a1;">'Good'</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- The 44px spine: always visible, states only -->
+  <div style="width: 44px; flex-shrink: 0; border-left: 1px solid rgba(255,255,255,0.14); background: #151412; display: flex; flex-direction: column; align-items: center; padding: 18px 0; gap: 9px; opacity: 0.34;">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 8h3.5M10.5 8H14M8 2v3.5M8 10.5V14" stroke="#a39b8c" stroke-width="1.3" stroke-linecap="round"/><circle cx="8" cy="8" r="2.4" stroke="#ff7a45" stroke-width="1.3"/></svg>
+    <div style="width: 1px; flex: 1; background: rgba(255,255,255,0.14); margin: 4px 0;"></div>
+    <div style="display: flex; flex-direction: column; gap: 6px; align-items: center;">
+      <span style="width: 6px; height: 6px; border-radius: 999px; background: #59d692;"></span>
+      <span style="width: 6px; height: 6px; border-radius: 999px; background: #59d692;"></span>
+      <span style="width: 6px; height: 6px; border-radius: 999px; background: #ff7a45;"></span>
+      <span style="width: 6px; height: 6px; border-radius: 999px; background: #59d692;"></span>
+      <span style="width: 6px; height: 6px; border-radius: 999px; background: #59d692;"></span>
+    </div>
+  </div>
+
+  <!-- The drawer, slid over the top -->
+  <div style="position: absolute; top: 0; right: 0; bottom: 0; width: 620px; background: #151412; border-left: 1px solid rgba(255,255,255,0.14); box-shadow: -40px 0 80px -30px rgba(0,0,0,0.85); display: flex; flex-direction: column;">
+
+    <div style="display: flex; align-items: center; gap: 12px; padding: 16px 22px; border-bottom: 1px solid rgba(255,255,255,0.14); flex-shrink: 0;">
+      <span class="eb" style="font-size: 10px; letter-spacing: 0.14em; color: #a39b8c;">How this was answered</span>
+      <span class="mono" style="font-size: 10px; color: #6f685c;">17.4s &middot; $0.031</span>
+      <span style="margin-left: auto; border: 1px solid rgba(255,255,255,0.14); padding: 3px 8px;" class="eb"><span style="font-size: 9px; letter-spacing: 0.12em; color: #a39b8c;">Esc</span></span>
+    </div>
+
+    <!-- Tabs: the four questions worth asking -->
+    <div style="display: flex; gap: 0; padding: 0 22px; border-bottom: 1px solid rgba(255,255,255,0.14); flex-shrink: 0;">
+      <div class="eb" style="font-size: 9.5px; letter-spacing: 0.13em; color: #f2efe8; padding: 11px 0; margin-right: 22px; border-bottom: 1px solid #ff7a45;">Decisions</div>
+      <div class="eb" style="font-size: 9.5px; letter-spacing: 0.13em; color: #6f685c; padding: 11px 0; margin-right: 22px;">Schema</div>
+      <div class="eb" style="font-size: 9.5px; letter-spacing: 0.13em; color: #6f685c; padding: 11px 0; margin-right: 22px;">Candidates</div>
+      <div class="eb" style="font-size: 9.5px; letter-spacing: 0.13em; color: #6f685c; padding: 11px 0;">Trail</div>
+    </div>
+
+    <div style="padding: 20px 22px; display: flex; flex-direction: column; gap: 20px; overflow: hidden;">
+
+      <!-- Full-width affordance #1: the six dimensions, as a real table -->
+      <div style="display: flex; flex-direction: column; gap: 9px;">
+        <div class="eb" style="font-size: 9px; letter-spacing: 0.16em; color: #6f685c;">Six dimensions, and how each was settled</div>
+        <table class="sans" style="width: 100%; border-collapse: collapse; font-size: 12px;">
+          <tr style="border-bottom: 1px solid rgba(255,255,255,0.14);">
+            <th class="eb" style="font-size: 8.5px; letter-spacing: 0.13em; color: #4a453d; padding: 0 0 6px 0;">Dimension</th>
+            <th class="eb" style="font-size: 8.5px; letter-spacing: 0.13em; color: #4a453d; padding: 0 0 6px 0;">Settled as</th>
+            <th class="eb" style="font-size: 8.5px; letter-spacing: 0.13em; color: #4a453d; padding: 0 0 6px 0; width: 84px;">How</th>
+            <th class="eb" style="font-size: 8.5px; letter-spacing: 0.13em; color: #4a453d; padding: 0 0 6px 0; width: 62px; text-align: right;">Conf.</th>
+          </tr>
+          <tr style="border-bottom: 1px solid rgba(255,255,255,0.07);">
+            <td class="mono" style="font-size: 10.5px; color: #a39b8c; padding: 8px 0;">entity</td>
+            <td style="color: #f2efe8; padding: 8px 0;">Customers</td>
+            <td class="mono" style="font-size: 10px; color: #6f685c; padding: 8px 0;">from question</td>
+            <td class="mono" style="font-size: 10.5px; color: #59d692; padding: 8px 0; text-align: right;">0.96</td>
+          </tr>
+          <tr style="border-bottom: 1px solid rgba(255,255,255,0.07); background: rgba(255,122,69,0.06);">
+            <td class="mono" style="font-size: 10.5px; color: #ff7a45; padding: 8px 0 8px 0;">metric</td>
+            <td style="color: #f2efe8; padding: 8px 0;">Credit status classified as good</td>
+            <td class="mono" style="font-size: 10px; color: #ff7a45; padding: 8px 0;">you answered</td>
+            <td class="mono" style="font-size: 10.5px; color: #ff8a7a; padding: 8px 0; text-align: right;">0.31</td>
+          </tr>
+          <tr style="border-bottom: 1px solid rgba(255,255,255,0.07);">
+            <td class="mono" style="font-size: 10.5px; color: #a39b8c; padding: 8px 0;">time_range</td>
+            <td style="color: #f2efe8; padding: 8px 0;">All available history</td>
+            <td class="mono" style="font-size: 10px; color: #6f685c; padding: 8px 0;">assumed</td>
+            <td class="mono" style="font-size: 10.5px; color: #a39b8c; padding: 8px 0; text-align: right;">0.62</td>
+          </tr>
+          <tr style="border-bottom: 1px solid rgba(255,255,255,0.07);">
+            <td class="mono" style="font-size: 10.5px; color: #a39b8c; padding: 8px 0;">grain</td>
+            <td style="color: #f2efe8; padding: 8px 0;">One row per customer</td>
+            <td class="mono" style="font-size: 10px; color: #6f685c; padding: 8px 0;">assumed</td>
+            <td class="mono" style="font-size: 10.5px; color: #59d692; padding: 8px 0; text-align: right;">0.88</td>
+          </tr>
+          <tr style="border-bottom: 1px solid rgba(255,255,255,0.07);">
+            <td class="mono" style="font-size: 10.5px; color: #a39b8c; padding: 8px 0;">filter</td>
+            <td style="color: #f2efe8; padding: 8px 0;">Store channel<span style="color: #6f685c;"> &middot; rule <span class="mono" style="font-size: 10px;">default_channel</span></span></td>
+            <td class="mono" style="font-size: 10px; color: #6f685c; padding: 8px 0;">rule default</td>
+            <td class="mono" style="font-size: 10.5px; color: #59d692; padding: 8px 0; text-align: right;">1.00</td>
+          </tr>
+          <tr>
+            <td class="mono" style="font-size: 10.5px; color: #a39b8c; padding: 8px 0;">comparison</td>
+            <td style="color: #6f685c; padding: 8px 0;">Not applicable</td>
+            <td class="mono" style="font-size: 10px; color: #6f685c; padding: 8px 0;">not asked</td>
+            <td class="mono" style="font-size: 10.5px; color: #59d692; padding: 8px 0; text-align: right;">0.91</td>
+          </tr>
+        </table>
+      </div>
+
+      <!-- Full-width affordance #2: the plan, readable at full width -->
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <div class="eb" style="font-size: 9px; letter-spacing: 0.16em; color: #6f685c;">The plan the SQL was checked against</div>
+        <p style="margin: 0; font-size: 12.5px; line-height: 1.65; color: #f2efe8; max-width: 68ch;">Read <span class="mono" style="font-size: 11px; color: #6fd3a1;">store_sales</span> as the channel fact. Join <span class="mono" style="font-size: 11px; color: #6fd3a1;">customer_demographics</span> on the demographic key to filter to a good credit rating, then join <span class="mono" style="font-size: 11px; color: #6fd3a1;">customer</span> to return identity. Distinct on the customer key &mdash; the question asks who, not how many.</p>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

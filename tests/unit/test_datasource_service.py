@@ -38,6 +38,10 @@ class FakeDatasources:
         except KeyError:
             raise UnknownDatasourceError(name, sorted(self.rows)) from None
 
+    def update(self, datasource: Datasource) -> None:
+        self.get(datasource.name)
+        self.rows[datasource.name] = datasource
+
     def list_all(self, enabled_only: bool = False) -> Sequence[Datasource]:
         return [d for d in self.rows.values() if d.enabled or not enabled_only]
 

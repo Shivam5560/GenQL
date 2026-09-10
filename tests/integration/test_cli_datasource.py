@@ -130,3 +130,57 @@ def test_schema_add_refuses_a_schema_that_does_not_exist(wired: Engine) -> None:
 
     assert result.exit_code == 1
     assert "no_such_schema" in result.output
+
+
+def _add(runner: CliRunner) -> None:
+    runner.invoke(
+        app,
+        ["datasource", "add", "--name", "clids", "--dsn-env", "GENQL_CLI_DSN"],
+    )
+
+
+def test_datasource_update_moves_the_endpoint(wired: Engine) -> None:
+    runner = CliRunner()
+    _add(runner)
+
+    updated = runner.invoke(
+        app,
+        [
+            "datasource",
+            "update",
+            "--name",
+            "clids",
+            "--host",
+            "new.internal",
+            "--port",
+            "5433",
+            "--database",
+            "warehouse",
+            "--user",
+            "reader",
+        ],
+    )
+    listed = runner.invoke(app, ["datasource", "list"])
+
+    assert updated.exit_code == 0, updated.output
+    assert "new.internal:5433/warehouse" in listed.output
+
+
+def test_datasource_update_can_disable_a_datasource(wired: Engine) -> None:
+    runner = CliRunner()
+    _add(runner)
+
+    disabled = runner.invoke(app, ["datasource", "update", "--name", "clids", "--disabled"])
+    listed = runner.invoke(app, ["datasource", "list", "--enabled-only"])
+
+    assert disabled.exit_code == 0, disabled.output
+    assert "clids" not in listed.output
+
+
+def test_datasource_update_of_an_unknown_name_exits_1(wired: Engine) -> None:
+    result = CliRunner().invoke(
+        app, ["datasource", "update", "--name", "nope", "--description", "x"]
+    )
+
+    assert result.exit_code == 1
+    assert "not a registered datasource" in result.output

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { DialectField } from '@/components/datasources/dialect-field';
 import type { RegisterDatasourceArgs } from '@/lib/types';
 
 /**
@@ -18,18 +19,21 @@ import type { RegisterDatasourceArgs } from '@/lib/types';
  * existing datasource would show it blank.
  */
 export function ConnectForm({
+  dialects,
   onSubmit,
   onCancel,
   submitting,
   error,
 }: {
+  /** Registered dialects, from the server. The first is the default. */
+  dialects: string[];
   onSubmit: (args: RegisterDatasourceArgs) => void;
   onCancel: () => void;
   submitting: boolean;
   error: string | null;
 }) {
   const [name, setName] = useState('');
-  const [dialect] = useState('postgres');
+  const [dialect, setDialect] = useState(dialects[0] ?? 'postgres');
   const [host, setHost] = useState('');
   const [port, setPort] = useState('5432');
   const [database, setDatabase] = useState('');
@@ -92,10 +96,7 @@ export function ConnectForm({
             What you will call it here. Not the database name.
           </p>
         </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="ds-dialect">Dialect</Label>
-          <Input id="ds-dialect" value="PostgreSQL" readOnly disabled />
-        </div>
+        <DialectField dialects={dialects} value={dialect} onChange={setDialect} />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-[1fr_7rem]">

@@ -21,6 +21,11 @@ class Settings(BaseSettings):
     neo4j_user: str = "neo4j"
     neo4j_password: str = "genqlgenql"
     profile_sample_limit: int = 5
+    # Tracing is off unless a deployment asks for it: spans carry prompts,
+    # and prompts carry schema and sampled column values.
+    tracing_enabled: bool = False
+    tracing_endpoint: str = "http://localhost:6006/v1/traces"
+    tracing_project: str = "genql"
     clustering_algorithm: str = "leiden"
     node_embedding_algorithm: str = "fastrp"
     join_path_strategy: str = "weighted_shortest_path"

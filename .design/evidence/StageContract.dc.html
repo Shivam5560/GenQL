@@ -1,0 +1,183 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Newsreader:opsz,wght@6..72,300;6..72,400&family=Space+Mono:wght@400;700&display=swap">
+  <style>
+    body { margin: 0; background: #0c0b0a; }
+    a { color: #ff7a45; } a:hover { color: #ffa07a; }
+    .sans { font-family: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif; }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, 'SF Mono', monospace; font-variant-numeric: tabular-nums; }
+    .serif { font-family: 'Newsreader', Georgia, 'Times New Roman', serif; }
+    .eb { font-family: 'Space Mono', ui-monospace, monospace; text-transform: uppercase; }
+    td { vertical-align: top; padding: 11px 14px 11px 0; border-bottom: 1px solid rgba(255,255,255,0.07); }
+    th { vertical-align: bottom; text-align: left; font-weight: 400; padding: 0 14px 8px 0; border-bottom: 1px solid rgba(255,255,255,0.14); }
+    .k { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 10.5px; line-height: 1.7; color: #6fd3a1; display: block; }
+    .k-new { color: #ff9a6b; }
+    .k-old { color: #6f685c; }
+    .stage { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11px; color: #f2efe8; }
+    .why { font-size: 11.5px; line-height: 1.5; color: #a39b8c; display: block; margin-top: 5px; }
+  </style>
+</helmet>
+
+<div class="sans" style="width: 1360px; box-sizing: border-box; background: #0c0b0a; color: #f2efe8; padding: 46px 52px 52px 52px;">
+
+  <!-- Header -->
+  <div style="display: flex; align-items: flex-end; gap: 40px; padding-bottom: 26px; border-bottom: 1px solid rgba(255,255,255,0.14);">
+    <div style="flex: 1;">
+      <div class="eb" style="font-size: 10px; letter-spacing: 0.16em; color: #a39b8c;">Stage event &mdash; data contract</div>
+      <h1 class="serif" style="margin: 12px 0 0 0; font-size: 40px; font-weight: 300; line-height: 1.1; letter-spacing: -0.02em; max-width: 22ch;">The pipeline knows far more than it says.</h1>
+    </div>
+    <p style="margin: 0; max-width: 46ch; font-size: 13px; line-height: 1.65; color: #a39b8c;">Every node hands the graph a rich delta &mdash; typed entities with scores, defects, violations, rationales. <span class="mono" style="font-size: 11.5px; color: #ff8a7a;">to_stage_event()</span> flattens all of it to one string of at most 200 characters, and the browser then throws away any string that looks like a dict. Four of the twelve stages emit <em style="font-style: normal; color: #ff8a7a;">nothing at all</em>.</p>
+  </div>
+
+  <!-- The envelope -->
+  <div style="margin-top: 30px; border-left: 2px solid #ff7a45; padding: 2px 0 2px 18px;">
+    <div class="eb" style="font-size: 9.5px; letter-spacing: 0.16em; color: #ff7a45;">Fix the envelope first &mdash; it applies to all twelve</div>
+    <div style="display: flex; gap: 46px; margin-top: 14px;">
+      <div style="width: 300px; flex-shrink: 0;">
+        <div class="eb" style="font-size: 8.5px; letter-spacing: 0.14em; color: #4a453d; margin-bottom: 7px;">Today</div>
+        <span class="k k-old">stage: str</span>
+        <span class="k k-old">status: completed | paused | failed</span>
+        <span class="k k-old">detail: str | None&nbsp;&nbsp;# truncated to 200</span>
+      </div>
+      <div style="flex: 1;">
+        <div class="eb" style="font-size: 8.5px; letter-spacing: 0.14em; color: #4a453d; margin-bottom: 7px;">Add</div>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 46px;">
+          <div>
+            <span class="k k-new">status += skipped&nbsp;&nbsp;# with skip_reason</span>
+            <span class="k k-new">started_at: datetime</span>
+            <span class="k k-new">duration_ms: int</span>
+            <span class="k k-new">attempt: int&nbsp;&nbsp;# retry / repair round</span>
+          </div>
+          <div>
+            <span class="k k-new">facts: dict[str, str | int | float]</span>
+            <span class="k k-new">model: str | None</span>
+            <span class="k k-new">prompt_version: str | None</span>
+            <span class="k k-new">tokens_in / tokens_out / cost_usd</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p style="margin: 16px 0 0 0; font-size: 12.5px; line-height: 1.6; color: #a39b8c; max-width: 96ch;"><span style="color: #f2efe8;">Why <span class="mono" style="font-size: 11px;">skipped</span> matters most.</span> A stage that never reported is currently indistinguishable from one that ran silently &mdash; which is why the live rail sorts Intent, Domain scoping and Schema linking to the bottom of the list, greyed out and numbered 11&ndash;13, after stages that ran later. The rail is not wrong; it has nothing to go on. One extra status value fixes the ordering bug and the honesty problem at once.</p>
+  </div>
+
+  <!-- Per-stage table -->
+  <table style="width: 100%; border-collapse: collapse; margin-top: 38px;">
+    <tr>
+      <th class="eb" style="font-size: 8.5px; letter-spacing: 0.14em; color: #4a453d; width: 168px;">Stage</th>
+      <th class="eb" style="font-size: 8.5px; letter-spacing: 0.14em; color: #4a453d; width: 232px;">Emitted today</th>
+      <th class="eb" style="font-size: 8.5px; letter-spacing: 0.14em; color: #4a453d; width: 372px;">Already in QueryState &mdash; free to emit</th>
+      <th class="eb" style="font-size: 8.5px; letter-spacing: 0.14em; color: #4a453d;">Worth instrumenting &mdash; and what it answers</th>
+    </tr>
+
+    <tr>
+      <td class="stage">intent_classification</td>
+      <td><span class="k" style="color: #ff8a7a;">nothing &mdash; no summariser</span></td>
+      <td><span class="k">intent: str</span></td>
+      <td><span class="k k-new">confidence: float</span><span class="why">&ldquo;Did it understand this as a lookup or an aggregate?&rdquo; &mdash; the cheapest signal in the pipeline, currently unlogged.</span></td>
+    </tr>
+
+    <tr>
+      <td class="stage">domain_scoping</td>
+      <td><span class="k" style="color: #ff8a7a;">nothing &mdash; no summariser</span></td>
+      <td><span class="k">domain_id: int | None</span></td>
+      <td><span class="k k-new">domain_name, objects_in_scope, objects_total</span><span class="k k-new">skip_reason: &quot;no domains configured&quot;</span><span class="why">&ldquo;Which 41 of 612 tables were even considered?&rdquo; The single most common cause of a wrong answer is a table that was never in scope.</span></td>
+    </tr>
+
+    <tr>
+      <td class="stage">schema_linking</td>
+      <td><span class="k k-old">&quot;9 objects linked&quot;</span></td>
+      <td><span class="k">links[]: object_qualified_name</span><span class="k">&nbsp;&nbsp;column_names[], join_paths[], metric_names[]</span></td>
+      <td><span class="k k-new">retrieval_score per link</span><span class="k k-new">rejected[]: near-misses and their scores</span><span class="why">&ldquo;Why this table and not that one?&rdquo; The count alone cannot answer it; the link set can, and it is already sitting in state.</span></td>
+    </tr>
+
+    <tr style="background: rgba(255,122,69,0.05);">
+      <td class="stage" style="color: #ff7a45;">ambiguity_gate</td>
+      <td><span class="k" style="color: #ff8a7a;">a Python dict repr &mdash; the UI detects it and drops the row's detail entirely</span></td>
+      <td><span class="k">dimension_scores[]&nbsp;&nbsp;# all six, with confidence</span><span class="k">missing_dimension, clarifying_question</span><span class="k">applied_defaults[]&nbsp;&nbsp;# (dimension, rule_name)</span><span class="k">assumed[]&nbsp;&nbsp;# (dimension, value)</span><span class="k">suggested_answer, options[]</span></td>
+      <td><span class="k k-new">round: int&nbsp;&nbsp;# which clarification round</span><span class="k k-new">answered_with: &quot;typed&quot; | &quot;chip&quot; | &quot;default&quot;</span><span class="why">This is the richest object in the system and the one the UI shows least of. Every dispute about an answer starts here.</span></td>
+    </tr>
+
+    <tr>
+      <td class="stage">planning</td>
+      <td><span class="k k-old">plan_text, cut at 200 chars</span></td>
+      <td><span class="k">plan.plan_text&nbsp;&nbsp;# in full</span><span class="k">plan.referenced_objects[]</span></td>
+      <td><span class="why">Stop truncating. The plan is the thing critique checks the SQL against &mdash; a reviewer needs the same text critique had, not its first sentence.</span></td>
+    </tr>
+
+    <tr>
+      <td class="stage">candidate_generation</td>
+      <td><span class="k k-old">&quot;4 candidates generated&quot;</span></td>
+      <td><span class="k">candidates[]: sql, plan</span></td>
+      <td><span class="k k-new">per candidate: index, sql_hash, objects[]</span><span class="k k-new">differs_from_siblings: one line each</span><span class="why">&ldquo;What were the other three readings?&rdquo; Four is a number; four statements that differ on the join key is an explanation.</span></td>
+    </tr>
+
+    <tr>
+      <td class="stage">static_validation</td>
+      <td><span class="k k-old">&quot;3 candidates cleared validation&quot;</span></td>
+      <td><span class="k">violations[]: rule_name, message, repairable</span><span class="k">retry_count, escalated</span></td>
+      <td><span class="k k-new">per candidate: passed | repaired | dropped</span><span class="k k-new">repairs_applied[]</span><span class="why">&ldquo;What did the guardrails actually catch?&rdquo; This is the compliance answer &mdash; the one that makes read-only enforcement demonstrable rather than claimed.</span></td>
+    </tr>
+
+    <tr>
+      <td class="stage">critique</td>
+      <td><span class="k" style="color: #ff8a7a;">nothing &mdash; no summariser</span></td>
+      <td><span class="k">critique_reports[]: candidate_index, score</span><span class="k">&nbsp;&nbsp;defects[]: severity, message</span></td>
+      <td><span class="why">A whole scored review, already computed, already in state, never shown. Emitting it is a lookup-table entry, not a feature.</span></td>
+    </tr>
+
+    <tr>
+      <td class="stage">ambiguity_probing</td>
+      <td><span class="k k-old">&quot;2 probes executed&quot;</span></td>
+      <td><span class="k">probe_results[]: probe, actual_result</span><span class="k">&nbsp;&nbsp;resolved_candidate_index</span></td>
+      <td><span class="k k-new">probe_sql, predicted_by[]: per-candidate prediction</span><span class="why">Prediction versus reality, side by side, is the strongest evidence this product produces. It is currently reported as a count.</span></td>
+    </tr>
+
+    <tr>
+      <td class="stage">candidate_selection</td>
+      <td><span class="k k-old">&quot;selected by probe_resolved&quot;</span></td>
+      <td><span class="k">selection.method, selection.rationale</span></td>
+      <td><span class="k k-new">runners_up[]: index + why it lost</span><span class="why">The rationale exists and is already returned in the turn response &mdash; it just never reaches the rail.</span></td>
+    </tr>
+
+    <tr>
+      <td class="stage">rewrite_and_cost_gate</td>
+      <td><span class="k" style="color: #59d692;">rules, cost, verdict &mdash; the one stage doing this properly</span></td>
+      <td><span class="k">optimization.rules_applied[], estimated_cost</span><span class="k">within_budget, narrowing_suggestion</span></td>
+      <td><span class="k k-new">budget: float&nbsp;&nbsp;# a cost with no budget beside it is a number nobody can read</span><span class="k k-new">estimate_source: &quot;explain&quot; | &quot;heuristic&quot;</span></td>
+    </tr>
+
+    <tr>
+      <td class="stage">guarded_execution</td>
+      <td><span class="k k-old">&quot;100 rows&quot;</span></td>
+      <td><span class="k">result.row_count, result.truncated</span></td>
+      <td><span class="k k-new">duration_ms, row_cap, statement_timeout_ms</span><span class="k k-new">guardrails_enforced[]</span><span class="why">&ldquo;What was it allowed to do to my warehouse?&rdquo;</span></td>
+    </tr>
+  </table>
+
+  <!-- Closing argument -->
+  <div style="margin-top: 40px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 36px; padding-top: 26px; border-top: 1px solid rgba(255,255,255,0.14);">
+    <div>
+      <div class="eb" style="font-size: 9px; letter-spacing: 0.16em; color: #ff7a45; margin-bottom: 9px;">The shape of the change</div>
+      <p style="margin: 0; font-size: 12.5px; line-height: 1.65; color: #a39b8c;">Keep <span class="mono" style="font-size: 11px; color: #f2efe8;">detail</span> as the one human line &mdash; the CLI and the live stream both want it. Add <span class="mono" style="font-size: 11px; color: #f2efe8;">facts</span> beside it as a flat dict, and one optional typed payload per stage. Nothing already shipped has to change its reading, and a stage with no entry still streams, which is the same open/closed property the summariser lookup has today.</p>
+    </div>
+    <div>
+      <div class="eb" style="font-size: 9px; letter-spacing: 0.16em; color: #ff7a45; margin-bottom: 9px;">The cap is the wrong instrument</div>
+      <p style="margin: 0; font-size: 12.5px; line-height: 1.65; color: #a39b8c;">200 characters exists to keep the transport narrow, and it is right to keep the <em style="font-style: normal; color: #f2efe8;">stream</em> narrow. But the trail is now persisted with the turn and read back weeks later, so the store and the stream want different budgets: stream the line, persist the payload, and let the rail fetch a stage's detail when someone opens it.</p>
+    </div>
+    <div>
+      <div class="eb" style="font-size: 9px; letter-spacing: 0.16em; color: #ff7a45; margin-bottom: 9px;">What it buys in review</div>
+      <p style="margin: 0; font-size: 12.5px; line-height: 1.65; color: #a39b8c;">Reproducibility (model, prompt version, cost per turn), auditability (which guardrail caught what, on which candidate), and regression evidence (per-stage latency and confidence, comparable across a golden set). Those three are what separates &ldquo;it explains itself&rdquo; from &ldquo;it prints a progress bar&rdquo;.</p>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

@@ -7,14 +7,24 @@ import {
   ApiError,
   getOnboarding,
   listDatasources,
+  listDialects,
   registerDatasource,
+  removeDatasource,
   retryOnboarding,
   streamOnboarding,
+  updateDatasource,
 } from '@/lib/api-client';
 import { ConnectForm } from '@/components/datasources/connect-form';
+import { DatasourceRow } from '@/components/datasources/datasource-row';
+import { EditForm } from '@/components/datasources/edit-form';
 import { IngestionProgress } from '@/components/datasources/ingestion-progress';
 import { Button } from '@/components/ui/button';
-import type { Datasource, IngestionJob, RegisterDatasourceArgs } from '@/lib/types';
+import type {
+  Datasource,
+  IngestionJob,
+  RegisterDatasourceArgs,
+  UpdateDatasourceArgs,
+} from '@/lib/types';
 
 const GENERIC_ERROR = 'Something went wrong. Try again.';
 
@@ -42,6 +52,11 @@ export default function DatasourcesPage() {
   const [datasources, setDatasources] = useState<Datasource[] | null>(null);
   const [jobs, setJobs] = useState<Record<string, IngestionJob>>({});
   const [connecting, setConnecting] = useState(false);
+  const [editing, setEditing] = useState<string | null>(null);
+  // Registered dialects, asked for once. Falls back to the one dialect that
+  // has always been implemented if the request fails, so a dropped connection
+  // leaves the form usable rather than empty.
+  const [dialects, setDialects] = useState<string[]>(['postgres']);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   // One live stream per datasource being ingested, torn down on unmount.
@@ -133,6 +148,15 @@ export default function DatasourcesPage() {
   }, [load]);
 
   useEffect(() => {
+    if (!accessToken) return;
+    listDialects(accessToken)
+      .then((registered) => {
+        if (registered.length) setDialects(registered);
+      })
+      .catch(() => {});
+  }, [accessToken]);
+
+  useEffect(() => {
     const streams = streamsRef.current;
     return () => {
       streams.forEach((controller) => controller.abort());
@@ -154,6 +178,45 @@ export default function DatasourcesPage() {
       })
       .catch((reason: unknown) => setFormError(describe(reason)))
       .finally(() => setSubmitting(false));
+  }
+
+  function onSave(name: string, args: UpdateDatasourceArgs) {
+    if (!accessToken) return;
+    // An empty edit is a no-op the server would happily accept; closing the
+    // form is the honest response to "save" with nothing changed.
+    if (Object.keys(args).length === 0) {
+      setEditing(null);
+      return;
+    }
+    setSubmitting(true);
+    setFormError(null);
+    updateDatasource(accessToken, name, args)
+      .then((edited) => {
+        setDatasources((prev) =>
+          (prev ?? []).map((ds) => (ds.name === edited.name ? edited : ds)),
+        );
+        setEditing(null);
+        toast.success(`${edited.name} updated.`);
+      })
+      .catch((reason: unknown) => setFormError(describe(reason)))
+      .finally(() => setSubmitting(false));
+  }
+
+  function onRemove(name: string) {
+    if (!accessToken) return;
+    removeDatasource(accessToken, name)
+      .then(() => {
+        streamsRef.current.get(name)?.abort();
+        streamsRef.current.delete(name);
+        setDatasources((prev) => (prev ?? []).filter((ds) => ds.name !== name));
+        setJobs((prev) => {
+          const rest = { ...prev };
+          delete rest[name];
+          return rest;
+        });
+        toast.success(`${name} removed.`);
+      })
+      .catch((reason: unknown) => toast.error(describe(reason)));
   }
 
   function onRetry(name: string, startFrom?: string) {
@@ -182,6 +245,7 @@ export default function DatasourcesPage() {
       {connecting && (
         <div className="mb-5">
           <ConnectForm
+            dialects={dialects}
             onSubmit={onConnect}
             onCancel={() => {
               setConnecting(false);
@@ -206,29 +270,33 @@ export default function DatasourcesPage() {
             const preparing = job && job.status !== 'succeeded';
             return (
               <div key={ds.name} className="flex flex-col gap-2.5">
-                <div className="rounded-md border border-[var(--line)] bg-[var(--panel)] px-4 py-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-sm font-semibold">{ds.name}</span>
-                    <div className="flex items-center gap-2.5">
-                      {preparing && (
-                        <span className="font-eyebrow text-[0.66rem] uppercase tracking-wide text-[var(--brand)]">
-                          {job.status === 'failed' ? 'Not ready' : 'Preparing'}
-                        </span>
-                      )}
-                      <span className="font-eyebrow text-[0.66rem] uppercase text-[var(--mute)]">
-                        {ds.dialect}
-                      </span>
-                    </div>
-                  </div>
-                  {ds.endpoint && (
-                    <p className="mt-1 truncate font-mono text-xs text-[var(--mute)]">
-                      {ds.endpoint}
-                    </p>
-                  )}
-                  {ds.description && (
-                    <p className="mt-1 text-sm text-[var(--mute)]">{ds.description}</p>
-                  )}
-                </div>
+                {preparing && (
+                  <span className="font-eyebrow text-[0.66rem] uppercase tracking-wide text-[var(--brand)]">
+                    {job.status === 'failed' ? 'Not ready' : 'Preparing'}
+                  </span>
+                )}
+                {editing === ds.name ? (
+                  <EditForm
+                    datasource={ds}
+                    dialects={dialects}
+                    onSubmit={(args) => onSave(ds.name, args)}
+                    onCancel={() => {
+                      setEditing(null);
+                      setFormError(null);
+                    }}
+                    submitting={submitting}
+                    error={formError}
+                  />
+                ) : (
+                  <DatasourceRow
+                    datasource={ds}
+                    onEdit={() => {
+                      setEditing(ds.name);
+                      setFormError(null);
+                    }}
+                    onRemove={() => onRemove(ds.name)}
+                  />
+                )}
                 {preparing && (
                   <IngestionProgress
                     job={job}
