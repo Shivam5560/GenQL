@@ -72,7 +72,9 @@ class AmbiguityContainer(TurnContainer):
         ),
         critique=providers.Singleton(CritiqueNode, service=critique_service),
         ambiguity_probing=providers.Singleton(
-            AmbiguityProbingNode, service=ambiguity_probing_service
+            AmbiguityProbingNode,
+            service=ambiguity_probing_service,
+            skip_margin=TurnContainer.settings.provided.probing_skip_margin,
         ),
         candidate_selection=providers.Singleton(
             CandidateSelectionNode, service=candidate_selection_service

@@ -16,6 +16,7 @@ from typing import Any
 
 from genql.api.query_state import QueryState
 from genql.domain.entities.candidate_selection import CandidateSelection
+from genql.domain.entities.critique_report import CritiqueReport
 from genql.domain.errors import CritiqueError, QueryError
 from genql.domain.ports.critic import Critic
 from genql.services.query.ambiguity_probing_service import AmbiguityProbingService
@@ -53,12 +54,15 @@ class CritiqueNode:
 
 
 class AmbiguityProbingNode:
-    def __init__(self, service: AmbiguityProbingService) -> None:
+    def __init__(self, service: AmbiguityProbingService, skip_margin: float | None = None) -> None:
         self._service = service
+        self._skip_margin = skip_margin
 
     def __call__(self, state: QueryState) -> dict[str, Any]:
         candidates = state["candidates"]
         if not state["contested"] or len(candidates) <= 1:
+            return {"probe_results": ()}
+        if self._critique_already_decisive(state["critique_reports"]):
             return {"probe_results": ()}
         plan = state["plan"]
         if plan is None:
@@ -71,6 +75,36 @@ class AmbiguityProbingNode:
             state["datasource_name"],
         )
         return {"probe_results": results}
+
+    def _critique_already_decisive(self, reports: tuple[CritiqueReport, ...]) -> bool:
+        """True when the top surviving score beats the runner-up by at least
+        `skip_margin` — probing exists to break a tie critique could not, so a
+        clear critique lead makes probing pure overhead. `CandidateSelectionService`
+        already falls through to `critique_ranked` on an empty `probe_results`
+        tuple, so skipping here changes no selection this pipeline would have
+        made, only whether it paid for probes to confirm it.
+
+        `skip_margin=None` disables this entirely — every existing caller that
+        does not pass it (including every test written before this existed)
+        keeps the original behaviour: probing always runs when contested with
+        more than one survivor, exactly as before.
+        """
+        if self._skip_margin is None:
+            return False
+        non_fatal = [r for r in reports if not r.is_fatal]
+        # Exactly one non-fatal survivor is decisive on its own, margin aside:
+        # CandidateSelectionService's critique_ranked pool is non-fatal reports
+        # when any exist, so a fatal candidate was never going to be selected
+        # regardless of what a probe found. Comparing against a report that
+        # cannot win understates how decisive the real contest is.
+        if len(non_fatal) == 1:
+            return True
+        pool = non_fatal or list(reports)
+        _minimum_pool_for_a_margin = 2
+        if len(pool) < _minimum_pool_for_a_margin:
+            return False
+        scores = sorted((r.score for r in pool), reverse=True)
+        return (scores[0] - scores[1]) >= self._skip_margin
 
 
 class CandidateSelectionNode:

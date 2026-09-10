@@ -51,10 +51,18 @@ class Settings(BaseSettings):
     # — default empty, typed error at the point of use.
     readonly_db_password: str = ""
     # Below this per-dimension confidence, the gate treats the dimension as
-    # unspecified and asks about it. 0.7 rather than 0.5 because a wrong
+    # unspecified and asks about it. Originally 0.7, reasoned as "a wrong
     # assumption costs a whole wasted pipeline run, while an unnecessary
-    # question costs one round trip.
-    ambiguity_threshold: float = 0.7
+    # question costs one round trip" — live testing showed the round-trip cost
+    # was badly underestimated (12-14s plus a human, and in `genql eval golden`
+    # an unwanted clarification is scored as an outright failure, not a cheap
+    # retry), and at 0.7 every tested question triggered at least one
+    # clarification. 0.55 is an interim tightening, not a calibrated value:
+    # combined with AmbiguityGateService's schema-aware time_range filter (the
+    # bigger fix — it removes a whole class of question from being scored at
+    # all rather than hoping the threshold catches it), re-run
+    # `genql eval golden` after deploying both changes and adjust from there.
+    ambiguity_threshold: float = 0.55
     # How many retrieval hits the plurality vote is taken over. Larger than
     # search_top_k (10) on purpose: scoping wants a broad sample of which
     # domains the question touches, not the best ten objects.
@@ -82,6 +90,18 @@ class Settings(BaseSettings):
     # critique disagreement touches, bounding worst-case probing latency and
     # cost per the spec's §19 risk mitigation.
     probing_max_probes: int = 3
+    # When critique's top-scoring surviving candidate beats the runner-up by
+    # at least this much (both on critique's 0.0-1.0 score), AmbiguityProbingNode
+    # skips probing entirely rather than spending a designer call plus one
+    # execution per probe to confirm what critique's own score already shows
+    # clearly. CandidateSelectionService already treats an empty probe_results
+    # tuple as "fall through to critique_ranked", so this changes nothing about
+    # correctness on the skip path — it removes work that would have reached
+    # the same selection. 0.3 is conservative: a two-candidate critique score
+    # spread that wide is a strong signal, not a close call. Lower it only
+    # after confirming on real turns that a wider margin still selects the
+    # same candidate probing would have.
+    probing_skip_margin: float = 0.3
     # How many offline synthetic ambiguity examples the contested generation
     # path retrieves as few-shot context. Small on purpose: these are
     # few-shot exemplars, not a retrieval corpus to page through.
@@ -89,7 +109,28 @@ class Settings(BaseSettings):
     # PostgreSQL planner cost units (arbitrary, not wall-clock) read from
     # EXPLAIN's Total Cost. A rough proxy until Phase 8's ablation harness can
     # correlate it against measured time on this specific warehouse.
-    cost_budget: float = 100_000.0
+    #
+    # 100_000 (this setting's original default) proved too tight in practice:
+    # a correct, already-rewritten three-fact-table UNION SUM against the
+    # TPC-DS SF1 golden warehouse — about as small a "real" query as this
+    # system answers — estimated at roughly 2x that budget and was refused.
+    # 300_000 is a documented interim widening, not a calibrated number; it
+    # trades a little more protection against a truly runaway plan for not
+    # refusing ordinary full-table aggregates on a small warehouse. Re-tune
+    # once Phase 8's harness can correlate estimated cost against measured
+    # time on real warehouse sizes.
+    #
+    # Widening the budget is preferred over adding a LIMIT to reduce the
+    # estimated cost: QueryDecomposer (query_decomposer.py) already refuses to
+    # add one for exactly this reason — an aggregate like SUM/COUNT must scan
+    # every row that belongs in it, so a LIMIT on the query would return a
+    # partial, silently wrong total rather than a cheaper true one. Only a
+    # row-returning (non-aggregate) statement could safely take a LIMIT, and
+    # GuardedExecutionService already caps every executed statement's *result
+    # set* at `query_row_cap` regardless — that guardrail is about the size of
+    # the answer sent back, not the cost of computing it, and does not help a
+    # query that fails the pre-execution cost gate at all.
+    cost_budget: float = 300_000.0
     # Off by default because EXPLAIN (ANALYZE, BUFFERS) re-runs the statement:
     # recording actuals for every turn would silently double warehouse load
     # for a purely diagnostic feature.

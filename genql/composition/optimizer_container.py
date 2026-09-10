@@ -121,7 +121,9 @@ class OptimizerContainer(AmbiguityContainer):
         ),
         critique=providers.Singleton(CritiqueNode, service=AmbiguityContainer.critique_service),
         ambiguity_probing=providers.Singleton(
-            AmbiguityProbingNode, service=AmbiguityContainer.ambiguity_probing_service
+            AmbiguityProbingNode,
+            service=AmbiguityContainer.ambiguity_probing_service,
+            skip_margin=AmbiguityContainer.settings.provided.probing_skip_margin,
         ),
         candidate_selection=providers.Singleton(
             CandidateSelectionNode, service=AmbiguityContainer.candidate_selection_service
