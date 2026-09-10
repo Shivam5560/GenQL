@@ -172,3 +172,44 @@ def test_each_schema_is_read_once_however_many_objects_it_contributed() -> None:
 def test_zero_retrieval_results_is_a_typed_failure() -> None:
     with pytest.raises(SchemaLinkingError, match="revenue by customer"):
         _service(results=[]).link("revenue by customer", "local")
+
+
+class SpyRetrieval:
+    """Records whether reranking was requested, ignoring embedding/retriever
+    plumbing entirely — schema_linking's rerank=False choice is the only
+    thing this test cares about."""
+
+    def __init__(self, results: Sequence[SearchResult]) -> None:
+        self._results = results
+        self.reranked: list[bool] = []
+
+    def search(
+        self,
+        datasource_name: str,
+        query: str,
+        top_k: int,
+        domain_id: int | None = None,
+        *,
+        rerank: bool = True,
+    ) -> Sequence[SearchResult]:
+        self.reranked.append(rerank)
+        return self._results
+
+
+def test_schema_linking_does_not_pay_for_reranking() -> None:
+    """HybridRrfRetriever applies LIMIT top_k inside its own SQL, so rerank
+    can only reorder an already-fixed candidate set — and link() returns
+    every one of those objects regardless of order. Reranking would spend a
+    full provider round trip on every turn to influence a rendering position
+    nothing downstream depends on."""
+    retrieval = SpyRetrieval(RESULTS)
+
+    SchemaLinkingService(
+        retrieval=retrieval,  # type: ignore[arg-type]
+        reader=FakeSemanticCatalogReader(),
+        join_paths=FakeJoinPathReader(),
+        metrics=FakeMetricReader(),
+        top_k=10,
+    ).link("revenue by customer", "local")
+
+    assert retrieval.reranked == [False]

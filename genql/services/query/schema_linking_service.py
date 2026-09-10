@@ -46,7 +46,17 @@ class SchemaLinkingService:
         self, question: str, datasource_name: str, domain_id: int | None = None
     ) -> tuple[SchemaLink, ...]:
         try:
-            results = self._retrieval.search(datasource_name, question, self._top_k, domain_id)
+            # rerank=False: HybridRrfRetriever applies `LIMIT top_k` inside its
+            # own SQL (genql/repositories/semantic/hybrid_rrf_retriever_repository.py),
+            # so reranking never changes WHICH objects are in scope — the
+            # candidate pool is already fixed at top_k before rerank would run.
+            # It can only reorder those same objects, and every one of them is
+            # returned here regardless of order (no truncation below `results`),
+            # so the only consumer of that order is a rendering position in
+            # planning's prompt — not worth a full reranker round trip.
+            results = self._retrieval.search(
+                datasource_name, question, self._top_k, domain_id, rerank=False
+            )
         except RetrievalError as exc:
             raise SchemaLinkingError(f"retrieval failed for {question!r}: {exc}") from exc
         if not results:
