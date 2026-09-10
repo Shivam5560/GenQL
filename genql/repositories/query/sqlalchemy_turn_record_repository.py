@@ -1,5 +1,6 @@
 """Reads and writes genql_turn — the UI's read model for a thread's history.
-ExecutionResult and applied_defaults round-trip as JSON columns; nothing
+ExecutionResult, applied_defaults and the stage trail round-trip as JSON
+columns; nothing
 here interprets their contents, matching this layer's job everywhere else
 in the codebase (move bytes, don't reason about them)."""
 
@@ -11,20 +12,22 @@ from sqlalchemy import Engine, text
 from sqlalchemy.exc import SQLAlchemyError
 
 from genql.domain.entities.execution_result import ExecutionResult
+from genql.domain.entities.stage_event import StageEvent
 from genql.domain.entities.turn_record import TurnRecord
 from genql.domain.errors import QueryError
 
 _INSERT = text("""
     INSERT INTO genql.genql_turn
         (turn_id, thread_id, sequence, question, recap, validated_sql,
-         clarifying_question, result_json, applied_defaults_json)
+         clarifying_question, result_json, applied_defaults_json, stages_json)
     VALUES
         (:turn_id, :thread_id, :sequence, :question, :recap, :validated_sql,
-         :clarifying_question, CAST(:result_json AS JSON), CAST(:applied_defaults_json AS JSON))
+         :clarifying_question, CAST(:result_json AS JSON), CAST(:applied_defaults_json AS JSON),
+         CAST(:stages_json AS JSON))
 """)
 _LIST_FOR_THREAD = text("""
     SELECT turn_id, thread_id, sequence, question, recap, validated_sql,
-           clarifying_question, result_json, applied_defaults_json, created_at
+           clarifying_question, result_json, applied_defaults_json, stages_json, created_at
     FROM genql.genql_turn WHERE thread_id = :thread_id ORDER BY sequence ASC
 """)
 
@@ -54,6 +57,9 @@ class SqlAlchemyTurnRecordRepository:
                         "applied_defaults_json": json.dumps(
                             [list(pair) for pair in record.applied_defaults]
                         ),
+                        "stages_json": json.dumps(
+                            [stage.model_dump(mode="json") for stage in record.stages]
+                        ),
                     },
                 )
         except SQLAlchemyError as exc:
@@ -69,8 +75,10 @@ class SqlAlchemyTurnRecordRepository:
         data = dict(row)  # type: ignore[call-overload]
         result_json = data.pop("result_json")
         defaults_json = data.pop("applied_defaults_json")
+        stages_json = data.pop("stages_json")
         return TurnRecord(
             **data,
             result=ExecutionResult.model_validate(result_json) if result_json else None,
             applied_defaults=tuple((pair[0], pair[1]) for pair in (defaults_json or [])),
+            stages=tuple(StageEvent.model_validate(stage) for stage in (stages_json or [])),
         )

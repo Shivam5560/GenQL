@@ -19,6 +19,10 @@ the same `record_turn` the blocking path calls: a turn the user watched arrive
 must still be there when they reload. Recording happens after the graph is
 done and before the terminal event, so a client that sees `result` can reload
 and find it.
+
+The stage events are collected as they are yielded and recorded with the turn,
+for the same reason: the trail the user watched is the explanation of the SQL,
+and it is worth nothing if it only exists until the tab is refreshed.
 """
 
 from __future__ import annotations
@@ -32,6 +36,7 @@ from genql.api.query_state import initial_state
 from genql.api.query_stream import stream_query, stream_resume
 from genql.api.query_turn import new_thread_id, record_turn, to_response
 from genql.api.sse.stage_events import to_stage_event
+from genql.domain.entities.stage_event import StageEvent
 from genql.domain.entities.turn_response import TurnResponse
 from genql.domain.errors import GenqlError
 from genql.domain.ports.thread_lock import ThreadLockFactory
@@ -65,6 +70,10 @@ def stage_event_stream(  # noqa: PLR0913, PLR0917 - mirrors the graph's start pa
 ) -> Iterator[dict[str, str]]:
     resolved = thread_id or new_thread_id()
     merged: dict[str, Any] = dict(initial_state(question, datasource_name, resolved, domain_id))
+    # Collected alongside `merged` for the same reason: this is the only place
+    # stage events exist, and a trail rebuilt later from checkpoint state would
+    # be a different reading of the turn than the one the user watched.
+    collected: list[StageEvent] = []
     try:
         with locks.for_thread(resolved):
             chunks = (
@@ -78,7 +87,9 @@ def stage_event_stream(  # noqa: PLR0913, PLR0917 - mirrors the graph's start pa
                         merged.update(delta)
                     else:
                         merged["__interrupt__"] = delta
-                    yield _event("stage", to_stage_event(node, delta).model_dump())
+                    stage = to_stage_event(node, delta)
+                    collected.append(stage)
+                    yield _event("stage", stage.model_dump())
     except GenqlError as exc:
         yield _event("error", {"error": type(exc).__name__, "detail": str(exc)})
         return
@@ -98,6 +109,7 @@ def stage_event_stream(  # noqa: PLR0913, PLR0917 - mirrors the graph's start pa
                 None if answer is not None else datasource_name,
                 answer if answer is not None else question,
                 response,
+                tuple(collected),
             )
         except GenqlError as exc:
             yield _event(

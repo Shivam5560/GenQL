@@ -6,8 +6,13 @@ round-trips the payload must get the same shape back."""
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 from genql.api.dtos.query_dtos import TurnResponseDto
+from genql.api.dtos.thread_dtos import TurnRecordDto
 from genql.domain.entities.execution_result import ExecutionResult
+from genql.domain.entities.stage_event import StageEvent
+from genql.domain.entities.turn_record import TurnRecord
 from genql.domain.entities.turn_response import TurnResponse
 
 
@@ -54,3 +59,38 @@ def test_applied_defaults_become_a_list_of_pairs() -> None:
     )
 
     assert dto.applied_defaults == [["time_range", "fiscal_year"]]
+
+
+def _record(stages: tuple[StageEvent, ...]) -> TurnRecord:
+    return TurnRecord(
+        turn_id="tr-1",
+        thread_id="t-1",
+        sequence=0,
+        question="how many customers",
+        stages=stages,
+        created_at=datetime(2026, 9, 10, tzinfo=UTC),
+    )
+
+
+def test_a_recorded_turn_carries_its_stage_trail_in_order() -> None:
+    """What GET /threads/{id} hands the rail: the same three fields the live
+    SSE `stage` event ships, in the order the stages happened."""
+    dto = TurnRecordDto.from_domain(
+        _record(
+            (
+                StageEvent(stage="schema_linking", status="completed", detail="10 objects linked"),
+                StageEvent(stage="candidate_selection", status="completed", detail=None),
+            )
+        )
+    )
+
+    assert [(s.stage, s.status, s.detail) for s in dto.stages] == [
+        ("schema_linking", "completed", "10 objects linked"),
+        ("candidate_selection", "completed", None),
+    ]
+
+
+def test_a_turn_with_no_recorded_trail_serialises_an_empty_list() -> None:
+    """A pre-migration row, or one asked through the blocking endpoint. The
+    client reads this as "no discussion recorded", not as an error."""
+    assert TurnRecordDto.from_domain(_record(())).stages == []

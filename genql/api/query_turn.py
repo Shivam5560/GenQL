@@ -22,6 +22,7 @@ from typing import Any, cast
 
 from genql.api.query_graph import resume_query, run_query
 from genql.api.query_state import QueryState
+from genql.domain.entities.stage_event import StageEvent
 from genql.domain.entities.turn_record import TurnRecord
 from genql.domain.entities.turn_response import TurnResponse
 from genql.domain.ports.thread_lock import ThreadLockFactory
@@ -120,12 +121,18 @@ def record_turn(  # noqa: PLR0913, PLR0917 - one field per TurnRecord input
     datasource_name: str | None,
     question: str,
     response: TurnResponse,
+    stages: tuple[StageEvent, ...] = (),
 ) -> None:
     """Persist one finished turn, creating the thread on its first.
 
     Public because both transports must record identically: the streaming
     endpoint calls this immediately before its terminal event, so a turn the
     user watched arrive is in their history when they reload the page.
+
+    `stages` is the turn's pipeline trail. Only the streaming transport has
+    one — the blocking path never generates stage events — so a turn asked
+    there records an empty trail, which every reader treats as "no discussion
+    recorded", the same as a row written before they were stored.
     """
     existing = turn_records.list_for_thread(thread_id)
     sequence = len(existing)
@@ -144,6 +151,7 @@ def record_turn(  # noqa: PLR0913, PLR0917 - one field per TurnRecord input
             clarifying_question=response.clarifying_question,
             result=response.result,
             applied_defaults=response.applied_defaults,
+            stages=stages,
             created_at=datetime.now(UTC),
         )
     )

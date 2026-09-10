@@ -24,6 +24,9 @@ export function MessageTurn({
   /** False for the opening turn, which needs no rule above it. */
   divided = true,
   resumes = false,
+  hasDiscussion = false,
+  discussionActive = false,
+  onOpenDiscussion,
 }: {
   turn: TurnRecord;
   revealed: boolean;
@@ -38,6 +41,12 @@ export function MessageTurn({
   /** True when this turn's text answers the previous turn's clarifying
       question rather than asking something new. */
   resumes?: boolean;
+  /** True when this turn's pipeline trail was captured this session, so its
+      SqlCard can offer a "Discussion" button. Reloaded history has none. */
+  hasDiscussion?: boolean;
+  /** True when the right rail is currently showing this turn's trail. */
+  discussionActive?: boolean;
+  onOpenDiscussion?: () => void;
 }) {
   return (
     <article
@@ -81,6 +90,9 @@ export function MessageTurn({
             onReveal={onReveal}
             accessToken={accessToken}
             threadId={threadId}
+            hasDiscussion={hasDiscussion}
+            discussionActive={discussionActive}
+            onOpenDiscussion={onOpenDiscussion}
           />
         </>
       )}

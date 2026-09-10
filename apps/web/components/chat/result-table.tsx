@@ -10,12 +10,12 @@ import { FeedbackRow } from './feedback-row';
  * Executing used to print every returned row, so a question that answered
  * with three hundred took over the screen: the SQL you were checking scrolled
  * away, the question above it scrolled away, and the follow-up composer was a
- * flick of the wheel below the fold. Eight rows is enough to see the shape of
+ * flick of the wheel below the fold. Five rows is enough to see the shape of
  * an answer — the top of a ranking, whether the units look right, whether
  * anything is null — and everything past that is either a scroll away or a
  * spreadsheet away.
  */
-const PREVIEW_ROWS = 8;
+const PREVIEW_ROWS = 5;
 
 function csvEscape(value: unknown): string {
   const str = value === null || value === undefined ? '' : String(value);
@@ -34,7 +34,7 @@ function downloadCsv(turn: TurnRecord) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = `genql-results-${turn.turn_id}.csv`;
+  link.download = `aurasql-results-${turn.turn_id}.csv`;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
@@ -175,7 +175,7 @@ export function ResultTable({
               onClick={() => setExpanded((open) => !open)}
               className="rounded border border-[var(--line)] px-2.5 py-1 font-eyebrow text-[0.62rem] uppercase tracking-[0.1em] text-[var(--ink)]"
             >
-              {expanded ? 'Show first 8' : `Show all ${total}`}
+              {expanded ? `Show first ${PREVIEW_ROWS}` : `Show all ${total}`}
             </button>
           )}
           <button

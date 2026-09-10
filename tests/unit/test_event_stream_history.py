@@ -59,7 +59,7 @@ class FakeTurnRecords:
         self.appended.append(record)
 
 
-FINISHED = [
+FINISHED: list[dict[str, Any]] = [
     {"schema_linking": {"links": ()}},
     {
         "guarded_execution": {
@@ -94,6 +94,18 @@ def test_a_streamed_turn_is_written_to_thread_history() -> None:
     assert [t.question for t in turns.appended] == ["how many rows?"]
     assert turns.appended[0].validated_sql == "SELECT 1"
     assert [e["event"] for e in events] == ["stage", "stage", "result"]
+
+
+def test_the_recorded_turn_keeps_the_trail_the_user_watched() -> None:
+    """Every stage that was streamed is stored, in the order it streamed, so a
+    reload shows the same explanation of the SQL that the live rail did."""
+    threads, turns = FakeThreads(), FakeTurnRecords()
+
+    events = run(FakeGraph(FINISHED), threads, turns)
+
+    streamed = [json.loads(e["data"]) for e in events if e["event"] == "stage"]
+    assert [s.model_dump() for s in turns.appended[0].stages] == streamed
+    assert [s.stage for s in turns.appended[0].stages] == ["schema_linking", "guarded_execution"]
 
 
 def test_a_failed_turn_is_not_written_to_history() -> None:

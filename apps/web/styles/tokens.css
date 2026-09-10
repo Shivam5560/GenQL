@@ -63,3 +63,32 @@ body {
   background: var(--bg);
   color: var(--ink);
 }
+
+/* A themed scrollbar everywhere, so a scrollable region (transcript, the
+   evidence rail, an expanded result table) never shows the OS's default
+   light-grey thumb against this app's dark ground. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: var(--line);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--mute);
+  background-clip: padding-box;
+}

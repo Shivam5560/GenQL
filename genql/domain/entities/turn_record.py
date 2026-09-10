@@ -9,6 +9,7 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict
 
 from genql.domain.entities.execution_result import ExecutionResult
+from genql.domain.entities.stage_event import StageEvent
 
 
 class TurnRecord(BaseModel):
@@ -23,4 +24,7 @@ class TurnRecord(BaseModel):
     clarifying_question: str | None = None
     result: ExecutionResult | None = None
     applied_defaults: tuple[tuple[str, str], ...] = ()
+    # Empty for a turn asked through the blocking endpoint, which never
+    # produces stage events, and for every row written before they were stored.
+    stages: tuple[StageEvent, ...] = ()
     created_at: datetime

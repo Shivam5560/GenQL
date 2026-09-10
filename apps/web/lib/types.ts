@@ -47,8 +47,14 @@ export interface TurnRecord {
   row_count: number;
   applied_defaults: [string, string][];
   created_at: string;
-  // Optional: not persisted server-side yet (TurnRecord/TurnRecordDto on the backend have no
-  // such field), so it's only ever populated for a turn created fresh in this browser session —
+  // The turn's pipeline trail, as the rail's discussion panel reads it.
+  // Optional rather than always present: a row written before the backend
+  // started recording stages has none, and neither does a turn asked through
+  // the blocking endpoint, which never produces stage events. Both mean "no
+  // discussion recorded for this turn", not "something is missing".
+  stages?: StageEvent[];
+  // Optional: not persisted server-side (TurnResponse carries it, TurnRecordDto does not), so
+  // it's only ever populated for a turn created fresh in this browser session —
   // turns reloaded from GET /v1/threads/{id} will not have it.
   referenced_objects?: string[];
   // Optional for the same reason. A reloaded paused turn therefore shows its

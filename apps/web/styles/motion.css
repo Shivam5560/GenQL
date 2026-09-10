@@ -199,6 +199,33 @@
   }
 }
 
+/*
+ * One stage's "why", opening and closing in the discussion timeline.
+ *
+ * `grid-template-rows: 0fr -> 1fr` rather than a max-height guess: the panel
+ * animates to exactly the height of the text inside it, so a one-line detail
+ * and a wrapped three-line one both land closed at zero and open at their own
+ * size, with no arbitrary ceiling to clip the long one.
+ *
+ * `visibility` is transitioned alongside it so a collapsed panel is genuinely
+ * hidden — not reachable by find-in-page or by a screen reader — while still
+ * staying on screen for the length of the collapse. The timeline also writes
+ * both properties inline, which is what the closed state relies on where this
+ * stylesheet has not loaded.
+ */
+.gq-stage-panel {
+  display: grid;
+  transition:
+    grid-template-rows 200ms cubic-bezier(0.22, 0.61, 0.36, 1),
+    visibility 200ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gq-stage-panel {
+    transition: none;
+  }
+}
+
 /* ----------------------------------------------------- entry screen reveal */
 
 /*

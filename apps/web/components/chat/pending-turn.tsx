@@ -64,7 +64,7 @@ export function PendingTurn({
           <p className="text-[0.86rem] text-[var(--mute)]">
             {turn.stages.length === 0
               ? 'Working…'
-              : `Working — ${turn.stages.length} ${
+              : `Working: ${turn.stages.length} ${
                   turn.stages.length === 1 ? 'stage' : 'stages'
                 } done`}
           </p>

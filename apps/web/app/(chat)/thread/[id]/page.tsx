@@ -18,7 +18,7 @@ import type {
   TurnResponse,
 } from '@/lib/types';
 
-const GENERIC_ERROR = 'Something went wrong — try again.';
+const GENERIC_ERROR = 'Something went wrong. Try again.';
 
 function ThreadSkeleton() {
   return (
@@ -66,12 +66,25 @@ function ThreadView({ threadId }: { threadId: string }) {
   const [input, setInput] = useState('');
   const [revealedIds, setRevealedIds] = useState<Set<string>>(new Set());
   const [loadFailed, setLoadFailed] = useState(false);
-  // Stages of the most recently finished turn, so the rail keeps reporting
-  // what the pipeline did instead of blanking the moment the answer lands.
-  const [lastStages, setLastStages] = useState<StageEvent[]>([]);
+  // Every turn's stage trail, keyed by turn_id so clicking an older turn's
+  // "Discussion" button brings that turn's trail back into the rail instead of
+  // only ever showing the latest one. Filled from two places: the live stream
+  // as a turn runs, and `loadThread` below, which seeds it from history — so a
+  // turn asked in an earlier session has a discussion to open too. A turn with
+  // no entry here (a pre-migration row, or one asked without streaming) offers
+  // no button, which is honest: there is nothing recorded to show.
+  const [stagesByTurn, setStagesByTurn] = useState<Record<string, StageEvent[]>>({});
+  // Which turn's trail the rail is currently showing. Null means "follow the
+  // most recently finished turn", which is what a fresh answer restores it to.
+  const [selectedTurnId, setSelectedTurnId] = useState<string | null>(null);
   // One in-flight turn per thread, matching the server's own thread lock.
   const abortRef = useRef<AbortController | null>(null);
   const transcriptRef = useRef<HTMLDivElement>(null);
+  // Drives `toLocalTurnRecord`'s sequence number outside of `setDetail`'s
+  // updater — a value assigned inside that updater is not readable on the
+  // next line, since React does not run it synchronously, and the turn_id it
+  // produces is needed immediately after to key `stagesByTurn`.
+  const turnSeqRef = useRef(0);
 
   const accessToken = session?.accessToken;
 
@@ -80,6 +93,18 @@ function ThreadView({ threadId }: { threadId: string }) {
     getThread(accessToken, threadId)
       .then((loaded) => {
         setDetail(loaded);
+        turnSeqRef.current = loaded.turns.length;
+        // History carries each turn's stage trail now, so a turn asked last
+        // week offers its "Discussion" button too. Merged into whatever this
+        // session already collected rather than replacing it: a reload racing
+        // a just-finished turn must not drop that turn's trail.
+        setStagesByTurn((prev) => {
+          const seeded: Record<string, StageEvent[]> = { ...prev };
+          for (const turn of loaded.turns) {
+            if (turn.stages?.length) seeded[turn.turn_id] ??= turn.stages;
+          }
+          return seeded;
+        });
         // A (re)load — including a browser refresh, which remounts this view
         // — starts every turn ungated again: results already run once are not
         // re-shown for free, so each turn's table sits behind its Execute
@@ -122,14 +147,16 @@ function ThreadView({ threadId }: { threadId: string }) {
           onWarning: (warning) => toast.warning(warning.detail),
           onError: (error) => setPending((prev) => (prev ? { ...prev, error } : prev)),
           onTerminal: (response: TurnResponse) => {
+            const sequence = turnSeqRef.current;
+            turnSeqRef.current += 1;
+            const localTurn = toLocalTurnRecord(question, sequence, response);
+            // A paused turn has no ResultTable to gate, so it counts as
+            // already revealed; a finished one keeps its Execute gate.
+            if (localTurn.clarifying_question) {
+              setRevealedIds((ids) => new Set(ids).add(localTurn.turn_id));
+            }
             setDetail((prev) => {
               const turns = prev?.turns ?? [];
-              const localTurn = toLocalTurnRecord(question, turns.length, response);
-              // A paused turn has no ResultTable to gate, so it counts as
-              // already revealed; a finished one keeps its Execute gate.
-              if (localTurn.clarifying_question) {
-                setRevealedIds((ids) => new Set(ids).add(localTurn.turn_id));
-              }
               const summary = prev?.summary ?? {
                 thread_id: threadId,
                 datasource_name: datasource,
@@ -139,7 +166,8 @@ function ThreadView({ threadId }: { threadId: string }) {
               };
               return { summary, turns: [...turns, localTurn] };
             });
-            setLastStages([...collected]);
+            setStagesByTurn((prev) => ({ ...prev, [localTurn.turn_id]: [...collected] }));
+            setSelectedTurnId(null);
             setPending(null);
             setLoadFailed(false);
             // The sidebar learns of a thread only once its first turn is
@@ -163,7 +191,6 @@ function ThreadView({ threadId }: { threadId: string }) {
         startedAt: Date.now(),
         error: null,
       });
-      setLastStages([]);
       openStream(question, datasource, answer);
     },
     [openStream],
@@ -198,7 +225,7 @@ function ThreadView({ threadId }: { threadId: string }) {
             error: {
               error: 'Stopped',
               detail:
-                'You stopped waiting for this answer. GenQL may still finish it — reload the ' +
+                'You stopped waiting for this answer. AuraSQL may still finish it. Reload the ' +
                 'thread in a moment to see whether it did.',
             },
           }
@@ -239,6 +266,13 @@ function ThreadView({ threadId }: { threadId: string }) {
   const suggestion = awaitingClarification ? latest?.suggested_answer?.trim() || null : null;
   const datasourceName = detail?.summary.datasource_name ?? handoff?.datasource ?? '';
   const running = pending !== null && pending.error === null;
+  // The rail follows the most recently finished turn by default, and a
+  // "Discussion" button on any turn with a recorded trail can pin it to that
+  // turn instead — see `stagesByTurn` above.
+  const activeTurnId = selectedTurnId ?? latest?.turn_id ?? null;
+  const activeStages = activeTurnId ? (stagesByTurn[activeTurnId] ?? []) : [];
+  const viewingTurn = !running && activeTurnId ? turns.find((t) => t.turn_id === activeTurnId) : undefined;
+  const viewingOlderTurn = viewingTurn && viewingTurn.turn_id !== latest?.turn_id;
 
   /** Answer the pending clarifying question with exactly this text. */
   function answer(text: string) {
@@ -267,7 +301,7 @@ function ThreadView({ threadId }: { threadId: string }) {
   return (
     <>
       <div className="flex items-center justify-between gap-4 border-b border-[var(--line)] px-7 py-3.5">
-        <h1 className="truncate text-sm font-semibold">
+        <h1 className="min-w-0 truncate text-sm font-semibold">
           {detail?.summary.title ?? pending?.question}
         </h1>
         {/* A thread is bound to the datasource its first question went to and
@@ -307,6 +341,9 @@ function ThreadView({ threadId }: { threadId: string }) {
                 // paused turn would resume a pause that has already been
                 // resumed.
                 onAnswer={turn === latest && awaitingClarification && !running ? answer : undefined}
+                hasDiscussion={turn.turn_id in stagesByTurn}
+                discussionActive={!running && turn.turn_id === activeTurnId}
+                onOpenDiscussion={() => setSelectedTurnId(turn.turn_id)}
               />
             ))}
             {pending && (
@@ -348,10 +385,11 @@ function ThreadView({ threadId }: { threadId: string }) {
           </form>
         </div>
         <StageRail
-          stages={pending ? pending.stages : lastStages}
+          stages={pending ? pending.stages : activeStages}
           running={running}
           startedAt={pending?.startedAt ?? null}
           failed={pending?.error != null}
+          viewingQuestion={viewingOlderTurn ? viewingTurn.question : null}
         />
       </div>
     </>

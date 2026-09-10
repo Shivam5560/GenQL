@@ -45,12 +45,20 @@ export function SqlCard({
   onReveal,
   accessToken,
   threadId,
+  hasDiscussion = false,
+  discussionActive = false,
+  onOpenDiscussion,
 }: {
   turn: TurnRecord;
   revealed: boolean;
   onReveal?: () => void;
   accessToken: string;
   threadId: string;
+  /** True when this turn's pipeline trail was captured this session. */
+  hasDiscussion?: boolean;
+  /** True when the right rail is already showing this turn's trail. */
+  discussionActive?: boolean;
+  onOpenDiscussion?: () => void;
 }) {
   const [dialect, setDialect] = useState('Postgres');
   const sql = turn.validated_sql;
@@ -76,6 +84,23 @@ export function SqlCard({
           </span>
         </div>
         <div className="flex items-center gap-2">
+          {hasDiscussion && onOpenDiscussion && (
+            <button
+              type="button"
+              onClick={onOpenDiscussion}
+              aria-pressed={discussionActive}
+              // The right rail already carries the discussion — this is a
+              // pointer to it, not a second copy of it, so pressing it never
+              // does more than change which turn the rail is following.
+              className={`rounded border px-2.5 py-1 font-eyebrow text-[0.62rem] uppercase tracking-[0.1em] ${
+                discussionActive
+                  ? 'border-[var(--brand)] text-[var(--brand)]'
+                  : 'border-[var(--line)] text-[var(--mute)]'
+              }`}
+            >
+              Discussion
+            </button>
+          )}
           <DialectSelect value={dialect} onChange={setDialect} />
           <CopyButton text={formatted} />
         </div>
@@ -92,7 +117,7 @@ export function SqlCard({
         onReveal && (
           <div className="flex items-center justify-between gap-3 border-t border-[var(--line)] px-4 py-2.5">
             <span className="text-[0.72rem] text-[var(--mute)]">
-              Nothing has run yet — this reads your warehouse when you run it.
+              Nothing has run yet. This reads your warehouse when you run it.
             </span>
             <ExecuteButton onReveal={onReveal} />
           </div>

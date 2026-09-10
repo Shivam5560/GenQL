@@ -27,15 +27,15 @@ const table = (turn: TurnRecord) =>
   render(<ResultTable turn={turn} accessToken="test-token" threadId="t-thread" />);
 
 describe('ResultTable', () => {
-  it('previews the first eight rows and says how many there are', () => {
+  it('previews the first five rows and says how many there are', () => {
     // The point of the cap: a 300-row answer used to push the SQL, the
     // question and the composer off the screen the moment it arrived.
     table(turnWith(BIG));
 
     expect(screen.getByText('CA')).toBeInTheDocument();
-    expect(screen.getByText('OH')).toBeInTheDocument();
-    expect(screen.queryByText('PA')).not.toBeInTheDocument();
-    expect(screen.getByText('8 of 12 rows')).toBeInTheDocument();
+    expect(screen.getByText('IL')).toBeInTheDocument();
+    expect(screen.queryByText('WA')).not.toBeInTheDocument();
+    expect(screen.getByText('5 of 12 rows')).toBeInTheDocument();
   });
 
   it('shows the rest on request, and folds them away again', async () => {
@@ -46,7 +46,7 @@ describe('ResultTable', () => {
     expect(screen.getByText('PA')).toBeInTheDocument();
     expect(screen.getByText('All 12 rows')).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: 'Show first 8' }));
+    await user.click(screen.getByRole('button', { name: 'Show first 5' }));
     expect(screen.queryByText('PA')).not.toBeInTheDocument();
   });
 

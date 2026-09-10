@@ -7,6 +7,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
+from genql.api.dtos.stage_dtos import StageEventDto
 from genql.domain.entities.thread_summary import ThreadSummary
 from genql.domain.entities.turn_record import TurnRecord
 
@@ -40,6 +41,7 @@ class TurnRecordDto(BaseModel):
     rows: list[list[Any]] = []
     row_count: int = 0
     applied_defaults: list[list[str]] = []
+    stages: list[StageEventDto] = []
     created_at: datetime
 
     @classmethod
@@ -56,6 +58,7 @@ class TurnRecordDto(BaseModel):
             rows=[list(row) for row in result.rows] if result else [],
             row_count=result.row_count if result else 0,
             applied_defaults=[list(pair) for pair in record.applied_defaults],
+            stages=[StageEventDto.from_domain(stage) for stage in record.stages],
             created_at=record.created_at,
         )
 

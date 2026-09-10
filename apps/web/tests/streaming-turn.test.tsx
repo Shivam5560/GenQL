@@ -93,7 +93,7 @@ describe('PendingTurn', () => {
 });
 
 describe('StageRail', () => {
-  it('lists every pipeline stage, with the reported counts beside them', () => {
+  it('lists every pipeline stage, with the newest report open beside it', () => {
     const stages: StageEvent[] = [
       { stage: 'schema_linking', status: 'completed', detail: '7 objects linked' },
     ];
@@ -101,10 +101,47 @@ describe('StageRail', () => {
     render(<StageRail stages={stages} running startedAt={Date.now()} />);
 
     expect(screen.getByText('Schema linking')).toBeInTheDocument();
-    expect(screen.getByText('7 objects linked')).toBeInTheDocument();
+    // Only one stage's "why" is expanded at a time; live, it is the newest
+    // one to have reported, so there is something to read without clicking.
+    expect(screen.getByText('7 objects linked')).toBeVisible();
     // The stages that have not run yet are still listed, so the rail reads as
     // a pipeline rather than as a growing log.
     expect(screen.getByText('Execution')).toBeInTheDocument();
+  });
+
+  it('keeps every stage but the open one collapsed, and swaps on a click', async () => {
+    // The rail used to print every detail at once — twelve rows of two lines
+    // in a 240px column, which is a paragraph dump rather than a discussion.
+    // One open at a time is what makes it something you page through.
+    const stages: StageEvent[] = [
+      { stage: 'schema_linking', status: 'completed', detail: '7 objects linked' },
+      { stage: 'candidate_selection', status: 'completed', detail: 'selected by critique severity' },
+    ];
+
+    render(<StageRail stages={stages} running={false} startedAt={null} />);
+
+    expect(screen.getByText('selected by critique severity')).toBeVisible();
+    expect(screen.getByText('7 objects linked')).not.toBeVisible();
+
+    screen.getByRole('button', { name: 'Schema linking' }).click();
+
+    await waitFor(() => expect(screen.getByText('7 objects linked')).toBeVisible());
+    expect(screen.getByText('selected by critique severity')).not.toBeVisible();
+  });
+
+  it('offers no disclosure on a stage that reported nothing', () => {
+    // A stage with no detail still lists — that it ran is the useful part —
+    // but pressing it would open an empty panel, so it is not pressable.
+    render(
+      <StageRail
+        stages={[{ stage: 'planning', status: 'completed', detail: null }]}
+        running={false}
+        startedAt={null}
+      />,
+    );
+
+    expect(screen.getByText('Planning')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Planning' })).not.toBeInTheDocument();
   });
 
   it('shows a stage the client has never heard of rather than dropping it', () => {
@@ -117,7 +154,7 @@ describe('StageRail', () => {
     render(<StageRail stages={stages} running={false} startedAt={null} />);
 
     expect(screen.getByText('Semantic reranking')).toBeInTheDocument();
-    expect(screen.getByText('12 reranked')).toBeInTheDocument();
+    expect(screen.getByText('12 reranked')).toBeVisible();
   });
 
   it('lists what happened in the order it happened, ahead of what has not', () => {
