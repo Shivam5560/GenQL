@@ -1,0 +1,30 @@
+# One public origin in front of two services, so the tunnel only ever has one
+# URL to rotate.
+#
+# A Cloudflare quick tunnel hands out exactly one hostname, and the frontend
+# needs two origins (the API, and GoTrue for auth). Rather than run two tunnels
+# and rotate two URLs, everything comes through here and is split by path.
+#
+# The split is by prefix rather than by port because the two services' paths do
+# not overlap in a way anyone should have to remember: GoTrue owns /token,
+# /signup, /authorize, /user; the API owns /v1/*, /docs, /openapi.json. Putting
+# GoTrue behind an explicit /gotrue prefix keeps that boundary obvious to a
+# reader and immune to either service adding a route later.
+:80 {
+	# `handle_path` strips the prefix before proxying, so GoTrue keeps seeing
+	# the paths it defines: /gotrue/token reaches it as /token.
+	handle_path /gotrue/* {
+		reverse_proxy gotrue:9999
+	}
+
+	# A liveness probe for the tunnel itself, answered here rather than by
+	# either service — it says "the public path works", which is the thing
+	# the update script needs to know before it repoints anything at it.
+	handle /tunnel-health {
+		respond "ok" 200
+	}
+
+	handle {
+		reverse_proxy api:8000
+	}
+}

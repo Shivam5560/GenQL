@@ -1,0 +1,41 @@
+## Public access overlay — puts the API and GoTrue on the internet through one
+## Cloudflare quick tunnel, for a host with no domain and no inbound ports.
+##
+## Layer it on top of the other two, so the tunnel joins the same network and
+## can reach `api` and `gotrue` by service name:
+##
+##   docker compose -f docker/compose.yaml -f docker/compose.prod.yaml \
+##     -f docker/compose.tunnel.yaml --env-file .env up -d
+##
+## Why a quick tunnel rather than a named one: a named Cloudflare tunnel needs a
+## zone, and a zone needs a domain. This needs neither an account nor a domain —
+## the cost is that the hostname is random and changes every time cloudflared
+## restarts, which is what `scripts/tunnel_url_sync.py` exists to absorb.
+##
+## The tunnel is deliberately NOT `restart: unless-stopped`. A silent restart
+## would swap the public URL while Vercel still points at the old one, and the
+## first anyone would know is a login failing. `on-failure` still recovers a
+## crash, and the sync script republishes the URL either way.
+services:
+  edge:
+    image: caddy:2-alpine
+    container_name: genql-edge
+    restart: unless-stopped
+    volumes:
+      - ../docker/Caddyfile:/etc/caddy/Caddyfile:ro
+    depends_on:
+      - api
+      - gotrue
+    # No `ports:` on purpose. This is reachable from the tunnel and from the
+    # compose network, and from nowhere else — publishing it on the host would
+    # put an unauthenticated proxy to both services on the LAN.
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: genql-tunnel
+    restart: on-failure
+    depends_on:
+      - edge
+    # `--no-autoupdate` because an unattended in-place binary swap is one more
+    # way the URL changes without anyone asking it to.
+    command: tunnel --no-autoupdate --url http://edge:80
