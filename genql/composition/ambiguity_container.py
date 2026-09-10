@@ -55,7 +55,9 @@ class AmbiguityContainer(TurnContainer):
             IntentClassificationNode, classifier=TurnContainer.intent_classification_service
         ),
         ambiguity_gate=providers.Singleton(
-            AmbiguityGateNode, gate=TurnContainer.ambiguity_gate_service
+            AmbiguityGateNode,
+            gate=TurnContainer.ambiguity_gate_service,
+            contested_min_resolved=TurnContainer.settings.provided.contested_min_resolved_dimensions,
         ),
         domain_scoping=providers.Singleton(
             DomainScopingNode, scoper=TurnContainer.domain_scoping_service

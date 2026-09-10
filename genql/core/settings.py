@@ -63,6 +63,19 @@ class Settings(BaseSettings):
     # all rather than hoping the threshold catches it), re-run
     # `genql eval golden` after deploying both changes and adjust from there.
     ambiguity_threshold: float = 0.55
+    # How many distinct dimensions must need resolving (answered by the user
+    # or covered by a rule default) before a turn counts as "contested" and
+    # pays for multi-candidate generation, critique, and probing. Phase 6.5's
+    # original definition used 1 — any resolution at all — which live testing
+    # showed made contested the common case rather than the exception:
+    # almost every question against a sales-shaped schema needs one
+    # time_range clarification. 2 restores "contested" to mean a question
+    # that was unclear along multiple axes at once, which is the actual
+    # signal that a single generated candidate might guess wrong on some
+    # OTHER dimension critique and probing exist to catch — not proof that
+    # any clarification happened. Re-run `genql eval golden` before changing
+    # this further; accuracy is the reason the floor is 2, not 1.
+    contested_min_resolved_dimensions: int = 2
     # How many retrieval hits the plurality vote is taken over. Larger than
     # search_top_k (10) on purpose: scoping wants a broad sample of which
     # domains the question touches, not the best ten objects.

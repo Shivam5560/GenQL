@@ -49,8 +49,9 @@ def _answers(state: QueryState) -> tuple[tuple[str, str], ...]:
 
 
 class AmbiguityGateNode:
-    def __init__(self, gate: AmbiguityGate) -> None:
+    def __init__(self, gate: AmbiguityGate, contested_min_resolved: int = 1) -> None:
         self._gate = gate
+        self._contested_min_resolved = contested_min_resolved
 
     def __call__(self, state: QueryState) -> dict[str, Any]:
         answers = _answers(state)
@@ -58,12 +59,31 @@ class AmbiguityGateNode:
             state["question"], state["datasource_name"], answers, state["links"] or ()
         )
         if not assessment.is_ambiguous:
-            # Contested per this phase's own definition: a resumed answer was
-            # needed (clarifications non-empty) or a rule default was applied
-            # (applied_defaults non-empty) by the time the gate finally
-            # cleared. Derived from state Phase 6 already produces — not a
-            # new gate score.
-            contested = bool(answers) or bool(assessment.applied_defaults)
+            # Contested per Phase 6.5's original definition: any resumed
+            # answer or applied rule default at all. That definition treats
+            # "the gate needed to interrupt once" as proof the whole question
+            # is ambiguous enough to warrant multi-candidate generation,
+            # critique, and probing — but live testing showed almost every
+            # analytical question against a sales-shaped schema gets asked
+            # about time_range at least once, so this made "contested" (and
+            # its full expensive path) the common case rather than the
+            # exception the spec intended it to be.
+            #
+            # `contested_min_resolved` raises the bar: contested now requires
+            # at least this many DISTINCT dimensions to have needed resolving
+            # (answered or defaulted — each is a separate entry in `answers`
+            # or `applied_defaults`, one per dimension by construction, so
+            # counting entries already counts distinct dimensions). One
+            # narrow gap, cleanly closed by one clarifying answer, is not the
+            # same signal as a question that was unclear along several axes
+            # at once — the latter is what actually predicts that a single
+            # generated candidate might guess wrong on some OTHER dimension
+            # the gate never explicitly asked about, which is what critique
+            # and probing exist to catch. Defaults to 1 (every prior
+            # behaviour, unchanged) so no caller that does not pass this is
+            # affected; production wires a higher value via Settings.
+            resolved = len(answers) + len(assessment.applied_defaults)
+            contested = resolved >= self._contested_min_resolved
             return {"ambiguity": assessment, "contested": contested}
         # Both guards matter. Without a dimension there is nothing to record
         # the answer against, so the loop would not shrink and would not

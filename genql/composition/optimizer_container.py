@@ -104,7 +104,11 @@ class OptimizerContainer(AmbiguityContainer):
             IntentClassificationNode, classifier=AmbiguityContainer.intent_classification_service
         ),
         ambiguity_gate=providers.Singleton(
-            AmbiguityGateNode, gate=AmbiguityContainer.ambiguity_gate_service
+            AmbiguityGateNode,
+            gate=AmbiguityContainer.ambiguity_gate_service,
+            contested_min_resolved=(
+                AmbiguityContainer.settings.provided.contested_min_resolved_dimensions
+            ),
         ),
         domain_scoping=providers.Singleton(
             DomainScopingNode, scoper=AmbiguityContainer.domain_scoping_service
