@@ -17,6 +17,14 @@ edge, and the only one that can end a turn with neither rows nor a question,
 because a statement that stays over budget is answered with an explanation and
 a suggested narrowing instead of being run.
 
+domain_scoping and schema_linking now run BEFORE ambiguity_gate, not after —
+both depend only on the question and datasource, never on the gate's output or
+on clarifications, so reordering them changes nothing about what they compute.
+What it buys: the gate can read `links` and drop a dimension the schema
+cannot express (see AmbiguityGateService's time_range filter) instead of
+relying on the model to notice a linked object has no date column, which is
+the over-triggering the parent spec's ambiguity_threshold alone could not fix.
+
 The gate self-loop provably terminates without a retry counter. Every pass
 either finds nothing left to ask (AMBIGUITY_DIMENSIONS is a fixed six-element
 tuple, and a dimension that has been answered or defaulted is never asked
@@ -66,15 +74,20 @@ GUARDED_EXECUTION = "guarded_execution"
 def route_after_intent(state: QueryState) -> str:
     """Only analytical_sql proceeds.
 
-    A missing intent routes to END too, not to the gate: that can only happen
+    A missing intent routes to END too, not to scoping: that can only happen
     if the classification node was skipped, and continuing into retrieval on an
     unclassified question is exactly what this stage exists to prevent.
+
+    Routes to domain_scoping rather than the gate: schema_linking now runs
+    BEFORE the ambiguity gate (see module docstring) so the gate can drop
+    dimensions the schema cannot express, and domain_scoping must run first to
+    give schema_linking a domain_id.
     """
-    return AMBIGUITY_GATE if state["intent"] == "analytical_sql" else END
+    return DOMAIN_SCOPING if state["intent"] == "analytical_sql" else END
 
 
 def route_after_gate(state: QueryState) -> str:
-    """Ambiguous, so re-assess after the answer; otherwise proceed to scoping.
+    """Ambiguous, so re-assess after the answer; otherwise proceed to planning.
 
     The loop-back target is ambiguity_gate itself. On re-entry the node sees a
     `clarifications` tuple one pair longer than last time, so the gate has one
@@ -83,7 +96,7 @@ def route_after_gate(state: QueryState) -> str:
     ambiguity = state["ambiguity"]
     if ambiguity is not None and ambiguity.is_ambiguous:
         return AMBIGUITY_GATE
-    return DOMAIN_SCOPING
+    return PLANNING
 
 
 def route_after_validation(state: QueryState) -> str:
@@ -157,15 +170,15 @@ def build_query_graph(  # noqa: PLR0913, PLR0917 - one parameter per pipeline st
     graph.add_conditional_edges(
         INTENT_CLASSIFICATION,
         route_after_intent,
-        {AMBIGUITY_GATE: AMBIGUITY_GATE, END: END},
+        {DOMAIN_SCOPING: DOMAIN_SCOPING, END: END},
     )
+    graph.add_edge(DOMAIN_SCOPING, SCHEMA_LINKING)
+    graph.add_edge(SCHEMA_LINKING, AMBIGUITY_GATE)
     graph.add_conditional_edges(
         AMBIGUITY_GATE,
         route_after_gate,
-        {AMBIGUITY_GATE: AMBIGUITY_GATE, DOMAIN_SCOPING: DOMAIN_SCOPING},
+        {AMBIGUITY_GATE: AMBIGUITY_GATE, PLANNING: PLANNING},
     )
-    graph.add_edge(DOMAIN_SCOPING, SCHEMA_LINKING)
-    graph.add_edge(SCHEMA_LINKING, PLANNING)
     graph.add_edge(PLANNING, CANDIDATE_GENERATION)
     graph.add_edge(CANDIDATE_GENERATION, STATIC_VALIDATION)
     graph.add_conditional_edges(

@@ -29,9 +29,41 @@ from genql.domain.entities.ambiguity_assessment import (
     AMBIGUITY_DIMENSIONS,
     AmbiguityAssessment,
 )
+from genql.domain.entities.schema_link import SchemaLink
 from genql.domain.errors import AmbiguityGateError, ChatProviderError
 from genql.domain.ports.chat_provider import ChatProvider
 from genql.domain.ports.rule_reader import RuleReader
+
+# Substrings that mark a column as date/time-shaped. SchemaLink carries no
+# type information (genql.domain.entities.schema_link), only names, so this is
+# a naming heuristic rather than a type check — good enough to tell "nothing
+# in scope could possibly answer a time_range question" from "maybe it could",
+# which is all this filter needs.
+_DATE_COLUMN_MARKERS = ("date", "_dt", "_yr", "year", "month", "quarter", "_dow")
+
+# Dimension-table bookkeeping columns — TPC-DS's `s_rec_start_date` /
+# `s_rec_end_date` (SCD2 row-validity tracking, present on every dimension
+# table that carries history) and `s_closed_date_sk` (a one-off lifecycle
+# event on the dimension row itself, not a transactional date) — match
+# `_DATE_COLUMN_MARKERS` but are not a business date a generic question is
+# asking about. Left unexcluded, a question with no real time dimension at
+# all ("top 5 states by number of stores" against `tpcds.store`, which
+# carries only these) still triggered the clarifying question this filter
+# exists to remove. A question specifically about store openings/closures
+# would still need to name that explicitly; this filter only decides whether
+# to preemptively ask "what time period?" for questions that never asked
+# about time at all.
+_SCD_BOOKKEEPING_MARKERS = ("rec_start", "rec_end", "closed_date")
+
+
+def _has_time_dimension(links: tuple[SchemaLink, ...]) -> bool:
+    return any(
+        marker in name.lower()
+        for link in links
+        for name in link.column_names
+        if not any(scd in name.lower() for scd in _SCD_BOOKKEEPING_MARKERS)
+        for marker in _DATE_COLUMN_MARKERS
+    )
 
 
 class DimensionScore(BaseModel):
@@ -45,6 +77,12 @@ class GateResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     scores: tuple[DimensionScore, ...]
+    # Which dimension `clarifying_question` actually asks about. Returned
+    # rather than re-derived, because the two must agree: the caller records
+    # the user's answer against this dimension and removes it from the open
+    # set, so a question about `filter` filed under `time_range` both answers
+    # the wrong dimension and permanently closes one that was never asked.
+    clarifying_dimension: str
     clarifying_question: str
 
 
@@ -68,8 +106,10 @@ def build_gate_prompt(
         "and 1.0 that the question (plus the clarifications) already specifies "
         "it well enough to write SQL without guessing.\n"
         "- Judge only the dimensions listed. Do not invent others.\n"
-        "- Return `clarifying_question`: a single, specific question you would "
-        "ask about the LOWEST-confidence dimension. Ask about one thing. Never "
+        "- Return `clarifying_dimension`: the LOWEST-confidence dimension, "
+        "copied exactly from the list above.\n"
+        "- Return `clarifying_question`: a single, specific question about "
+        "`clarifying_dimension` and nothing else. Ask about one thing. Never "
         "ask a compound question and never present a form."
     )
 
@@ -85,6 +125,7 @@ class AmbiguityGateService:
         question: str,
         datasource_name: str,
         answers: tuple[tuple[str, str], ...] = (),
+        links: tuple[SchemaLink, ...] = (),
     ) -> AmbiguityAssessment:
         defaults = self._defaults(datasource_name)
         applied = tuple(
@@ -93,28 +134,43 @@ class AmbiguityGateService:
             if dimension in defaults
         )
         answered = {dimension for dimension, _ in answers}
+        # `time_range` is dropped from the open set, not scored low, when
+        # nothing schema_linking found exposes a date/time column: a dimension
+        # the schema cannot express is not something the question left
+        # ambiguous, it is something no answer could ever narrow. Scoring it
+        # and hoping the threshold catches it is exactly the over-triggering
+        # this replaces — asking "what time period?" about a row count that
+        # has no date column at all.
+        schema_excluded = {"time_range"} if links and not _has_time_dimension(links) else set()
         open_dimensions = tuple(
             dimension
             for dimension in AMBIGUITY_DIMENSIONS
-            if dimension not in defaults and dimension not in answered
+            if dimension not in defaults
+            and dimension not in answered
+            and dimension not in schema_excluded
         )
         if not open_dimensions:
             return AmbiguityAssessment(is_ambiguous=False, applied_defaults=applied)
 
         response = self._score(question, open_dimensions, answers)
         scored = {score.dimension: score.confidence for score in response.scores}
-        missing = next(
-            (
-                dimension
-                for dimension in open_dimensions
-                # A dimension the model omitted scores 0.0: silence is not
-                # evidence that the question specified it.
-                if scored.get(dimension, 0.0) < self._threshold
-            ),
-            None,
+        under = tuple(
+            dimension
+            for dimension in open_dimensions
+            # A dimension the model omitted scores 0.0: silence is not
+            # evidence that the question specified it.
+            if scored.get(dimension, 0.0) < self._threshold
         )
-        if missing is None:
+        if not under:
             return AmbiguityAssessment(is_ambiguous=False, applied_defaults=applied)
+        # The dimension the question was actually written about wins, so the
+        # answer is recorded against what was asked. It is trusted only after
+        # being confirmed both open and genuinely under threshold; a model that
+        # names something else falls back to priority order, which is the
+        # tuple's documented job and keeps the loop shrinking either way.
+        missing = (
+            response.clarifying_dimension if response.clarifying_dimension in under else under[0]
+        )
         clarifying_question = response.clarifying_question.strip()
         if not clarifying_question:
             raise AmbiguityGateError(

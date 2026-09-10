@@ -58,6 +58,7 @@ class FakeGate:
         question: str,
         datasource_name: str,
         answers: tuple[tuple[str, str], ...] = (),
+        links: tuple[object, ...] = (),
     ) -> AmbiguityAssessment:
         self.calls.append((question, datasource_name, answers))
         return self.queue.pop(0) if self.queue else CLEAR

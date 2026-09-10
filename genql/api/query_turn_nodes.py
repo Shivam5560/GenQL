@@ -54,7 +54,9 @@ class AmbiguityGateNode:
 
     def __call__(self, state: QueryState) -> dict[str, Any]:
         answers = _answers(state)
-        assessment = self._gate.assess(state["question"], state["datasource_name"], answers)
+        assessment = self._gate.assess(
+            state["question"], state["datasource_name"], answers, state["links"] or ()
+        )
         if not assessment.is_ambiguous:
             # Contested per this phase's own definition: a resumed answer was
             # needed (clarifications non-empty) or a rule default was applied

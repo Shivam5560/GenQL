@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Protocol, runtime_checkable
 
 from genql.domain.entities.ambiguity_assessment import AmbiguityAssessment
+from genql.domain.entities.schema_link import SchemaLink
 
 
 @runtime_checkable
@@ -17,6 +18,12 @@ class AmbiguityGate(Protocol):
     thread — because without them a resumed assessment cannot tell a resolved
     dimension from an unresolved one, and would re-ask the same question
     forever. With them, each round strictly shrinks a fixed six-element set.
+
+    Takes `links` — schema_linking's output, now computed before the gate runs
+    — so an implementation can drop a dimension the schema cannot express (no
+    date column in scope, say) instead of relying on the model to notice.
+    Defaults to `()` so a caller with no schema knowledge yet (or a fake in a
+    test) need not pass anything and gets the pre-schema-aware behaviour.
     """
 
     def assess(
@@ -24,4 +31,5 @@ class AmbiguityGate(Protocol):
         question: str,
         datasource_name: str,
         answers: tuple[tuple[str, str], ...] = (),
+        links: tuple[SchemaLink, ...] = (),
     ) -> AmbiguityAssessment: ...

@@ -25,6 +25,7 @@ from langgraph.types import interrupt as real_interrupt
 from genql.api.query_graph import (
     AMBIGUITY_GATE,
     DOMAIN_SCOPING,
+    PLANNING,
     build_query_graph,
     resume_query,
     route_after_gate,
@@ -83,7 +84,7 @@ def test_a_non_analytical_intent_reaches_the_end_without_linking() -> None:
 
 
 def test_route_after_intent_sends_only_analytical_sql_onward() -> None:
-    assert route_after_intent({"intent": "analytical_sql"}) == AMBIGUITY_GATE
+    assert route_after_intent({"intent": "analytical_sql"}) == DOMAIN_SCOPING
     for intent in ("metadata_question", "followup", "non_sql", None):
         assert route_after_intent({"intent": intent}) == END
 
@@ -94,8 +95,8 @@ def test_route_after_gate_loops_back_while_ambiguous() -> None:
     )
 
     assert route_after_gate({"ambiguity": ambiguous}) == AMBIGUITY_GATE
-    assert route_after_gate({"ambiguity": CLEAR}) == DOMAIN_SCOPING
-    assert route_after_gate({"ambiguity": None}) == DOMAIN_SCOPING
+    assert route_after_gate({"ambiguity": CLEAR}) == PLANNING
+    assert route_after_gate({"ambiguity": None}) == PLANNING
 
 
 def test_an_ambiguous_question_pauses_and_then_resumes_to_an_answer() -> None:

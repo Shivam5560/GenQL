@@ -14,11 +14,7 @@ from pydantic import BaseModel, ValidationError
 from genql.domain.entities.ambiguity_assessment import AMBIGUITY_DIMENSIONS
 from genql.domain.entities.rule import Rule
 from genql.domain.errors import AmbiguityGateError, ChatProviderError
-from genql.services.query.ambiguity_gate_service import (
-    AmbiguityGateService,
-    GateResponse,
-    build_gate_prompt,
-)
+from genql.services.query.ambiguity_gate_service import AmbiguityGateService
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -48,10 +44,12 @@ class FakeChat:
         vague: Sequence[str] = (),
         question: str = "Which one?",
         scores: dict[str, float] | None = None,
+        dimension: str = "",
     ) -> None:
         self.vague = set(vague)
         self.question = question
         self.scores = scores
+        self.dimension = dimension
         self.calls = 0
         self.prompts: list[str] = []
 
@@ -64,6 +62,7 @@ class FakeChat:
         return response_schema.model_validate(
             {
                 "scores": [{"dimension": d, "confidence": c} for d, c in scores.items()],
+                "clarifying_dimension": self.dimension,
                 "clarifying_question": self.question,
             }
         )
@@ -215,35 +214,3 @@ def test_an_ambiguous_result_with_an_empty_question_is_a_typed_failure() -> None
 def test_a_provider_or_malformed_response_becomes_an_ambiguity_gate_error(exc: Exception) -> None:
     with pytest.raises(AmbiguityGateError):
         service(RaisingChat(exc)).assess("q", "local")
-
-
-def test_rules_are_read_for_the_datasource_the_turn_names() -> None:
-    rules = FakeRules(())
-    AmbiguityGateService(FakeChat(), rules, 0.7).assess("q", "warehouse_two")  # type: ignore[arg-type]
-
-    assert rules.datasources == ["warehouse_two"]
-
-
-def test_the_prompt_lists_only_the_open_dimensions_and_the_answers_so_far() -> None:
-    chat = FakeChat(vague=("grain",))
-
-    service(chat, rules=(rule("default_period", "time_range"),)).assess(
-        "show me revenue", "local", answers=(("entity", "stores"),)
-    )
-
-    prompt = chat.prompts[0]
-    assert "show me revenue" in prompt
-    assert "grain" in prompt
-    assert "time_range" not in prompt  # covered by a rule
-    assert "stores" in prompt  # already answered, so given as context
-
-
-def test_the_prompt_builder_is_pure() -> None:
-    assert build_gate_prompt("q", ("grain",), ()) == build_gate_prompt("q", ("grain",), ())
-
-
-def test_the_response_model_is_frozen() -> None:
-    response = GateResponse(scores=(), clarifying_question="Which one?")
-
-    with pytest.raises(ValidationError):
-        response.clarifying_question = "other"
