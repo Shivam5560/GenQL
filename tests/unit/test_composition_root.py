@@ -133,7 +133,7 @@ def test_the_container_builds_a_guarded_execution_service(container: Container) 
 
 
 def test_the_guardrail_factory_resolves_every_registered_rule(container: Container) -> None:
-    assert len(GUARDRAILS.keys()) == 6
+    assert len(GUARDRAILS.keys()) == 7
     assert hasattr(container.guardrail_factory(), "for_datasource")
 
 

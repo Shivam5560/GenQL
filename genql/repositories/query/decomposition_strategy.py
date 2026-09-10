@@ -53,6 +53,9 @@ def build_decomposition_prompt(
             "- Each variant is a single SELECT (a leading WITH is fine).\n"
             "- Reference only the objects listed above, schema-qualified.\n"
             "- Include an explicit LIMIT in each variant.\n"
+            "- Write every value as a literal. Never emit a bind parameter "
+            "($1, ?, %s, :name) — nothing binds them and the statement will be "
+            "rejected.\n"
             "- Return `variant_1` and `variant_2`, each raw SQL with no "
             "markdown fence and no commentary."
         ),
