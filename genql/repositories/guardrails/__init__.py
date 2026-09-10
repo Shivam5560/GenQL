@@ -10,6 +10,7 @@ from genql.repositories.guardrails.limit_injection_guardrail import LimitInjecti
 from genql.repositories.guardrails.object_allowlist_guardrail import ObjectAllowlistGuardrail
 from genql.repositories.guardrails.statement_kind_guardrail import StatementKindGuardrail
 from genql.repositories.guardrails.statement_timeout_guardrail import StatementTimeoutGuardrail
+from genql.repositories.guardrails.surrogate_key_date_guardrail import SurrogateKeyDateGuardrail
 
 __all__ = [
     "ForbiddenFunctionGuardrail",
@@ -17,4 +18,5 @@ __all__ = [
     "ObjectAllowlistGuardrail",
     "StatementKindGuardrail",
     "StatementTimeoutGuardrail",
+    "SurrogateKeyDateGuardrail",
 ]

@@ -17,7 +17,11 @@ from genql.domain.entities.schema_link import SchemaLink
 from genql.domain.entities.sql_candidate import SqlCandidate
 from genql.domain.errors import ChatProviderError, GenerationError
 from genql.domain.ports.chat_provider import ChatProvider
-from genql.repositories.query.candidate_prompt import render_examples, render_link
+from genql.repositories.query.candidate_prompt import (
+    render_examples,
+    render_link,
+    render_schema_conventions,
+)
 from genql.repositories.query.decomposition_strategy import TwoVariantResponse
 from genql.repositories.query.registry import CANDIDATE_STRATEGIES
 
@@ -38,6 +42,7 @@ def build_execution_plan_prompt(
         f"Question:\n{plan.question}",
         f"Plan:\n{plan.plan_text}",
         f"Available objects (reference them as schema.object):\n{catalog}",
+        render_schema_conventions(links),
         (
             "Rules:\n"
             "- Each variant is a single SELECT (a leading WITH is fine).\n"

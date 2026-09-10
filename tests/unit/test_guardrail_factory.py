@@ -27,7 +27,7 @@ def _factory(names: frozenset[str] = frozenset({"shop.orders"})) -> GuardrailFac
 def test_every_registered_rule_is_built() -> None:
     rules = _factory().for_datasource("local")
 
-    assert len(rules) == 5
+    assert len(rules) == 6
 
 
 def test_rules_come_back_in_priority_order_not_alphabetical_order() -> None:
@@ -37,6 +37,7 @@ def test_rules_come_back_in_priority_order_not_alphabetical_order() -> None:
         "statement_kind",
         "forbidden_function",
         "object_allowlist",
+        "surrogate_key_date",
         "limit_injection",
         "statement_timeout",
     ]

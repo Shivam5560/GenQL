@@ -6,6 +6,21 @@ from __future__ import annotations
 
 from genql.domain.entities.ambiguity_example import AmbiguityExample
 from genql.domain.entities.schema_link import SchemaLink
+from genql.domain.value_objects.surrogate_keys import (
+    SURROGATE_KEY_GUIDANCE,
+    uses_surrogate_keys,
+)
+
+
+def render_schema_conventions(links: tuple[SchemaLink, ...]) -> str:
+    """Facts about how this schema is shaped, when they apply to it.
+
+    Empty against a schema that does not use surrogate keys — see
+    `genql.domain.value_objects.surrogate_keys` for why that is conditional
+    rather than always-on.
+    """
+    columns = (name for link in links for name in link.column_names)
+    return SURROGATE_KEY_GUIDANCE if uses_surrogate_keys(columns) else ""
 
 
 def render_link(link: SchemaLink) -> str:

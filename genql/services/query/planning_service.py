@@ -32,6 +32,10 @@ from genql.domain.entities.query_plan import QueryPlan
 from genql.domain.entities.schema_link import SchemaLink
 from genql.domain.errors import ChatProviderError, PlanningError
 from genql.domain.ports.chat_provider import ChatProvider
+from genql.domain.value_objects.surrogate_keys import (
+    SURROGATE_KEY_GUIDANCE,
+    uses_surrogate_keys,
+)
 
 
 class PlanResponse(BaseModel):
@@ -90,6 +94,8 @@ def build_planning_prompt(
             "assumption, so a reader can see what was decided on their behalf."
         )
     sections.append(f"Available objects:\n{catalog}")
+    if uses_surrogate_keys(name for link in links for name in link.column_names):
+        sections.append(SURROGATE_KEY_GUIDANCE)
     sections.append(
         "Rules:\n"
         "- Use only the objects listed above. Naming anything else is an error.\n"
