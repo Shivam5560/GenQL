@@ -36,7 +36,15 @@ class DomainScopingService:
 
     def resolve(self, question: str, datasource_name: str) -> int | None:
         try:
-            results = self._retrieval.search(datasource_name, question, self._sample_size)
+            # rerank=False: the vote below reads the *set* of domains the hits
+            # carry, and Counter is insensitive to their order except when
+            # breaking a tie. Reranking would spend a full provider round trip
+            # per turn to influence only that tie-break, so it is skipped here.
+            # SchemaLinkingService — the caller that genuinely ranks — still
+            # reranks.
+            results = self._retrieval.search(
+                datasource_name, question, self._sample_size, rerank=False
+            )
         except RetrievalError as exc:
             raise DomainScopingError(
                 f"failed to sample {datasource_name!r} for {question!r}: {exc}"
@@ -46,6 +54,7 @@ class DomainScopingService:
         if not names:
             return None
         # Counter.most_common breaks ties by first insertion, and `results` is
-        # already ranked, so a tie resolves to the better-ranked hit's domain.
+        # already ranked by the retriever itself, so a tie resolves to the
+        # better-ranked hit's domain even though this pass skips reranking.
         plurality, _ = Counter(names).most_common(1)[0]
         return self._domains.domain_id_by_name(datasource_name, plurality)

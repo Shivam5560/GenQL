@@ -33,17 +33,31 @@ class FakeRetrieval:
     def __init__(self, results: Sequence[SearchResult]) -> None:
         self.results = list(results)
         self.calls: list[tuple[str, str, int, int | None]] = []
+        self.reranked: list[bool] = []
 
     def search(
-        self, datasource_name: str, query: str, top_k: int, domain_id: int | None = None
+        self,
+        datasource_name: str,
+        query: str,
+        top_k: int,
+        domain_id: int | None = None,
+        *,
+        rerank: bool = True,
     ) -> Sequence[SearchResult]:
         self.calls.append((datasource_name, query, top_k, domain_id))
+        self.reranked.append(rerank)
         return self.results
 
 
 class RaisingRetrieval:
     def search(
-        self, datasource_name: str, query: str, top_k: int, domain_id: int | None = None
+        self,
+        datasource_name: str,
+        query: str,
+        top_k: int,
+        domain_id: int | None = None,
+        *,
+        rerank: bool = True,
     ) -> Sequence[SearchResult]:
         raise RetrievalError("index unavailable")
 
@@ -87,6 +101,17 @@ def test_the_sample_is_unscoped_and_sized_from_settings() -> None:
     scoper.resolve("how much did we sell", "local")
 
     assert retrieval.calls == [("local", "how much did we sell", 25, None)]
+
+
+def test_the_sample_pass_does_not_pay_for_reranking() -> None:
+    """A plurality vote reads the set of domains, not their order, so the
+    rerank round trip this pass used to make bought only a tie-break. Skipping
+    it removes one provider call from every analytical turn."""
+    scoper, retrieval, _ = service([hit("Sales")], ids={"Sales": 3})
+
+    scoper.resolve("how much did we sell", "local")
+
+    assert retrieval.reranked == [False]
 
 
 def test_an_empty_sample_resolves_to_none_without_a_lookup() -> None:

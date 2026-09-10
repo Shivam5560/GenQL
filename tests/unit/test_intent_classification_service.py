@@ -21,6 +21,7 @@ from genql.services.query.intent_classification_service import (
     IntentClassificationService,
     IntentResponse,
     build_intent_prompt,
+    classify_deterministically,
 )
 
 T = TypeVar("T", bound=BaseModel)
@@ -48,7 +49,7 @@ class RaisingChat:
 def test_every_known_intent_is_returned_unchanged(intent: str) -> None:
     service = IntentClassificationService(FakeChat(intent))
 
-    assert service.classify("how many stores do we have") == intent
+    assert service.classify("tell me about widgets") == intent
 
 
 def test_an_unknown_intent_is_a_typed_failure() -> None:
@@ -79,10 +80,10 @@ def test_a_malformed_response_becomes_an_intent_classification_error() -> None:
 def test_the_prompt_carries_the_question_and_every_allowed_intent() -> None:
     chat = FakeChat("analytical_sql")
 
-    IntentClassificationService(chat).classify("how many stores do we have")
+    IntentClassificationService(chat).classify("tell me about widgets")
 
     prompt = chat.prompts[0]
-    assert "how many stores do we have" in prompt
+    assert "tell me about widgets" in prompt
     for intent in QUESTION_INTENTS:
         assert intent in prompt
 
@@ -96,3 +97,51 @@ def test_the_response_model_is_frozen() -> None:
 
     with pytest.raises(ValidationError):
         response.intent = "non_sql"
+
+
+def test_an_obviously_analytical_question_skips_the_model_entirely() -> None:
+    """The whole point of the pre-filter: one fewer sequential provider round
+    trip on the common path. A FakeChat that was never called proves it."""
+    chat = FakeChat("non_sql")
+
+    assert IntentClassificationService(chat).classify("how many stores do we have") == (
+        "analytical_sql"
+    )
+    assert chat.prompts == []
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "total sales by state",
+        "count the customers",
+        "top 5 states by number of stores",
+        "what is the average order value",
+    ],
+)
+def test_analytical_shapes_are_settled_without_a_call(question: str) -> None:
+    assert classify_deterministically(question) == "analytical_sql"
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "hello there",
+        "what tables do you have",
+        "what does ss_ext_sales_price mean",
+        "show me that instead",
+        "tell me about widgets",
+        "which columns are in the store table",
+    ],
+)
+def test_anything_not_plainly_analytical_still_reaches_the_model(question: str) -> None:
+    """The pre-filter may only ever conclude analytical_sql. Everything that
+    could be one of the three short-circuiting intents defers, so the filter
+    can never route a real question away from the pipeline."""
+    assert classify_deterministically(question) is None
+
+
+def test_a_disqualifier_beats_an_analytical_marker() -> None:
+    """'how many' plus 'instead' is a followup, not a fresh question, and the
+    filter must not claim it."""
+    assert classify_deterministically("how many instead of that") is None
