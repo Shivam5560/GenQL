@@ -248,8 +248,13 @@ function parseCssColor(raw: string, fallbackHex: string): THREE.Color {
   if (!value) return new THREE.Color(fallbackHex);
 
   if (value.startsWith('#')) {
+    // Chromium's computed-style serializer turns `rgba(10,10,10,0.15)` into
+    // 8-digit hex (`#0a0a0a26`) rather than echoing the rgba() form back —
+    // THREE.Color only parses 3/6-digit hex, so the trailing alpha pair is
+    // dropped here (opacity is applied separately via each material).
+    const hex = value.length === 9 ? value.slice(0, 7) : value.length === 5 ? value.slice(0, 4) : value;
     try {
-      return new THREE.Color(value);
+      return new THREE.Color(hex);
     } catch {
       return new THREE.Color(fallbackHex);
     }

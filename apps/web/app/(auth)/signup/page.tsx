@@ -1,4 +1,4 @@
-import { KeystoneEntry } from '@/components/keystone/keystone-entry';
+import { DirectionEntry } from '@/components/direction/direction-entry';
 
 /**
  * The same entry screen as `/login`, with the panel opened on the create-account
@@ -6,5 +6,5 @@ import { KeystoneEntry } from '@/components/keystone/keystone-entry';
  * would have to be kept visually in step with the first.
  */
 export default function SignupPage() {
-  return <KeystoneEntry initialMode="register" openOnMount />;
+  return <DirectionEntry initialMode="register" openOnMount />;
 }

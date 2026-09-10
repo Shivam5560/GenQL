@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { toast } from 'sonner';
@@ -68,6 +68,19 @@ function ChatShell({ children }: { children: React.ReactNode }) {
   const { threads, loading: threadsLoading } = useThreadList();
   const { refresh: refreshDatasources } = useDatasources();
   const onDatasourceChange = useCallback(() => void refreshDatasources(), [refreshDatasources]);
+  // Below `md` the sidebar is an off-canvas drawer rather than a fixed
+  // column — a 264px rail alongside content leaves too little width to be
+  // usable on a phone. Any navigation closes it, so picking a thread from
+  // the drawer always lands on that thread's screen, not on the drawer.
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  // Reset during render on route change rather than in an effect — the
+  // recommended way to adjust state from a prop-like value without an extra
+  // render pass. See https://react.dev/learn/you-might-not-need-an-effect.
+  const [lastPathname, setLastPathname] = useState(pathname);
+  if (pathname !== lastPathname) {
+    setLastPathname(pathname);
+    setSidebarOpen(false);
+  }
 
   useDatasourceNotifications(session?.accessToken, onDatasourceChange);
 
@@ -89,7 +102,16 @@ function ChatShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="grid h-screen grid-cols-[264px_1fr] overflow-hidden">
+    <div className="relative grid h-screen grid-cols-1 overflow-hidden md:grid-cols-[264px_1fr]">
+      {/* A tap-to-close scrim behind the drawer on narrow screens; absent —
+          and untouchable — once the sidebar is a static column at `md`. */}
+      {sidebarOpen && (
+        <div
+          aria-hidden
+          onClick={() => setSidebarOpen(false)}
+          className="fixed inset-0 z-30 bg-black/40 md:hidden"
+        />
+      )}
       {/* `overflow-hidden`, not `overflow-y-auto`: the sidebar is exactly the
           height of the viewport and nothing in it moves. Everything here is a
           fixed-height row except the thread list, which is the one region
@@ -98,8 +120,14 @@ function ChatShell({ children }: { children: React.ReactNode }) {
           were, however many threads or warehouses exist.
 
           The sidebar also leads the one page-load sequence; the hero's
-          headline, supporting line and composer follow on staggered delays. */}
-      <aside className="gq-slide-in flex min-h-0 flex-col overflow-hidden border-r border-[var(--line)]">
+          headline, supporting line and composer follow on staggered delays.
+          Below `md` it is fixed off-canvas, sliding in over the content
+          instead of sharing the row with it. */}
+      <aside
+        className={`gq-slide-in fixed inset-y-0 left-0 z-40 flex w-[264px] min-h-0 flex-col overflow-hidden border-r border-[var(--line)] bg-[var(--bg)] transition-transform duration-200 ease-out md:static md:z-auto md:translate-x-0 ${
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
         <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[var(--line)] px-4.5 py-3.5">
           <Link href="/" className="text-base font-bold uppercase tracking-wide">
             Gen<span className="text-[var(--brand)]">QL</span>
@@ -157,7 +185,28 @@ function ChatShell({ children }: { children: React.ReactNode }) {
           </button>
         </div>
       </aside>
-      <div className="flex min-h-0 flex-col">{children}</div>
+      <div className="flex min-h-0 flex-col">
+        {/* Own row rather than overlaying the page's own header: every child
+            route (thread, composer, datasources, settings) draws its own
+            header content flush to the left edge, so a floating button there
+            would sit on top of a title instead of beside it. */}
+        <div className="flex shrink-0 items-center gap-3 border-b border-[var(--line)] px-4.5 py-2.5 md:hidden">
+          <button
+            type="button"
+            onClick={() => setSidebarOpen(true)}
+            aria-label="Open sidebar"
+            className="flex h-8 w-8 items-center justify-center rounded-md border border-[var(--line)] text-[var(--ink)]"
+          >
+            <span aria-hidden className="text-base leading-none">
+              ☰
+            </span>
+          </button>
+          <span className="text-sm font-bold uppercase tracking-wide">
+            Gen<span className="text-[var(--brand)]">QL</span>
+          </span>
+        </div>
+        {children}
+      </div>
     </div>
   );
 }

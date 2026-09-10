@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { KeystoneEntry } from '@/components/keystone/keystone-entry';
+import { DirectionEntry } from '@/components/direction/direction-entry';
+import { ThemeProvider } from '@/lib/theme-provider';
 
 const login = vi.fn().mockRejectedValue(new Error('login failed'));
 
@@ -19,10 +20,14 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn() }),
 }));
 
-describe('KeystoneEntry', () => {
+describe('DirectionEntry', () => {
   it('states a failed sign-in in the panel rather than redirecting', async () => {
     const user = userEvent.setup();
-    render(<KeystoneEntry initialMode="login" openOnMount />);
+    render(
+      <ThemeProvider>
+        <DirectionEntry initialMode="login" openOnMount />
+      </ThemeProvider>,
+    );
 
     await user.type(screen.getByLabelText(/^email$/i), 'shivam@example.com');
     await user.type(screen.getByLabelText(/^password$/i), 'wrong-password');
@@ -35,7 +40,11 @@ describe('KeystoneEntry', () => {
 
   it('refuses a registration whose passwords disagree, before calling the API', async () => {
     const user = userEvent.setup();
-    render(<KeystoneEntry initialMode="register" openOnMount />);
+    render(
+      <ThemeProvider>
+        <DirectionEntry initialMode="register" openOnMount />
+      </ThemeProvider>,
+    );
 
     await user.type(screen.getByLabelText(/^email$/i), 'shivam@example.com');
     await user.type(screen.getByLabelText(/^password$/i), 'correct-horse');
@@ -47,13 +56,17 @@ describe('KeystoneEntry', () => {
 
   it('renders the landing with no panel until a way in is chosen', async () => {
     const user = userEvent.setup();
-    render(<KeystoneEntry initialMode="login" />);
+    render(
+      <ThemeProvider>
+        <DirectionEntry initialMode="login" />
+      </ThemeProvider>,
+    );
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     // The hero must be readable at rest — it is the first frame of the app.
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(/questions/i);
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(/ask in english/i);
 
-    await user.click(screen.getByRole('button', { name: /^sign in$/i }));
+    await user.click(screen.getByRole('button', { name: /^log in$/i }));
 
     expect(await screen.findByRole('dialog')).toBeInTheDocument();
   });

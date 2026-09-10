@@ -80,9 +80,11 @@ function ThreadView({ threadId }: { threadId: string }) {
     getThread(accessToken, threadId)
       .then((loaded) => {
         setDetail(loaded);
-        // Every turn loaded from history was already seen in an earlier
-        // session — reveal all of them immediately.
-        setRevealedIds(new Set(loaded.turns.map((t) => t.turn_id)));
+        // A (re)load — including a browser refresh, which remounts this view
+        // — starts every turn ungated again: results already run once are not
+        // re-shown for free, so each turn's table sits behind its Execute
+        // button until pressed again in this session.
+        setRevealedIds(new Set());
         setLoadFailed(false);
       })
       .catch((reason: unknown) => {

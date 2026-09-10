@@ -9,20 +9,13 @@ const APP_ORIGIN = process.env.NEXT_PUBLIC_APP_ORIGIN ?? 'http://localhost:3000'
 
 export type AuthMode = 'login' | 'register';
 
-const focusRing =
-  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b0602f] focus-visible:ring-offset-2 focus-visible:ring-offset-[#f7f4ee]';
-
 const field =
-  'w-full border border-[#16181a]/20 bg-[#fbf9f5] px-3.5 py-2.5 text-[14px] text-[#16181a] outline-none transition-colors placeholder:text-[#16181a]/35 focus:border-[#b0602f]';
+  'w-full border border-[var(--line)] bg-[var(--panel-2)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] outline-none transition-colors placeholder:text-[var(--mute)] focus:border-[var(--brand)]';
 
-const label = 'text-[10px] uppercase tracking-[0.16em] text-[#16181a]/50';
+const label = 'font-eyebrow text-[10px] uppercase tracking-[0.16em] text-[var(--mute)]';
 
 /**
  * The sign-in overlay, opened from the header and from the hero's CTAs.
- *
- * Square corners, paper ground, one bronze accent — the entry screen's own
- * language rather than the workspace's rounded components, because it sits on
- * top of the entry screen and would read as a foreign object otherwise.
  *
  * Errors are stated in the panel, above the form, and never as a toast: a
  * message about the field you are looking at should not appear in the corner
@@ -89,8 +82,7 @@ export function AuthPanel({
 
   return (
     <div
-      className="fixed inset-0 z-[90] flex items-center justify-center px-5 py-8"
-      style={{ background: 'rgba(22,24,26,0.42)', backdropFilter: 'blur(6px)' }}
+      className="fixed inset-0 z-[90] flex items-center justify-center bg-black/50 px-5 py-8 backdrop-blur-sm"
       onMouseDown={(event) => {
         if (!dialogRef.current?.contains(event.target as Node)) onClose();
       }}
@@ -100,14 +92,12 @@ export function AuthPanel({
         role="dialog"
         aria-modal="true"
         aria-label={mode === 'login' ? 'Sign in to GenQL' : 'Create a GenQL account'}
-        className="ks-reveal ks-reveal-in max-h-full w-full max-w-[420px] overflow-y-auto border border-[#16181a]/15 bg-[#f7f4ee] p-7 shadow-[0_40px_90px_-40px_rgba(22,24,26,0.6)]"
+        className="gq-rise max-h-full w-full max-w-[420px] overflow-y-auto border border-[var(--line)] bg-[var(--panel)] p-7 shadow-[0_40px_90px_-40px_rgba(0,0,0,0.7)]"
       >
         <div className="mb-6 flex items-start justify-between gap-4">
           <div>
-            <p className={label} style={{ fontFamily: 'var(--font-eyebrow)' }}>
-              GenQL
-            </p>
-            <h2 className="mt-2 font-serif text-[30px] leading-[1.05] tracking-[-0.02em] text-[#16181a]">
+            <p className={label}>GenQL</p>
+            <h2 className="mt-2 font-serif text-[30px] font-light leading-[1.05] tracking-[-0.02em]">
               {mode === 'login' ? 'Sign in.' : 'Create an account.'}
             </h2>
           </div>
@@ -115,7 +105,7 @@ export function AuthPanel({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className={`shrink-0 border border-[#16181a]/20 px-2.5 py-1 text-[11px] text-[#16181a]/55 transition-colors hover:text-[#16181a] ${focusRing}`}
+            className="shrink-0 border border-[var(--line)] px-2.5 py-1 text-[11px] text-[var(--mute)] transition-colors hover:text-[var(--ink)]"
           >
             Esc
           </button>
@@ -124,7 +114,7 @@ export function AuthPanel({
         {error && (
           <p
             role="alert"
-            className="mb-5 border-l-2 border-[#b0602f] bg-[#b0602f]/[0.07] px-3.5 py-2.5 text-[13px] leading-relaxed text-[#16181a]"
+            className="mb-5 border-l-2 border-[var(--brand)] bg-[var(--brand)]/10 px-3.5 py-2.5 text-[13px] leading-relaxed text-[var(--ink)]"
           >
             {error}
           </p>
@@ -132,11 +122,7 @@ export function AuthPanel({
 
         <form onSubmit={onSubmit} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
-            <label
-              className={label}
-              style={{ fontFamily: 'var(--font-eyebrow)' }}
-              htmlFor="auth-email"
-            >
+            <label className={label} htmlFor="auth-email">
               Email
             </label>
             <input
@@ -146,15 +132,11 @@ export function AuthPanel({
               type="email"
               required
               autoComplete="email"
-              className={`${field} ${focusRing}`}
+              className={field}
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <label
-              className={label}
-              style={{ fontFamily: 'var(--font-eyebrow)' }}
-              htmlFor="auth-password"
-            >
+            <label className={label} htmlFor="auth-password">
               Password
             </label>
             <input
@@ -164,16 +146,12 @@ export function AuthPanel({
               required
               minLength={8}
               autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-              className={`${field} ${focusRing}`}
+              className={field}
             />
           </div>
           {mode === 'register' && (
             <div className="flex flex-col gap-1.5">
-              <label
-                className={label}
-                style={{ fontFamily: 'var(--font-eyebrow)' }}
-                htmlFor="auth-confirmation"
-              >
+              <label className={label} htmlFor="auth-confirmation">
                 Confirm password
               </label>
               <input
@@ -183,15 +161,14 @@ export function AuthPanel({
                 required
                 minLength={8}
                 autoComplete="new-password"
-                className={`${field} ${focusRing}`}
+                className={field}
               />
             </div>
           )}
           <button
             type="submit"
             disabled={busy}
-            className={`mt-1 flex items-center justify-center gap-3 bg-[#16181a] px-6 py-3.5 text-[11px] uppercase tracking-[0.16em] text-[#f7f4ee] transition-colors hover:bg-[#2c2f32] disabled:opacity-60 ${focusRing}`}
-            style={{ fontFamily: 'var(--font-eyebrow)' }}
+            className="mt-1 flex items-center justify-center gap-3 bg-[var(--brand)] px-6 py-3.5 font-eyebrow text-[11px] uppercase tracking-[0.16em] text-[var(--brand-ink)] transition-colors disabled:opacity-60"
           >
             {busy
               ? mode === 'login'
@@ -200,36 +177,31 @@ export function AuthPanel({
               : mode === 'login'
                 ? 'Enter GenQL'
                 : 'Create account'}
-            <span aria-hidden className="h-[5px] w-[5px] bg-[#b0602f]" />
           </button>
         </form>
 
         <div className="my-6 flex items-center gap-3">
-          <span className="h-px flex-1 bg-[#16181a]/12" />
-          <span className={label} style={{ fontFamily: 'var(--font-eyebrow)' }}>
-            or
-          </span>
-          <span className="h-px flex-1 bg-[#16181a]/12" />
+          <span className="h-px flex-1 bg-[var(--line)]" />
+          <span className={label}>or</span>
+          <span className="h-px flex-1 bg-[var(--line)]" />
         </div>
 
         <div className="flex flex-col gap-2.5">
           <a
             href={oauth('google')}
-            className={`flex items-center justify-center border border-[#16181a]/20 px-5 py-3 text-[11px] uppercase tracking-[0.14em] text-[#16181a]/75 transition-colors hover:border-[#16181a]/45 hover:text-[#16181a] ${focusRing}`}
-            style={{ fontFamily: 'var(--font-eyebrow)' }}
+            className="flex items-center justify-center border border-[var(--line)] px-5 py-3 font-eyebrow text-[11px] uppercase tracking-[0.14em] text-[var(--mute)] transition-colors hover:border-[var(--brand)] hover:text-[var(--ink)]"
           >
             Continue with Google
           </a>
           <a
             href={oauth('github')}
-            className={`flex items-center justify-center border border-[#16181a]/20 px-5 py-3 text-[11px] uppercase tracking-[0.14em] text-[#16181a]/75 transition-colors hover:border-[#16181a]/45 hover:text-[#16181a] ${focusRing}`}
-            style={{ fontFamily: 'var(--font-eyebrow)' }}
+            className="flex items-center justify-center border border-[var(--line)] px-5 py-3 font-eyebrow text-[11px] uppercase tracking-[0.14em] text-[var(--mute)] transition-colors hover:border-[var(--brand)] hover:text-[var(--ink)]"
           >
             Continue with GitHub
           </a>
         </div>
 
-        <p className="mt-6 text-center text-[13px] text-[#16181a]/60">
+        <p className="mt-6 text-center text-[13px] text-[var(--mute)]">
           {mode === 'login' ? 'No account yet? ' : 'Already have an account? '}
           <button
             type="button"
@@ -237,7 +209,7 @@ export function AuthPanel({
               setError('');
               onModeChange(mode === 'login' ? 'register' : 'login');
             }}
-            className={`underline underline-offset-2 hover:text-[#16181a] ${focusRing}`}
+            className="text-[var(--ink)] underline underline-offset-2 hover:text-[var(--brand)]"
           >
             {mode === 'login' ? 'Create one' : 'Sign in'}
           </button>

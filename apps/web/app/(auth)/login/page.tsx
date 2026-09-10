@@ -1,4 +1,4 @@
-import { KeystoneEntry } from '@/components/keystone/keystone-entry';
+import { DirectionEntry } from '@/components/direction/direction-entry';
 
 /**
  * `?auth=login` / `?auth=register` opens the panel on arrival, so a redirect
@@ -14,5 +14,5 @@ export default async function LoginPage({
 }) {
   const { auth } = await searchParams;
   const mode = auth === 'register' ? 'register' : 'login';
-  return <KeystoneEntry initialMode={mode} openOnMount={auth === 'login' || auth === 'register'} />;
+  return <DirectionEntry initialMode={mode} openOnMount={auth === 'login' || auth === 'register'} />;
 }
