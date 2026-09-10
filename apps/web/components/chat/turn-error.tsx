@@ -19,7 +19,10 @@ const GUIDANCE: Record<string, string> = {
     'Nothing in this datasource matched the question. Try naming a table or column directly.',
   StaticValidationError:
     'Every candidate GenQL wrote was rejected before it could run. Rephrasing usually helps.',
-  CostEstimationError: 'The query could not be costed, so it was not run.',
+  ExecutionError:
+    'The warehouse ran the statement and refused it. The message above is its own.',
+  CostEstimationError:
+    'Postgres refused to plan the statement, so it was never run. The message above is its own.',
   OptimizationError:
     'The query was over budget. Narrow it — a shorter date range, fewer columns.',
   AmbiguityGateError:
@@ -30,19 +33,30 @@ const GUIDANCE: Record<string, string> = {
 };
 
 /**
- * An ExecutionError is whatever the warehouse said, which is a wide range of
- * unrelated problems. The old blanket line — "it may be a permissions problem
- * rather than the SQL" — was wrong for most of them and actively misleading
- * for the one that prompted this: a date/time overflow from casting a
- * surrogate key, where the SQL was exactly the problem and permissions had
- * nothing to do with it.
+ * Two of the failure types are just "whatever Postgres said", which is a wide
+ * range of unrelated problems: ExecutionError wraps the warehouse refusing the
+ * statement, CostEstimationError wraps it refusing the EXPLAIN of the same
+ * statement. Both carry a psycopg error inside `detail`, and the same table
+ * reads both.
+ *
+ * The old blanket lines were "it may be a permissions problem rather than the
+ * SQL" and "the query could not be costed, so it was not run" — the first
+ * wrong for most cases and actively misleading for the date overflow that
+ * prompted it, the second true but saying nothing a person can act on.
  *
  * Matched against the driver's own words rather than a parsed error code:
  * `psycopg` puts its SQLSTATE class name in the exception type it renders into
- * `detail` (`DatetimeFieldOverflow`, `UndefinedColumn`), and that string is the
- * most specific thing the stream carries.
+ * `detail` (`DatetimeFieldOverflow`, `UndefinedParameter`), and that string is
+ * the most specific thing the stream carries.
  */
-const EXECUTION_GUIDANCE: { match: RegExp; guidance: string }[] = [
+const DRIVER_GUIDANCE: { match: RegExp; guidance: string }[] = [
+  {
+    match: /UndefinedParameter|there is no parameter/i,
+    guidance:
+      'The statement was written with a placeholder for a value that was never ' +
+      'decided. Ask again naming the value you want — the income bands, the ' +
+      'category, the date range — so there is nothing left to fill in.',
+  },
   {
     match: /DatetimeFieldOverflow|date\/time field value out of range/i,
     guidance:
@@ -87,33 +101,60 @@ const EXECUTION_GUIDANCE: { match: RegExp; guidance: string }[] = [
   },
 ];
 
+/** The two types whose detail is a driver message rather than GenQL's own. */
+const DRIVER_ERRORS = new Set(['ExecutionError', 'CostEstimationError']);
+
 function guidanceFor(error: StreamError): string | undefined {
-  if (error.error === 'ExecutionError') {
-    return (
-      EXECUTION_GUIDANCE.find(({ match }) => match.test(error.detail))?.guidance ??
-      // Nothing recognised: say what is actually known, which is that the SQL
-      // was valid enough to run and the warehouse refused it anyway.
-      'The warehouse ran the statement and refused it. The message above is its own.'
-    );
+  if (DRIVER_ERRORS.has(error.error)) {
+    const matched = DRIVER_GUIDANCE.find(({ match }) => match.test(error.detail))?.guidance;
+    if (matched) return matched;
   }
   return GUIDANCE[error.error] || undefined;
 }
 
+/**
+ * Past this many characters, the driver's message is folded away.
+ *
+ * A psycopg error carries the SQLSTATE name, the offending line, a caret
+ * pointing into it, the whole statement it was raised for, and a docs URL —
+ * fifteen lines that dwarfed the answer above them and buried the one sentence
+ * saying what to do about it. Short messages (`over budget`, `thread is
+ * locked`) stay visible, because folding a sentence costs a click and saves
+ * nothing.
+ */
+const FOLD_OVER = 180;
+
 export function TurnError({ error, onRetry }: { error: StreamError; onRetry?: () => void }) {
   const guidance = guidanceFor(error);
+  const fold = error.detail.length > FOLD_OVER;
 
   return (
     <div
       role="alert"
-      className="flex flex-col gap-2 rounded-md border border-[var(--bad)] bg-[var(--bad-soft)] px-4 py-3"
+      className="flex max-w-[68ch] flex-col gap-2 rounded-md border border-[var(--bad)] bg-[var(--bad-soft)] px-4 py-3"
     >
       <p className="font-eyebrow text-[0.66rem] uppercase tracking-wide text-[var(--bad)]">
-        {error.error}
+        {/* `StaticValidationError` reads as shouting in caps; the spaced-out
+            words are the same information without the volume. */}
+        {error.error.replace(/([a-z])([A-Z])/g, '$1 $2')}
       </p>
-      <p className="max-w-[64ch] break-words text-sm leading-relaxed text-[var(--ink)]">
-        {error.detail}
-      </p>
-      {guidance && <p className="max-w-[64ch] text-sm text-[var(--mute)]">{guidance}</p>}
+      {/* The actionable line leads. It used to sit underneath the wall of
+          driver output, which is the wrong way round: what to do next is the
+          part a person is looking for. */}
+      {guidance && <p className="text-sm leading-relaxed text-[var(--ink)]">{guidance}</p>}
+      {fold ? (
+        <details className="group">
+          <summary className="font-eyebrow cursor-pointer list-none text-[0.64rem] uppercase tracking-wide text-[var(--mute)] marker:content-['']">
+            <span className="group-open:hidden">Show technical detail ›</span>
+            <span className="hidden group-open:inline">Hide technical detail ⌄</span>
+          </summary>
+          <pre className="mt-2 max-h-56 overflow-auto whitespace-pre-wrap break-words font-mono text-[0.7rem] leading-snug text-[var(--mute)]">
+            {error.detail}
+          </pre>
+        </details>
+      ) : (
+        <p className="break-words text-sm leading-relaxed text-[var(--ink)]">{error.detail}</p>
+      )}
       {onRetry && (
         <div className="flex gap-2 pt-0.5">
           <button

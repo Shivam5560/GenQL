@@ -66,9 +66,29 @@ describe('PendingTurn', () => {
     render(<PendingTurn turn={pending({ error })} onRetry={onRetry} />);
 
     expect(screen.getByText('Revenue by region last quarter')).toBeInTheDocument();
-    expect(screen.getByRole('alert')).toHaveTextContent('StaticValidationError');
+    // Spaced, not camel-cased: the heading is read, not parsed.
+    expect(screen.getByRole('alert')).toHaveTextContent('Static Validation Error');
     expect(screen.getByRole('alert')).toHaveTextContent('Every candidate was rejected.');
     expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
+  });
+
+  it('folds a driver stack away and leads with what to do about it', () => {
+    // A psycopg error runs to fifteen lines — the SQLSTATE name, the offending
+    // line, a caret, the whole statement and a docs URL — and it used to sit
+    // above the one sentence saying what to do, dwarfing it.
+    const error = {
+      error: 'CostEstimationError',
+      detail:
+        'EXPLAIN failed: (psycopg.errors.UndefinedParameter) there is no parameter $1 LINE 1: ' +
+        '...hd.hd_demo_sk AND hd.hd_income_band_sk = ANY(CAST($1 AS INT[... ^ [SQL: EXPLAIN ' +
+        '(FORMAT JSON) SELECT DISTINCT c.c_customer_sk FROM tpcds.store_sales AS ss WHERE TRUE ' +
+        'LIMIT 100] (Background on this error at: https://sqlalche.me/e/20/f405)',
+    };
+
+    render(<PendingTurn turn={pending({ error })} onRetry={() => {}} />);
+
+    expect(screen.getByText(/placeholder for a value that was never decided/)).toBeInTheDocument();
+    expect(screen.getByText(/Show technical detail/)).toBeInTheDocument();
   });
 });
 

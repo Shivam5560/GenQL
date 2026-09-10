@@ -8,7 +8,8 @@ import { useAuth } from '@/lib/auth';
 import { streamDatasourceEvents } from '@/lib/api-client';
 import { DatasourceProvider, useDatasources } from '@/lib/datasource-provider';
 import { ThreadListProvider, useThreadList } from '@/lib/thread-list-provider';
-import { DatasourceList } from '@/components/sidebar/datasource-list';
+import { DatasourceSelect } from '@/components/sidebar/datasource-select';
+import { ThemeToggle } from '@/components/sidebar/theme-toggle';
 import { ThreadList } from '@/components/sidebar/thread-list';
 
 /**
@@ -89,18 +90,26 @@ function ChatShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="grid h-screen grid-cols-[264px_1fr] overflow-hidden">
-      {/* The sidebar leads the one page-load sequence; the hero's headline,
-          supporting line and composer follow it on staggered delays. */}
-      <aside className="gq-slide-in flex min-h-0 flex-col overflow-y-auto border-r border-[var(--line)]">
-        <div className="flex items-center justify-between gap-2 border-b border-[var(--line)] px-5 py-4">
+      {/* `overflow-hidden`, not `overflow-y-auto`: the sidebar is exactly the
+          height of the viewport and nothing in it moves. Everything here is a
+          fixed-height row except the thread list, which is the one region
+          allowed to flex and to scroll — so the brand, New thread, the
+          datasource picker, the nav and the account row are always where they
+          were, however many threads or warehouses exist.
+
+          The sidebar also leads the one page-load sequence; the hero's
+          headline, supporting line and composer follow on staggered delays. */}
+      <aside className="gq-slide-in flex min-h-0 flex-col overflow-hidden border-r border-[var(--line)]">
+        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[var(--line)] px-4.5 py-3.5">
           <Link href="/" className="text-base font-bold uppercase tracking-wide">
             Gen<span className="text-[var(--brand)]">QL</span>
           </Link>
+          <ThemeToggle />
         </div>
         {/* The way back to the composer, on screen from every thread. Without
             it, opening a thread was a one-way trip: the only route to a new
             question was the browser's back button or editing the URL. */}
-        <div className="px-4.5 pb-3 pt-3.5">
+        <div className="shrink-0 px-4.5 pb-2.5 pt-3">
           <Link
             href="/"
             className={`flex items-center justify-center gap-1.5 rounded-md border px-3 py-2 text-sm font-semibold ${
@@ -112,10 +121,12 @@ function ChatShell({ children }: { children: React.ReactNode }) {
             <span aria-hidden>+</span> New thread
           </Link>
         </div>
-        <DatasourceList />
+        <div className="shrink-0">
+          <DatasourceSelect />
+        </div>
         {threadsLoading ? (
-          <div className="py-1.5">
-            <p className="font-eyebrow px-4.5 pb-1 pt-2.5 text-[0.66rem] uppercase tracking-wide text-[var(--mute)]">
+          <div className="min-h-0 flex-1 border-t border-[var(--line)] py-1.5">
+            <p className="font-eyebrow px-4.5 pb-1 pt-1 text-[0.6rem] uppercase tracking-wide text-[var(--mute)]">
               Threads
             </p>
             <div className="flex flex-col gap-2 px-4.5 py-1">
@@ -127,7 +138,7 @@ function ChatShell({ children }: { children: React.ReactNode }) {
         ) : (
           <ThreadList threads={threads} />
         )}
-        <nav className="mt-auto flex flex-col border-t border-[var(--line)] py-1.5">
+        <nav className="flex shrink-0 flex-col border-t border-[var(--line)] py-1">
           <SidebarLink
             href="/datasources"
             label="Datasources"
@@ -135,12 +146,12 @@ function ChatShell({ children }: { children: React.ReactNode }) {
           />
           <SidebarLink href="/settings" label="Settings" active={pathname === '/settings'} />
         </nav>
-        <div className="font-eyebrow flex items-center justify-between gap-2 border-t border-[var(--line)] px-4.5 py-3.5 text-[0.66rem] text-[var(--mute)]">
+        <div className="font-eyebrow flex shrink-0 items-center justify-between gap-2 border-t border-[var(--line)] px-4.5 py-3 text-[0.64rem] text-[var(--mute)]">
           <span className="truncate">{session.user.email}</span>
           <button
             type="button"
             onClick={onSignOut}
-            className="font-eyebrow shrink-0 rounded border border-[var(--line)] px-2 py-1 text-[0.66rem] uppercase tracking-wide text-[var(--mute)]"
+            className="font-eyebrow shrink-0 rounded border border-[var(--line)] px-2 py-1 text-[0.64rem] uppercase tracking-wide text-[var(--mute)]"
           >
             Sign out
           </button>
