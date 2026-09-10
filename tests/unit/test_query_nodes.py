@@ -42,7 +42,12 @@ class FakeLinker:
 
 
 class FakePlanner:
-    def plan(self, question: str, links: tuple[SchemaLink, ...]) -> QueryPlan:
+    def plan(
+        self,
+        question: str,
+        links: tuple[SchemaLink, ...],
+        answers: tuple[tuple[str, str], ...] = (),
+    ) -> QueryPlan:
         return PLAN
 
 

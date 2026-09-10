@@ -46,7 +46,11 @@ class PlanningNode:
         self._planner = planner
 
     def __call__(self, state: QueryState) -> dict[str, Any]:
-        return {"plan": self._planner.plan(state["question"], state["links"] or ())}
+        return {
+            "plan": self._planner.plan(
+                state["question"], state["links"] or (), state["clarifications"]
+            )
+        }
 
 
 class CandidateGenerationNode:

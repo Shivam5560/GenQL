@@ -103,6 +103,34 @@ def test_the_prompt_forbids_objects_outside_the_links() -> None:
     assert "only the objects listed" in prompt.lower()
 
 
+def test_the_prompt_states_clarification_answers_as_binding() -> None:
+    prompt = build_planning_prompt(
+        "which customer has the most orders",
+        LINKS,
+        answers=(("time_range", "all time, no date filter"), ("filter", "all channels")),
+    )
+
+    assert "all time, no date filter" in prompt
+    assert "all channels" in prompt
+    assert "binding" in prompt.lower()
+
+
+def test_no_answers_omits_the_clarification_section() -> None:
+    """Backward-compatible: a plan with no clarifications reads exactly as it
+    did before this field existed."""
+    prompt = build_planning_prompt("q", LINKS)
+
+    assert "clarify" not in prompt.lower()
+
+
+def test_the_provider_receives_the_answers_the_caller_passed() -> None:
+    chat = FakeChatProvider({"plan_text": "p", "referenced_objects": []})
+
+    PlanningService(chat).plan("q", LINKS, answers=(("time_range", "all time"),))
+
+    assert "all time" in chat.prompts[0]
+
+
 def test_a_validation_error_raised_by_the_provider_is_also_translated() -> None:
     class _Tiny(BaseModel):
         n: int

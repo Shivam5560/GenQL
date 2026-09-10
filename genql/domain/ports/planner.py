@@ -10,4 +10,9 @@ from genql.domain.entities.schema_link import SchemaLink
 
 @runtime_checkable
 class Planner(Protocol):
-    def plan(self, question: str, links: tuple[SchemaLink, ...]) -> QueryPlan: ...
+    def plan(
+        self,
+        question: str,
+        links: tuple[SchemaLink, ...],
+        answers: tuple[tuple[str, str], ...] = (),
+    ) -> QueryPlan: ...
