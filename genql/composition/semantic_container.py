@@ -22,6 +22,7 @@ from genql.repositories.semantic.ambiguity_example_repository import (
     PostgresAmbiguityExampleReader,
     PostgresAmbiguityExampleWriter,
 )
+from genql.repositories.semantic.disabled_rule_reader import DisabledRuleReader
 from genql.repositories.semantic.domain_namer_repository import LlmDomainNamer
 from genql.repositories.semantic.domain_repository import PostgresDomainRepository
 from genql.repositories.semantic.enrichment_repository import PostgresEnrichmentRepository
@@ -68,7 +69,17 @@ class SemanticContainer(GraphContainer, GatewayContainer):
     metric_repository = providers.Singleton(
         PostgresMetricRepository, engine=GraphContainer.semantic_engine
     )
-    rule_reader = providers.Singleton(PostgresRuleReader, engine=GraphContainer.semantic_engine)
+    # `genql semantic overlay` still writes rules whatever the flag says —
+    # turning the gate's reads off is not a reason to lose what a YAML file
+    # already declared. Only the read side is switched.
+    rule_reader = providers.Selector(
+        providers.Callable(
+            lambda enabled: "enabled" if enabled else "disabled",
+            GraphContainer.settings.provided.rules_enabled,
+        ),
+        enabled=providers.Singleton(PostgresRuleReader, engine=GraphContainer.semantic_engine),
+        disabled=providers.Singleton(DisabledRuleReader),
+    )
     rule_writer = providers.Singleton(PostgresRuleWriter, engine=GraphContainer.semantic_engine)
 
     object_profiling_service = providers.Factory(

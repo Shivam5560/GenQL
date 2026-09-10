@@ -1,15 +1,25 @@
 datasource: local
-rules:
-  - name: default_period
-    dimension: time_range
-    value: the most recent complete calendar year present in the data
-    description: >-
-      A question with no stated period means the most recent complete calendar
-      year, not all history — TPC-DS spans several years and an unbounded scan
-      answers a question nobody asked.
-  - name: default_comparison
-    dimension: comparison_baseline
-    value: none unless the question asks for one
-    description: >-
-      Do not invent a year-over-year or prior-period comparison. A question
-      that wants one says so.
+# Rules are off (GENQL_RULES_ENABLED, default false) and the two that lived
+# here are commented out rather than deleted, so turning them back on is
+# uncommenting rather than rewriting.
+#
+# Why they went: `default_period` bound every question with no stated period
+# to "the most recent complete calendar year". Against TPC-DS that turned
+# "top 10 stores by sales" into a query with a date predicate nobody asked
+# for — and since store_sales dates through a surrogate key, the predicate
+# the model wrote for it was invalid SQL. A default that silently changes
+# what was asked has to be worth more than that.
+rules: []
+#  - name: default_period
+#    dimension: time_range
+#    value: the most recent complete calendar year present in the data
+#    description: >-
+#      A question with no stated period means the most recent complete calendar
+#      year, not all history — TPC-DS spans several years and an unbounded scan
+#      answers a question nobody asked.
+#  - name: default_comparison
+#    dimension: comparison_baseline
+#    value: none unless the question asks for one
+#    description: >-
+#      Do not invent a year-over-year or prior-period comparison. A question
+#      that wants one says so.
