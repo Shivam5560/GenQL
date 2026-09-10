@@ -1,62 +1,15 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { useAuth } from '@/lib/auth';
-import { listDatasources, streamDatasourceEvents } from '@/lib/api-client';
+import { streamDatasourceEvents } from '@/lib/api-client';
+import { DatasourceProvider, useDatasources } from '@/lib/datasource-provider';
 import { ThreadListProvider, useThreadList } from '@/lib/thread-list-provider';
-import { DatasourceCard } from '@/components/sidebar/datasource-card';
+import { DatasourceList } from '@/components/sidebar/datasource-list';
 import { ThreadList } from '@/components/sidebar/thread-list';
-import type { Datasource } from '@/lib/types';
-
-function DatasourceSection({
-  session,
-  epoch,
-}: {
-  session: { accessToken: string };
-  /** Bumped when ingestion finishes, so a warehouse that just became
-      queryable appears here without a reload. */
-  epoch: number;
-}) {
-  const [datasources, setDatasources] = useState<Datasource[]>([]);
-  const [loadingDatasources, setLoadingDatasources] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-    listDatasources(session.accessToken)
-      .then((list) => {
-        if (!cancelled) setDatasources(list);
-      })
-      .catch(() => {
-        if (!cancelled) setDatasources([]);
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingDatasources(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [session, epoch]);
-
-  if (loadingDatasources) {
-    return (
-      <div className="border-b border-[var(--line)] px-4.5 py-4">
-        <div className="mb-2.5 h-[0.66rem] w-20 animate-pulse rounded bg-[var(--panel-2)]" />
-        <div className="h-[3.25rem] animate-pulse rounded-md bg-[var(--panel-2)]" />
-      </div>
-    );
-  }
-
-  if (!datasources[0]) return null;
-
-  return (
-    <div className="border-b border-[var(--line)] px-4.5 py-4">
-      <DatasourceCard datasource={datasources[0]} />
-    </div>
-  );
-}
 
 /**
  * Holds the app-wide datasource stream open for the life of the session.
@@ -92,13 +45,28 @@ function useDatasourceNotifications(accessToken: string | undefined, onChange: (
   }, [accessToken, onChange]);
 }
 
+function SidebarLink({ href, label, active }: { href: string; label: string; active: boolean }) {
+  return (
+    <Link
+      href={href}
+      className={`block border-l-2 px-4.5 py-2 text-sm ${
+        active
+          ? 'border-l-[var(--brand)] bg-[var(--panel-2)] font-semibold text-[var(--ink)]'
+          : 'border-l-transparent text-[var(--mute)]'
+      }`}
+    >
+      {label}
+    </Link>
+  );
+}
+
 function ChatShell({ children }: { children: React.ReactNode }) {
   const { session, loading, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const { threads, loading: threadsLoading } = useThreadList();
-  const [datasourceEpoch, setDatasourceEpoch] = useState(0);
-  const onDatasourceChange = useCallback(() => setDatasourceEpoch((e) => e + 1), []);
+  const { refresh: refreshDatasources } = useDatasources();
+  const onDatasourceChange = useCallback(() => void refreshDatasources(), [refreshDatasources]);
 
   useDatasourceNotifications(session?.accessToken, onDatasourceChange);
 
@@ -124,10 +92,27 @@ function ChatShell({ children }: { children: React.ReactNode }) {
       {/* The sidebar leads the one page-load sequence; the hero's headline,
           supporting line and composer follow it on staggered delays. */}
       <aside className="gq-slide-in flex min-h-0 flex-col overflow-y-auto border-r border-[var(--line)]">
-        <div className="border-b border-[var(--line)] px-5 py-4 text-base font-bold uppercase tracking-wide">
-          Gen<span className="text-[var(--brand)]">QL</span>
+        <div className="flex items-center justify-between gap-2 border-b border-[var(--line)] px-5 py-4">
+          <Link href="/" className="text-base font-bold uppercase tracking-wide">
+            Gen<span className="text-[var(--brand)]">QL</span>
+          </Link>
         </div>
-        <DatasourceSection session={session} epoch={datasourceEpoch} />
+        {/* The way back to the composer, on screen from every thread. Without
+            it, opening a thread was a one-way trip: the only route to a new
+            question was the browser's back button or editing the URL. */}
+        <div className="px-4.5 pb-3 pt-3.5">
+          <Link
+            href="/"
+            className={`flex items-center justify-center gap-1.5 rounded-md border px-3 py-2 text-sm font-semibold ${
+              pathname === '/'
+                ? 'border-[var(--brand)] bg-[var(--panel-2)] text-[var(--ink)]'
+                : 'border-[var(--line)] text-[var(--ink)]'
+            }`}
+          >
+            <span aria-hidden>+</span> New thread
+          </Link>
+        </div>
+        <DatasourceList />
         {threadsLoading ? (
           <div className="py-1.5">
             <p className="font-eyebrow px-4.5 pb-1 pt-2.5 text-[0.66rem] uppercase tracking-wide text-[var(--mute)]">
@@ -143,26 +128,12 @@ function ChatShell({ children }: { children: React.ReactNode }) {
           <ThreadList threads={threads} />
         )}
         <nav className="mt-auto flex flex-col border-t border-[var(--line)] py-1.5">
-          <Link
+          <SidebarLink
             href="/datasources"
-            className={`block border-l-2 px-4.5 py-2 text-sm ${
-              pathname === '/datasources'
-                ? 'border-l-[var(--brand)] bg-[var(--panel-2)] font-semibold text-[var(--ink)]'
-                : 'border-l-transparent text-[var(--mute)]'
-            }`}
-          >
-            Datasources
-          </Link>
-          <Link
-            href="/settings"
-            className={`block border-l-2 px-4.5 py-2 text-sm ${
-              pathname === '/settings'
-                ? 'border-l-[var(--brand)] bg-[var(--panel-2)] font-semibold text-[var(--ink)]'
-                : 'border-l-transparent text-[var(--mute)]'
-            }`}
-          >
-            Settings
-          </Link>
+            label="Datasources"
+            active={pathname === '/datasources'}
+          />
+          <SidebarLink href="/settings" label="Settings" active={pathname === '/settings'} />
         </nav>
         <div className="font-eyebrow flex items-center justify-between gap-2 border-t border-[var(--line)] px-4.5 py-3.5 text-[0.66rem] text-[var(--mute)]">
           <span className="truncate">{session.user.email}</span>
@@ -182,8 +153,10 @@ function ChatShell({ children }: { children: React.ReactNode }) {
 
 export default function ChatLayout({ children }: { children: React.ReactNode }) {
   return (
-    <ThreadListProvider>
-      <ChatShell>{children}</ChatShell>
-    </ThreadListProvider>
+    <DatasourceProvider>
+      <ThreadListProvider>
+        <ChatShell>{children}</ChatShell>
+      </ThreadListProvider>
+    </DatasourceProvider>
   );
 }

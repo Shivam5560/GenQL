@@ -1,41 +1,23 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import type { CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
-import { toast } from 'sonner';
 import { useAuth } from '@/lib/auth';
-import { listDatasources } from '@/lib/api-client';
+import { useDatasources } from '@/lib/datasource-provider';
 import { newThreadId, stashHandoff } from '@/lib/pending-turn-handoff';
 import { AmbientField } from '@/components/hero/ambient-field';
 import { HeroHeadline } from '@/components/hero/hero-headline';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import type { Datasource } from '@/lib/types';
-
-const GENERIC_ERROR = 'Something went wrong — try again.';
 
 export default function NewThreadPage() {
   const { session } = useAuth();
   const router = useRouter();
-  const [datasources, setDatasources] = useState<Datasource[]>([]);
-  const [datasource, setDatasource] = useState<string>('');
+  // One list, shared with the sidebar, so picking a warehouse in either place
+  // means the same thing — see `lib/datasource-provider`.
+  const { datasources, selected, select, loading } = useDatasources();
   const [question, setQuestion] = useState('');
-  const [loadingDatasources, setLoadingDatasources] = useState(true);
-
-  useEffect(() => {
-    if (!session) return;
-    listDatasources(session.accessToken)
-      .then((list) => {
-        setDatasources(list);
-        if (list[0]) setDatasource(list[0].name);
-      })
-      .catch(() => {
-        setDatasources([]);
-        toast.error(GENERIC_ERROR);
-      })
-      .finally(() => setLoadingDatasources(false));
-  }, [session]);
 
   /**
    * Navigates immediately rather than awaiting the turn.
@@ -47,14 +29,13 @@ export default function NewThreadPage() {
    */
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!session || !datasource || !question.trim()) return;
+    if (!session || !selected || !question.trim()) return;
     const threadId = newThreadId();
-    stashHandoff({ threadId, question: question.trim(), datasource });
+    stashHandoff({ threadId, question: question.trim(), datasource: selected.name });
     router.push(`/thread/${threadId}`);
   }
 
-  const selected = datasources.find((ds) => ds.name === datasource);
-  const noDatasources = !loadingDatasources && datasources.length === 0;
+  const noDatasources = !loading && datasources.length === 0;
 
   return (
     <div className="relative isolate flex flex-1 flex-col overflow-hidden">
@@ -68,21 +49,28 @@ export default function NewThreadPage() {
         >
           <div className="gq-glass rounded-lg border border-[var(--line)]">
             <div className="flex items-center justify-between gap-3 px-3 pt-3">
-              <Select value={datasource} onValueChange={(next) => setDatasource(next ?? '')}>
-                <SelectTrigger className="min-w-[13rem]">
-                  <SelectValue placeholder="Choose a datasource" />
-                </SelectTrigger>
-                <SelectContent>
-                  {datasources.map((ds) => (
-                    <SelectItem key={ds.name} value={ds.name}>
-                      {ds.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {/* A picker only when there is a pick to make. With one
+                  warehouse connected this reads as a label, which is what it
+                  is. */}
+              {datasources.length > 1 ? (
+                <Select value={selected?.name ?? ''} onValueChange={(next) => next && select(next)}>
+                  <SelectTrigger className="min-w-[13rem]">
+                    <SelectValue placeholder="Choose a datasource" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {datasources.map((ds) => (
+                      <SelectItem key={ds.name} value={ds.name}>
+                        {ds.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <span className="truncate pl-1 text-sm font-semibold">{selected?.name ?? ''}</span>
+              )}
               {selected && (
                 <span className="truncate pr-1 font-mono text-xs text-[var(--mute)]">
-                  {selected.dialect}
+                  {selected.endpoint ?? selected.dialect}
                 </span>
               )}
             </div>
@@ -91,12 +79,15 @@ export default function NewThreadPage() {
               <input
                 className="flex-1 border-none bg-transparent text-sm outline-none placeholder:text-[var(--mute)]"
                 placeholder={
-                  datasource ? `Ask a question about ${datasource}…` : 'Ask a question about your data…'
+                  selected
+                    ? `Ask a question about ${selected.name}…`
+                    : 'Ask a question about your data…'
                 }
                 value={question}
                 onChange={(e) => setQuestion(e.target.value)}
+                autoFocus
               />
-              <Button type="submit" disabled={!datasource || !question.trim()}>
+              <Button type="submit" disabled={!selected || !question.trim()}>
                 Send
               </Button>
             </div>

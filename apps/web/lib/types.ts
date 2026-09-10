@@ -69,6 +69,9 @@ export interface Datasource {
   dialect: string;
   description: string | null;
   enabled: boolean;
+  /** `host:port/database`. Null for a datasource whose DSN lives in the
+      server's environment — the pre-Phase-9 shape, still supported. */
+  endpoint?: string | null;
 }
 
 export type ThemePreference = 'light' | 'dark' | 'system';
@@ -122,6 +125,9 @@ export interface IngestionJob {
   steps: IngestionStep[];
   error: string | null;
   error_step: string | null;
+  /** 0-1 across the whole pipeline, so the bar does not have to be derived
+      from a step list whose length changes on a resumed job. */
+  progress: number;
   created_at: string;
   started_at: string | null;
   finished_at: string | null;
@@ -136,7 +142,14 @@ export interface DatasourceAccepted {
 export interface RegisterDatasourceArgs {
   name: string;
   dialect: string;
-  dsn_env_var: string;
+  host: string;
+  port: number;
+  database: string;
+  username: string;
+  /** Sent once, encrypted server-side, and never returned by any endpoint. */
+  password: string;
+  /** Driver query string — `sslmode=require`, `connect_timeout=10`. */
+  options?: string | null;
   description?: string | null;
   schemas: string[];
 }

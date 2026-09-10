@@ -75,6 +75,12 @@ export default function DatasourcesPage() {
               return { ...prev, [name]: { ...job, status: 'running', steps } };
             });
           },
+          onProgress: ({ progress }) => {
+            setJobs((prev) => {
+              const job = prev[name];
+              return job ? { ...prev, [name]: { ...job, progress } } : prev;
+            });
+          },
           onDone: (job) => {
             setJobs((prev) => ({ ...prev, [name]: job }));
             streamsRef.current.delete(name);
@@ -214,6 +220,11 @@ export default function DatasourcesPage() {
                       </span>
                     </div>
                   </div>
+                  {ds.endpoint && (
+                    <p className="mt-1 truncate font-mono text-xs text-[var(--mute)]">
+                      {ds.endpoint}
+                    </p>
+                  )}
                   {ds.description && (
                     <p className="mt-1 text-sm text-[var(--mute)]">{ds.description}</p>
                   )}

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { PendingTurn } from '@/components/chat/pending-turn';
-import { StageRail } from '@/components/chat/stage-rail';
+import { buildRows, StageRail } from '@/components/chat/stage-rail';
 import { streamTurn } from '@/lib/api-client';
 import type { PendingTurn as PendingTurnState, StageEvent } from '@/lib/types';
 
@@ -34,7 +34,11 @@ describe('PendingTurn', () => {
     expect(screen.getByText('Revenue by region last quarter')).toBeInTheDocument();
   });
 
-  it("reports the latest stage's own summary rather than a generic spinner", () => {
+  it('reports progress without putting the pipeline transcript in the thread', () => {
+    // Stage summaries belong in the rail, which keeps them in order. Printing
+    // the newest one here made them flicker through the conversation and
+    // vanish, so the transcript said something different every second and
+    // retained none of it.
     const stages: StageEvent[] = [
       { stage: 'schema_linking', status: 'completed', detail: '7 objects linked' },
       { stage: 'candidate_generation', status: 'completed', detail: '4 candidates generated' },
@@ -42,7 +46,17 @@ describe('PendingTurn', () => {
 
     render(<PendingTurn turn={pending({ stages })} onRetry={() => {}} />);
 
-    expect(screen.getByText('4 candidates generated')).toBeInTheDocument();
+    expect(screen.queryByText('4 candidates generated')).not.toBeInTheDocument();
+    expect(screen.getByText(/2 stages done/)).toBeInTheDocument();
+  });
+
+  it('offers a way out of a turn that is taking too long', () => {
+    const onStop = vi.fn();
+
+    render(<PendingTurn turn={pending()} onRetry={() => {}} onStop={onStop} />);
+
+    screen.getByRole('button', { name: /stop/i }).click();
+    expect(onStop).toHaveBeenCalled();
   });
 
   it('keeps the question on screen when the turn fails, and offers a retry', async () => {
@@ -84,6 +98,41 @@ describe('StageRail', () => {
 
     expect(screen.getByText('Semantic reranking')).toBeInTheDocument();
     expect(screen.getByText('12 reranked')).toBeInTheDocument();
+  });
+
+  it('lists what happened in the order it happened, ahead of what has not', () => {
+    // The old rail rendered a fixed skeleton and appended anything it did not
+    // recognise at the bottom — so a stage that ran second appeared last, and
+    // the rail read as a false account of the turn.
+    const stages: StageEvent[] = [
+      { stage: 'schema_linking', status: 'completed', detail: null },
+      { stage: 'semantic_reranking', status: 'completed', detail: null },
+      { stage: 'planning', status: 'completed', detail: null },
+    ];
+
+    expect(buildRows(stages, false).map((row) => row.label).slice(0, 3)).toEqual([
+      'Schema linking',
+      'Semantic reranking',
+      'Planning',
+    ]);
+  });
+
+  it('does not list a stage twice when the gate runs another round', () => {
+    const stages: StageEvent[] = [
+      { stage: 'ambiguity_gate', status: 'paused', detail: 'What period?' },
+      { stage: 'ambiguity_gate', status: 'completed', detail: null },
+    ];
+
+    const gateRows = buildRows(stages, false).filter((row) => row.key === 'ambiguity_gate');
+
+    expect(gateRows).toHaveLength(1);
+    expect(gateRows[0].state).toBe('done');
+  });
+
+  it('marks only the next unreported stage as running', () => {
+    const rows = buildRows([{ stage: 'intent_classification', status: 'completed', detail: null }], true);
+
+    expect(rows.filter((row) => row.state === 'running')).toHaveLength(1);
   });
 });
 

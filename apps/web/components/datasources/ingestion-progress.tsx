@@ -87,6 +87,12 @@ export function IngestionProgress({
   onRetry?: (startFrom?: string) => void;
 }) {
   const done = job.steps.filter((s) => s.status === 'succeeded' || s.status === 'skipped').length;
+  // The server counts a running step as half done and counts over the whole
+  // six-step pipeline rather than over this job's step list, so a resumed job
+  // does not report itself as further back than it is. `?? 0` covers a job
+  // cached from before the field existed.
+  const percent = Math.round((job.progress ?? 0) * 100);
+  const running = job.status === 'queued' || job.status === 'running';
 
   return (
     <div className="flex flex-col gap-2 rounded-md border border-[var(--line)] bg-[var(--panel-2)] px-4 py-3">
@@ -100,6 +106,11 @@ export function IngestionProgress({
                 ? 'Ready to query'
                 : 'Could not be prepared'}
         </span>
+        {running && (
+          <span className="font-mono text-[0.68rem] tabular-nums text-[var(--brand)]">
+            {percent}%
+          </span>
+        )}
         {job.status === 'failed' && onRetry && (
           <div className="flex gap-2">
             {job.error_step && (
@@ -120,6 +131,21 @@ export function IngestionProgress({
             </button>
           </div>
         )}
+      </div>
+      <div
+        role="progressbar"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={percent}
+        aria-label="Ingestion progress"
+        className="h-1 w-full overflow-hidden rounded-full bg-[var(--line)]"
+      >
+        <div
+          className={`h-full rounded-full transition-[width] duration-500 ease-out ${
+            job.status === 'failed' ? 'bg-[var(--bad)]' : 'bg-[var(--brand)]'
+          }`}
+          style={{ width: `${Math.max(percent, 2)}%` }}
+        />
       </div>
       <ol className="flex flex-col divide-y divide-[var(--line)]">
         {job.steps.map((step) => (

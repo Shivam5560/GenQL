@@ -178,6 +178,32 @@ function ThreadView({ threadId }: { threadId: string }) {
 
   useEffect(() => () => abortRef.current?.abort(), []);
 
+  /**
+   * Abandon a turn that is taking too long.
+   *
+   * Aborting the stream is a client-side hang-up, not a server-side cancel:
+   * the pipeline finishes whatever it is doing and the turn is still recorded
+   * server-side. That is the honest thing to say in the message below, and it
+   * is why the composer is handed straight back rather than the turn being
+   * removed from history.
+   */
+  const stop = useCallback(() => {
+    abortRef.current?.abort();
+    setPending((prev) =>
+      prev
+        ? {
+            ...prev,
+            error: {
+              error: 'Stopped',
+              detail:
+                'You stopped waiting for this answer. GenQL may still finish it — reload the ' +
+                'thread in a moment to see whether it did.',
+            },
+          }
+        : prev,
+    );
+  }, []);
+
   // Keep the newest turn in view as stages and answers arrive.
   useEffect(() => {
     transcriptRef.current?.scrollTo({ top: transcriptRef.current.scrollHeight });
@@ -238,13 +264,27 @@ function ThreadView({ threadId }: { threadId: string }) {
 
   return (
     <>
-      <div className="flex items-center justify-between border-b border-[var(--line)] px-7 py-3.5">
+      <div className="flex items-center justify-between gap-4 border-b border-[var(--line)] px-7 py-3.5">
         <h1 className="truncate text-sm font-semibold">
           {detail?.summary.title ?? pending?.question}
         </h1>
-        <span className="font-eyebrow shrink-0 pl-4 text-[0.68rem] text-[var(--mute)]">
-          THREAD {threadId}
-        </span>
+        <div className="flex shrink-0 items-center gap-2.5">
+          {/* A thread is bound to the datasource its first question went to
+              and cannot be moved — so this states it rather than offering a
+              picker that would silently mean "ask this again somewhere else".
+              Switching warehouses is a new thread, and the sidebar has one. */}
+          {datasourceName && (
+            <span
+              title={`This thread asks ${datasourceName}`}
+              className="max-w-[14rem] truncate rounded-full border border-[var(--line)] px-2.5 py-0.5 font-mono text-[0.68rem] text-[var(--mute)]"
+            >
+              {datasourceName}
+            </span>
+          )}
+          <span className="font-eyebrow text-[0.68rem] text-[var(--mute)]">
+            THREAD {threadId.slice(0, 8)}
+          </span>
+        </div>
       </div>
       <div className="flex min-h-0 flex-1">
         <div className="flex min-w-0 flex-1 flex-col">
@@ -271,6 +311,7 @@ function ThreadView({ threadId }: { threadId: string }) {
               <PendingTurn
                 turn={pending}
                 onRetry={() => askQuestion(pending.question, datasourceName)}
+                onStop={running ? stop : undefined}
               />
             )}
           </div>

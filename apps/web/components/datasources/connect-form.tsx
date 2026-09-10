@@ -9,11 +9,13 @@ import type { RegisterDatasourceArgs } from '@/lib/types';
 /**
  * Connect a warehouse.
  *
- * The DSN field asks for the NAME of an environment variable, not a
- * connection string — GenQL deliberately never stores warehouse credentials,
- * and reads the DSN from the server's own environment at connect time. The
- * form says so plainly rather than letting someone paste a password into a
- * field that will refuse it.
+ * This form used to ask for the NAME of an environment variable already set on
+ * the server — which meant nobody could connect their own warehouse without
+ * shell access to the box GenQL runs on. It now asks for the five things a
+ * person actually has: host, port, database, user, password. The password is
+ * encrypted before it is stored and is never sent back by any endpoint, so
+ * this field is write-only in the literal sense — reopening the form on an
+ * existing datasource would show it blank.
  */
 export function ConnectForm({
   onSubmit,
@@ -27,8 +29,13 @@ export function ConnectForm({
   error: string | null;
 }) {
   const [name, setName] = useState('');
-  const [dialect, setDialect] = useState('postgres');
-  const [dsnEnvVar, setDsnEnvVar] = useState('');
+  const [dialect] = useState('postgres');
+  const [host, setHost] = useState('');
+  const [port, setPort] = useState('5432');
+  const [database, setDatabase] = useState('');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [ssl, setSsl] = useState(false);
   const [schemas, setSchemas] = useState('');
   const [description, setDescription] = useState('');
 
@@ -36,8 +43,16 @@ export function ConnectForm({
     e.preventDefault();
     onSubmit({
       name: name.trim(),
-      dialect: dialect.trim(),
-      dsn_env_var: dsnEnvVar.trim(),
+      dialect,
+      host: host.trim(),
+      // Coerced here rather than held as a number in state: an <input> that
+      // round-trips through Number() cannot be cleared, and a half-typed port
+      // should not become NaN mid-keystroke.
+      port: Number(port) || 5432,
+      database: database.trim(),
+      username: username.trim(),
+      password,
+      options: ssl ? 'sslmode=require' : null,
       description: description.trim() || null,
       schemas: schemas
         .split(',')
@@ -46,7 +61,7 @@ export function ConnectForm({
     });
   }
 
-  const ready = name.trim() && dsnEnvVar.trim();
+  const ready = name.trim() && host.trim() && database.trim() && username.trim();
 
   return (
     <form
@@ -71,35 +86,91 @@ export function ConnectForm({
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="warehouse"
+            aria-describedby="ds-name-help"
           />
+          <p id="ds-name-help" className="text-[0.78rem] text-[var(--mute)]">
+            What you will call it here. Not the database name.
+          </p>
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="ds-dialect">Dialect</Label>
+          <Input id="ds-dialect" value="PostgreSQL" readOnly disabled />
+        </div>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-[1fr_7rem]">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="ds-host">Host</Label>
           <Input
-            id="ds-dialect"
+            id="ds-host"
             required
-            value={dialect}
-            onChange={(e) => setDialect(e.target.value)}
+            value={host}
+            onChange={(e) => setHost(e.target.value)}
+            placeholder="warehouse.internal"
+            autoComplete="off"
+          />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="ds-port">Port</Label>
+          <Input
+            id="ds-port"
+            required
+            inputMode="numeric"
+            value={port}
+            onChange={(e) => setPort(e.target.value.replace(/[^0-9]/g, ''))}
           />
         </div>
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="ds-dsn">Environment variable holding the DSN</Label>
+        <Label htmlFor="ds-database">Database</Label>
         <Input
-          id="ds-dsn"
+          id="ds-database"
           required
-          value={dsnEnvVar}
-          onChange={(e) => setDsnEnvVar(e.target.value)}
-          placeholder="WAREHOUSE_DSN"
-          aria-describedby="ds-dsn-help"
+          value={database}
+          onChange={(e) => setDatabase(e.target.value)}
+          placeholder="analytics"
+          autoComplete="off"
         />
-        <p id="ds-dsn-help" className="text-[0.78rem] leading-relaxed text-[var(--mute)]">
-          The variable&apos;s name, not the connection string. GenQL never stores warehouse
-          credentials — it reads this variable from the server&apos;s environment when it
-          connects.
-        </p>
       </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="ds-username">User</Label>
+          <Input
+            id="ds-username"
+            required
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            placeholder="genql_reader"
+            autoComplete="off"
+          />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="ds-password">Password</Label>
+          <Input
+            id="ds-password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="new-password"
+            aria-describedby="ds-password-help"
+          />
+          <p id="ds-password-help" className="text-[0.78rem] text-[var(--mute)]">
+            Encrypted before it is stored, and never sent back.
+          </p>
+        </div>
+      </div>
+
+      <label className="flex items-center gap-2 text-sm text-[var(--mute)]">
+        <input
+          type="checkbox"
+          checked={ssl}
+          onChange={(e) => setSsl(e.target.checked)}
+          className="size-3.5 accent-[var(--brand)]"
+        />
+        Require SSL
+      </label>
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="ds-schemas">Schemas</Label>
@@ -133,7 +204,7 @@ export function ConnectForm({
 
       <div className="flex items-center gap-2.5">
         <Button type="submit" disabled={submitting || !ready}>
-          {submitting ? 'Starting…' : 'Connect and survey'}
+          {submitting ? 'Connecting…' : 'Connect and survey'}
         </Button>
         <button
           type="button"

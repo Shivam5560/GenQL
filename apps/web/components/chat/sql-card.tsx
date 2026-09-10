@@ -1,11 +1,43 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { TurnRecord } from '@/lib/types';
 import { DialectSelect } from './dialect-select';
 import { ExecuteButton } from './execute-button';
 import { ReferencedObjects } from './referenced-objects';
 import { ResultTable } from './result-table';
+
+/**
+ * Copy, and say so.
+ *
+ * A copy button that does nothing visible is a button people press twice, then
+ * paste to check. Two seconds of "Copied" is the whole feature.
+ */
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (!copied) return;
+    const id = setTimeout(() => setCopied(false), 2000);
+    return () => clearTimeout(id);
+  }, [copied]);
+
+  return (
+    <button
+      type="button"
+      className={`font-eyebrow rounded border px-2 py-1 text-[0.68rem] uppercase ${
+        copied
+          ? 'border-[var(--ok)] text-[var(--ok)]'
+          : 'border-[var(--line)] text-[var(--mute)]'
+      }`}
+      onClick={() => {
+        void navigator.clipboard.writeText(text).then(() => setCopied(true));
+      }}
+    >
+      {copied ? 'Copied' : 'Copy'}
+    </button>
+  );
+}
 
 export function SqlCard({
   turn,
@@ -30,12 +62,7 @@ export function SqlCard({
         <span className="font-eyebrow text-[0.66rem] uppercase tracking-wide text-[var(--mute)]">SQL</span>
         <div className="flex items-center gap-2">
           <DialectSelect value={dialect} onChange={setDialect} />
-          <button
-            className="font-eyebrow rounded border border-[var(--line)] px-2 py-1 text-[0.68rem] uppercase text-[var(--mute)]"
-            onClick={() => navigator.clipboard.writeText(turn.validated_sql ?? '')}
-          >
-            Copy
-          </button>
+          <CopyButton text={turn.validated_sql} />
         </div>
       </div>
       <pre className="overflow-x-auto whitespace-pre-wrap px-4 py-3.5 font-mono text-[0.8rem] leading-relaxed">

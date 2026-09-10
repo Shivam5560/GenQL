@@ -208,6 +208,9 @@ export function removeDatasource(accessToken: string, name: string): Promise<voi
 
 export interface IngestionStreamHandlers {
   onStep: (step: IngestionStep & { datasource: string }) => void;
+  /** How far through the whole pipeline the job is, 0-1. Computed server-side
+      so a resumed job's bar lands in the right place — see `progress_event`. */
+  onProgress?: (event: { datasource: string; progress: number }) => void;
   onDone: (job: IngestionJob) => void;
   onError: (error: StreamError & { step: string | null }) => void;
 }
@@ -224,6 +227,7 @@ export async function streamOnboarding(
     for await (const event of readEventStream(url, accessToken, signal)) {
       const payload = JSON.parse(event.data);
       if (event.event === 'step') handlers.onStep(payload);
+      else if (event.event === 'progress') handlers.onProgress?.(payload);
       else if (event.event === 'done') handlers.onDone(payload.job as IngestionJob);
       else if (event.event === 'error') handlers.onError(payload);
     }
